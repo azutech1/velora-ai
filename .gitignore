@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+.npm-cache/
+
+# builds
+.next/
+out/
+
+# local environment
+.env.local
+.env*.local
+
+# logs
+*.log
+dev-server
+dev-server.err
+
+# system
+Thumbs.db
+.DS_Store
