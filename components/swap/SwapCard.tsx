@@ -7,6 +7,7 @@ import { TokenSelector } from "./TokenSelector";
 import { SWAP_TOKENS, estimateDemoSwap, formatTokenAmount, getSwapToken } from "@/lib/swap/tokens";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
+import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 
 export function SwapCard() {
   const [fromToken, setFromToken] = useState(getSwapToken("USDC"));
@@ -17,6 +18,8 @@ export function SwapCard() {
   const [message, setMessage] = useState("");
   const { recordActivity } = useActivityRecorder();
   const appKitSwap = useArcAppKitSwap();
+  const fromTokenBalance = useSwapTokenBalance(fromToken);
+  const toTokenBalance = useSwapTokenBalance(toToken);
 
   const quote = useMemo(() => estimateDemoSwap(fromToken.symbol, toToken.symbol, amount), [amount, fromToken.symbol, toToken.symbol]);
   const slippageBps = Math.round(Number(slippage) * 100);
@@ -174,7 +177,7 @@ export function SwapCard() {
                 <TokenSelector label="From token" token={fromToken} onSelect={setFromToken} />
               </div>
             </label>
-            <p className="mt-3 text-xs text-slate-500">Balance: {fromToken.mockBalance} {fromToken.symbol}</p>
+            <p className={fromTokenBalance.isReal ? "mt-3 text-xs text-mint" : "mt-3 text-xs text-slate-500"}>{fromTokenBalance.label}</p>
           </div>
 
           <div className="flex justify-center">
@@ -191,7 +194,7 @@ export function SwapCard() {
                 <TokenSelector label="To token" token={toToken} onSelect={setToToken} />
               </div>
             </label>
-            <p className="mt-3 text-xs text-slate-500">Balance: {toToken.mockBalance} {toToken.symbol}</p>
+            <p className={toTokenBalance.isReal ? "mt-3 text-xs text-mint" : "mt-3 text-xs text-slate-500"}>{toTokenBalance.label}</p>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">

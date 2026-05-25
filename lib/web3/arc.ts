@@ -10,7 +10,9 @@ export const ARC_TESTNET = {
     symbol: "USDC",
     decimals: 18
   },
-  usdcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_USDC_ADDRESS || "0x3600000000000000000000000000000000000000") as Address
+  usdcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_USDC_ADDRESS || "0x3600000000000000000000000000000000000000") as Address,
+  // Add the official Arc Testnet EURC contract address here once Circle/Arc publishes it.
+  eurcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_EURC_ADDRESS || "0x0000000000000000000000000000000000000000") as Address
 } as const;
 
 export const arcTestnetChain = defineChain({

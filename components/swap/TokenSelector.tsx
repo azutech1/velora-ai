@@ -85,7 +85,7 @@ export function TokenSelector({ token, onSelect, label }: { token: SwapToken; on
                     >
                       <TokenPill token={item} />
                       <span className="text-right text-xs text-slate-400">
-                        Balance
+                        Demo balance
                         <span className="block text-sm font-semibold text-white">{item.mockBalance}</span>
                       </span>
                     </button>
