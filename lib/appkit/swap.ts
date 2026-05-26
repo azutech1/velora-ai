@@ -11,6 +11,7 @@ export type ArcAppKitSwapParams = {
   tokenOut: ArcAppKitSwapToken;
   amountIn: string;
   slippageBps: number;
+  walletAddress?: string;
   provider?: Eip1193Provider;
 };
 
@@ -93,9 +94,28 @@ async function createSwapParams(params: ArcAppKitSwapParams) {
 }
 
 export async function estimateArcAppKitSwap(params: ArcAppKitSwapParams): Promise<ArcAppKitSwapEstimate> {
-  const { AppKit } = await import("@circle-fin/app-kit");
-  const kit = new AppKit();
-  return kit.estimateSwap(await createSwapParams(params)) as Promise<ArcAppKitSwapEstimate>;
+  if (!params.walletAddress) {
+    throw new Error("Connected wallet address is required before requesting a Circle App Kit quote.");
+  }
+
+  const response = await fetch("/api/appkit/swap/quote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tokenIn: params.tokenIn,
+      tokenOut: params.tokenOut,
+      amountIn: params.amountIn,
+      slippageBps: params.slippageBps,
+      walletAddress: params.walletAddress
+    })
+  });
+
+  const payload = (await response.json().catch(() => null)) as { estimate?: ArcAppKitSwapEstimate; error?: string } | null;
+  if (!response.ok || !payload?.estimate) {
+    throw new Error(payload?.error ?? "Circle App Kit quote request failed.");
+  }
+
+  return payload.estimate;
 }
 
 export async function executeArcAppKitSwap(params: ArcAppKitSwapParams): Promise<ArcAppKitSwapResult> {

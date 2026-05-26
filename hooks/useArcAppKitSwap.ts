@@ -13,7 +13,7 @@ function isEip1193Provider(provider: unknown): provider is Eip1193Provider {
 }
 
 export function useArcAppKitSwap() {
-  const { connector, isConnected } = useAccount();
+  const { address, connector, isConnected } = useAccount();
   const { isArc } = useArcNetwork();
   const [state, setState] = useState<AppKitSwapState>("idle");
   const [estimate, setEstimate] = useState<ArcAppKitSwapEstimate | null>(null);
@@ -41,6 +41,7 @@ export function useArcAppKitSwap() {
         tokenOut: tokenOut as ArcAppKitSwapToken,
         amountIn,
         slippageBps,
+        walletAddress: address,
         provider: isEip1193Provider(provider) ? provider : undefined
       });
       setEstimate(nextEstimate);
@@ -52,7 +53,7 @@ export function useArcAppKitSwap() {
       setState("error");
       throw err;
     }
-  }, [canUseRealSwap, connector]);
+  }, [address, canUseRealSwap, connector]);
 
   const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
     setError(null);
