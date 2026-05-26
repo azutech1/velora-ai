@@ -13,7 +13,7 @@ function isEip1193Provider(provider: unknown): provider is Eip1193Provider {
 }
 
 export function useArcAppKitSwap() {
-  const { address, connector, isConnected } = useAccount();
+  const { address, chainId, connector, isConnected } = useAccount();
   const { isArc } = useArcNetwork();
   const [state, setState] = useState<AppKitSwapState>("idle");
   const [estimate, setEstimate] = useState<ArcAppKitSwapEstimate | null>(null);
@@ -30,12 +30,31 @@ export function useArcAppKitSwap() {
     setResult(null);
 
     if (!canUseRealSwap(tokenIn, tokenOut)) {
+      console.warn("[Velora AppKit Swap] Real swap unavailable", {
+        tokenIn,
+        tokenOut,
+        hasKitKey: hasCircleAppKitKey(),
+        isConnected,
+        isArc,
+        chainId
+      });
       throw new Error("Real App Kit swap is available only on Arc Testnet for USDC, EURC, and cirBTC with a connected wallet.");
     }
 
     setState("estimating");
     try {
       const provider = await connector?.getProvider();
+      console.info("[Velora AppKit Swap] Estimate flow provider state", {
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippageBps,
+        walletAddress: address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null,
+        chainId,
+        connectorName: connector?.name,
+        hasProvider: Boolean(provider),
+        isEip1193Provider: isEip1193Provider(provider)
+      });
       const nextEstimate = await estimateArcAppKitSwap({
         tokenIn: tokenIn as ArcAppKitSwapToken,
         tokenOut: tokenOut as ArcAppKitSwapToken,
@@ -44,16 +63,29 @@ export function useArcAppKitSwap() {
         walletAddress: address,
         provider: isEip1193Provider(provider) ? provider : undefined
       });
+      console.info("[Velora AppKit Swap] Estimate flow completed", {
+        tokenIn,
+        tokenOut,
+        estimatedOutput: nextEstimate.estimatedOutput,
+        diagnostics: nextEstimate.diagnostics
+      });
       setEstimate(nextEstimate);
       setState("ready");
       return nextEstimate;
     } catch (err) {
       const reason = err instanceof Error ? err.message : "App Kit swap estimate failed.";
+      console.error("[Velora AppKit Swap] Estimate flow failed", {
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippageBps,
+        reason
+      });
       setError(reason);
       setState("error");
       throw err;
     }
-  }, [address, canUseRealSwap, connector]);
+  }, [address, canUseRealSwap, chainId, connector, isArc, isConnected]);
 
   const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
     setError(null);

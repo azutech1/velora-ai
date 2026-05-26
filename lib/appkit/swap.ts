@@ -29,6 +29,12 @@ export type ArcAppKitSwapEstimate = {
     token: string;
     type: string;
   }>;
+  diagnostics?: {
+    requestId?: string;
+    debugVersion?: string;
+    circleEndpoint?: string;
+    circleAttempts?: number;
+  };
 };
 
 export type ArcAppKitSwapResult = {
@@ -98,9 +104,21 @@ export async function estimateArcAppKitSwap(params: ArcAppKitSwapParams): Promis
     throw new Error("Connected wallet address is required before requesting a Circle App Kit quote.");
   }
 
+  const requestStartedAt = Date.now();
+  console.info("[Velora AppKit Swap] Quote request start", {
+    path: "/api/appkit/swap/quote",
+    tokenIn: params.tokenIn,
+    tokenOut: params.tokenOut,
+    amountIn: params.amountIn,
+    slippageBps: params.slippageBps,
+    walletAddress: `${params.walletAddress.slice(0, 6)}...${params.walletAddress.slice(-4)}`,
+    hasProvider: Boolean(params.provider)
+  });
+
   const response = await fetch("/api/appkit/swap/quote", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     body: JSON.stringify({
       tokenIn: params.tokenIn,
       tokenOut: params.tokenOut,
@@ -110,12 +128,25 @@ export async function estimateArcAppKitSwap(params: ArcAppKitSwapParams): Promis
     })
   });
 
-  const payload = (await response.json().catch(() => null)) as { estimate?: ArcAppKitSwapEstimate; error?: string } | null;
+  const payload = (await response.json().catch(() => null)) as { estimate?: ArcAppKitSwapEstimate; error?: string; details?: unknown; debugVersion?: string; diagnostics?: ArcAppKitSwapEstimate["diagnostics"] } | null;
+  console.info("[Velora AppKit Swap] Quote route response", {
+    status: response.status,
+    ok: response.ok,
+    durationMs: Date.now() - requestStartedAt,
+    debugVersion: payload?.debugVersion ?? payload?.diagnostics?.debugVersion,
+    requestId: payload?.diagnostics?.requestId
+  });
+
   if (!response.ok || !payload?.estimate) {
-    throw new Error(payload?.error ?? "Circle App Kit quote request failed.");
+    console.error("[Velora AppKit Swap] Quote route failed", {
+      status: response.status,
+      error: payload?.error,
+      details: payload?.details
+    });
+    throw new Error(payload?.error ?? `Circle App Kit quote request failed with HTTP ${response.status}.`);
   }
 
-  return payload.estimate;
+  return { ...payload.estimate, diagnostics: payload.diagnostics };
 }
 
 export async function executeArcAppKitSwap(params: ArcAppKitSwapParams): Promise<ArcAppKitSwapResult> {
