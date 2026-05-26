@@ -5,6 +5,7 @@ export const ARC_RPC_URL = ARC_TESTNET.rpcUrl;
 export const ARC_EXPLORER_URL = ARC_TESTNET.explorerUrl;
 export const ARC_USDC_ADDRESS = ARC_TESTNET.usdcAddress;
 export const ARC_EURC_ADDRESS = ARC_TESTNET.eurcAddress;
+export const ARC_USDT_ADDRESS = ARC_TESTNET.usdtAddress;
 
 export const arcTestnet = arcTestnetChain;
 export const arcNetwork = arcTestnetChain;

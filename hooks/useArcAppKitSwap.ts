@@ -2,8 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { hasCircleAppKitKey, isArcAppKitSwapPair, type ArcAppKitSwapToken } from "@/lib/appkit/config";
+import { getArcAppKitUnsupportedReason, hasCircleAppKitKey, isArcAppKitSwapPair, type ArcAppKitSwapToken } from "@/lib/appkit/config";
 import { estimateArcAppKitSwap, executeArcAppKitSwap, type ArcAppKitSwapEstimate, type ArcAppKitSwapResult, type Eip1193Provider } from "@/lib/appkit/swap";
+import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
 import { useArcNetwork } from "./useArcNetwork";
 
 export type AppKitSwapState = "idle" | "estimating" | "ready" | "swapping" | "success" | "error";
@@ -25,20 +26,33 @@ export function useArcAppKitSwap() {
     [isArc, isConnected]
   );
 
+  const getUnsupportedReason = useCallback(
+    (tokenIn: string, tokenOut: string) => {
+      if (!hasCircleAppKitKey()) return "Demo pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps.";
+      if (!isConnected) return "Connect a wallet to request real Circle App Kit quotes.";
+      if (!isArc) return "Switch to Arc Testnet to request real Circle App Kit quotes.";
+      return getArcAppKitUnsupportedReason(tokenIn, tokenOut);
+    },
+    [isArc, isConnected]
+  );
+
   const estimateSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
     setError(null);
     setResult(null);
+    setEstimate(null);
 
     if (!canUseRealSwap(tokenIn, tokenOut)) {
+      const reason = getUnsupportedReason(tokenIn, tokenOut);
       console.warn("[Velora AppKit Swap] Real swap unavailable", {
         tokenIn,
         tokenOut,
         hasKitKey: hasCircleAppKitKey(),
         isConnected,
         isArc,
+        reason,
         chainId
       });
-      throw new Error("Real App Kit swap is available only on Arc Testnet for USDC, EURC, and cirBTC with a connected wallet.");
+      throw new Error(reason ?? "Real App Kit swap is available only on Arc Testnet for supported App Kit pairs with a connected wallet.");
     }
 
     setState("estimating");
@@ -85,24 +99,49 @@ export function useArcAppKitSwap() {
       setState("error");
       throw err;
     }
-  }, [address, canUseRealSwap, chainId, connector, isArc, isConnected]);
+  }, [address, canUseRealSwap, chainId, connector, getUnsupportedReason, isArc, isConnected]);
 
   const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
     setError(null);
     if (!canUseRealSwap(tokenIn, tokenOut)) {
-      throw new Error("Real App Kit swap is available only on Arc Testnet for USDC, EURC, and cirBTC with a connected wallet.");
+      throw new Error(getUnsupportedReason(tokenIn, tokenOut) ?? "Real App Kit swap is available only on Arc Testnet for supported App Kit pairs with a connected wallet.");
+    }
+
+    if (!estimate?.estimatedOutput) {
+      throw new Error("Request a fresh Circle App Kit quote before executing a real swap.");
+    }
+
+    if (
+      estimate.diagnostics?.tokenIn !== tokenIn ||
+      estimate.diagnostics?.tokenOut !== tokenOut ||
+      estimate.diagnostics?.amountIn !== amountIn
+    ) {
+      setEstimate(null);
+      throw new Error("The selected swap no longer matches the latest quote. Request a fresh quote before executing.");
+    }
+
+    if (estimate.diagnostics?.expiresAt && Date.now() > estimate.diagnostics.expiresAt) {
+      setEstimate(null);
+      throw new Error("The Circle App Kit quote expired. Request a new quote before executing.");
     }
 
     setState("swapping");
     try {
       const provider = await connector?.getProvider();
-      const nextResult = await executeArcAppKitSwap({
+      const nextResultRaw = await executeArcAppKitSwap({
         tokenIn: tokenIn as ArcAppKitSwapToken,
         tokenOut: tokenOut as ArcAppKitSwapToken,
         amountIn,
         slippageBps,
         provider: isEip1193Provider(provider) ? provider : undefined
       });
+      const nextResult = {
+        ...nextResultRaw,
+        explorerUrl: nextResultRaw.explorerUrl ?? (nextResultRaw.txHash ? `${ARC_EXPLORER_URL}/tx/${nextResultRaw.txHash}` : undefined)
+      };
+      if (!nextResult.txHash) {
+        throw new Error("Circle App Kit did not return a transaction hash for the submitted swap.");
+      }
       setResult(nextResult);
       setState("success");
       return nextResult;
@@ -112,7 +151,7 @@ export function useArcAppKitSwap() {
       setState("error");
       throw err;
     }
-  }, [canUseRealSwap, connector]);
+  }, [canUseRealSwap, connector, estimate, getUnsupportedReason]);
 
   return useMemo(
     () => ({
@@ -121,12 +160,13 @@ export function useArcAppKitSwap() {
       result,
       error,
       canUseRealSwap,
+      getUnsupportedReason,
       estimateSwap,
       executeSwap,
       hasKitKey: hasCircleAppKitKey(),
       isConnected,
       isArc
     }),
-    [canUseRealSwap, error, estimate, estimateSwap, executeSwap, isArc, isConnected, result, state]
+    [canUseRealSwap, error, estimate, estimateSwap, executeSwap, getUnsupportedReason, isArc, isConnected, result, state]
   );
 }

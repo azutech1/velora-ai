@@ -1,5 +1,5 @@
 import type { Address } from "viem";
-import { ARC_EURC_ADDRESS, ARC_USDC_ADDRESS } from "@/lib/web3/chains";
+import { ARC_EURC_ADDRESS, ARC_USDC_ADDRESS, ARC_USDT_ADDRESS } from "@/lib/web3/chains";
 
 export type SwapTokenCategory = "stablecoin" | "wrapped asset" | "native ecosystem token";
 
@@ -19,7 +19,7 @@ const UNCONFIGURED_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000" 
 export const SWAP_TOKENS: SwapToken[] = [
   { symbol: "USDC", name: "USD Coin", decimals: 6, mockBalance: "284,920.42", mockPrice: 1, contractAddress: ARC_USDC_ADDRESS, icon: "$", category: "stablecoin" },
   { symbol: "EURC", name: "Euro Coin", decimals: 6, mockBalance: "42,180.10", mockPrice: 1.08, contractAddress: ARC_EURC_ADDRESS, icon: "EUR", category: "stablecoin" },
-  { symbol: "USDT", name: "Tether USD", decimals: 6, mockBalance: "18,450.00", mockPrice: 1, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, icon: "USDT", category: "stablecoin" },
+  { symbol: "USDT", name: "Tether USD", decimals: 6, mockBalance: "18,450.00", mockPrice: 1, contractAddress: ARC_USDT_ADDRESS, icon: "USDT", category: "stablecoin" },
   { symbol: "DAI", name: "Dai Stablecoin", decimals: 18, mockBalance: "9,820.44", mockPrice: 1, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, icon: "D", category: "stablecoin" },
   { symbol: "PYUSD", name: "PayPal USD", decimals: 6, mockBalance: "6,210.00", mockPrice: 1, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, icon: "P", category: "stablecoin" },
   { symbol: "cirBTC", name: "Circle Bitcoin", decimals: 8, mockBalance: "0.014", mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, icon: "cB", category: "wrapped asset" },
@@ -32,6 +32,7 @@ export const QUICK_SWAP_PAIRS = [
   ["USDC", "EURC"],
   ["EURC", "USDC"],
   ["USDC", "USDT"],
+  ["USDT", "USDC"],
   ["USDC", "DAI"],
   ["USDC", "PYUSD"],
   ["USDC", "cirBTC"],
@@ -41,7 +42,7 @@ export const QUICK_SWAP_PAIRS = [
   ["AVL", "USDC"]
 ] as const;
 
-export const RECENT_SWAP_TOKENS = ["USDC", "EURC", "cirBTC", "AVL"];
+export const RECENT_SWAP_TOKENS = ["USDC", "EURC", "cirBTC", "USDT", "AVL"];
 export const DEMO_SWAP_VOLUME_24H = "$2.48M";
 
 export function isConfiguredSwapToken(token: SwapToken) {

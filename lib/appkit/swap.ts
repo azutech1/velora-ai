@@ -1,4 +1,4 @@
-import { ARC_APP_KIT_CHAIN, ArcAppKitSwapToken, CIRCLE_APP_KIT_KEY } from "./config";
+import { ARC_APP_KIT_CHAIN, ARC_USDT_ADDRESS, ArcAppKitSwapToken, CIRCLE_APP_KIT_KEY, ZERO_ADDRESS, isArcAppKitSwapPair } from "./config";
 
 export type Eip1193Provider = {
   request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>;
@@ -34,6 +34,11 @@ export type ArcAppKitSwapEstimate = {
     debugVersion?: string;
     circleEndpoint?: string;
     circleAttempts?: number;
+    quotedAt?: number;
+    expiresAt?: number;
+    tokenIn?: string;
+    tokenOut?: string;
+    amountIn?: string;
   };
 };
 
@@ -42,6 +47,14 @@ export type ArcAppKitSwapResult = {
   explorerUrl?: string;
   amountOut?: string;
 };
+
+function resolveAppKitTokenIdentifier(token: ArcAppKitSwapToken) {
+  if (token === "USDT" && ARC_USDT_ADDRESS && ARC_USDT_ADDRESS !== ZERO_ADDRESS) {
+    return ARC_USDT_ADDRESS;
+  }
+
+  return token;
+}
 
 function normalizeProvider(provider: unknown): Eip1193Provider | null {
   if (!provider || typeof (provider as { request?: unknown }).request !== "function") {
@@ -88,8 +101,8 @@ async function createSwapParams(params: ArcAppKitSwapParams) {
   const adapter = await createBrowserAdapter(params.provider);
   return {
     from: { adapter, chain: ARC_APP_KIT_CHAIN },
-    tokenIn: params.tokenIn,
-    tokenOut: params.tokenOut,
+    tokenIn: resolveAppKitTokenIdentifier(params.tokenIn),
+    tokenOut: resolveAppKitTokenIdentifier(params.tokenOut),
     amountIn: params.amountIn,
     config: {
       kitKey: CIRCLE_APP_KIT_KEY,
@@ -150,6 +163,10 @@ export async function estimateArcAppKitSwap(params: ArcAppKitSwapParams): Promis
 }
 
 export async function executeArcAppKitSwap(params: ArcAppKitSwapParams): Promise<ArcAppKitSwapResult> {
+  if (!isArcAppKitSwapPair(params.tokenIn, params.tokenOut)) {
+    throw new Error("This pair is not supported for real App Kit execution on Arc yet.");
+  }
+
   const { AppKit } = await import("@circle-fin/app-kit");
   const kit = new AppKit();
   return kit.swap(await createSwapParams(params)) as Promise<ArcAppKitSwapResult>;

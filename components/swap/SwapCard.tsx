@@ -24,6 +24,7 @@ export function SwapCard() {
   const quote = useMemo(() => estimateDemoSwap(fromToken.symbol, toToken.symbol, amount), [amount, fromToken.symbol, toToken.symbol]);
   const slippageBps = Math.round(Number(slippage) * 100);
   const realSwapAvailable = appKitSwap.canUseRealSwap(fromToken.symbol, toToken.symbol);
+  const unsupportedReason = appKitSwap.getUnsupportedReason(fromToken.symbol, toToken.symbol);
   const appKitEstimateOutput = appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : null;
   const displayedOutput = appKitEstimateOutput ?? quote.output;
   const stablecoins = SWAP_TOKENS.filter((token) => token.category === "stablecoin");
@@ -67,6 +68,17 @@ export function SwapCard() {
 
     if (realSwapAvailable) {
       try {
+        recordActivity({
+          actionType: "swap_started",
+          title: "Circle App Kit quote requested",
+          description: `Requesting real quote for ${amount} ${fromToken.symbol} to ${toToken.symbol}.`,
+          feature: "swap",
+          token: `${fromToken.symbol}/${toToken.symbol}`,
+          amount,
+          network: "Arc Testnet",
+          status: "pending",
+          metadata: { stage: "quote_requested" }
+        });
         const estimate = await appKitSwap.estimateSwap(fromToken.symbol, toToken.symbol, amount, slippageBps);
         setState("success");
         setMessage(`Real App Kit quote ready: ${amount} ${fromToken.symbol} to ${estimate.estimatedOutput?.amount ?? "estimated"} ${toToken.symbol}.`);
@@ -78,7 +90,8 @@ export function SwapCard() {
           token: `${fromToken.symbol}/${toToken.symbol}`,
           amount,
           network: "Arc Testnet",
-          status: "success"
+          status: "success",
+          metadata: { stage: "quote_ready", requestId: estimate.diagnostics?.requestId ?? null }
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : "App Kit quote failed.";
@@ -92,7 +105,8 @@ export function SwapCard() {
           token: `${fromToken.symbol}/${toToken.symbol}`,
           amount,
           network: "Arc Testnet",
-          status: "failed"
+          status: "failed",
+          metadata: { stage: "quote_failed" }
         });
       }
       return;
@@ -136,7 +150,8 @@ export function SwapCard() {
         amount,
         network: "Arc Testnet",
         status: "success",
-        txHash: result.txHash
+        txHash: result.txHash,
+        metadata: { stage: "swap_confirmed" }
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : "App Kit swap failed.";
@@ -150,7 +165,8 @@ export function SwapCard() {
         token: `${fromToken.symbol}/${toToken.symbol}`,
         amount,
         network: "Arc Testnet",
-        status: "failed"
+        status: "failed",
+        metadata: { stage: "swap_failed" }
       });
     }
   }
@@ -213,6 +229,8 @@ export function SwapCard() {
           <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
             {realSwapAvailable
               ? "Real Arc Testnet quote/execution is enabled through Circle App Kit for supported tokens. Confirm carefully in your wallet."
+              : unsupportedReason
+                ? unsupportedReason
               : appKitSwap.hasKitKey
                 ? "Demo pricing only for unsupported tokens. Circle App Kit real swaps are available on Arc Testnet for USDC, EURC, and cirBTC."
                 : "Demo pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps."}
