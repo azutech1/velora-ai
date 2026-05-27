@@ -49,8 +49,11 @@ type LifiEstimate = {
     from?: string;
     data?: string;
     value?: string;
+    gas?: string;
     gasLimit?: string;
     gasPrice?: string;
+    maxFeePerGas?: string;
+    maxPriorityFeePerGas?: string;
     chainId?: number;
   } | null;
 };
@@ -331,7 +334,10 @@ export default function TradePage() {
       account: address as Address,
       to: request.to as Address,
       data: request.data as Hex,
-      value: parseOptionalBigInt(request.value)
+      value: parseOptionalBigInt(request.value),
+      gas: parseOptionalBigInt(request.gas ?? request.gasLimit),
+      maxFeePerGas: parseOptionalBigInt(request.maxFeePerGas),
+      maxPriorityFeePerGas: parseOptionalBigInt(request.maxPriorityFeePerGas)
     });
 
     recordActivity({

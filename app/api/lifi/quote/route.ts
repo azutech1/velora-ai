@@ -27,8 +27,11 @@ type LifiQuoteResponse = {
     from?: string;
     data?: string;
     value?: string;
+    gas?: string;
     gasLimit?: string;
     gasPrice?: string;
+    maxFeePerGas?: string;
+    maxPriorityFeePerGas?: string;
     chainId?: number;
   };
 };
