@@ -177,7 +177,7 @@ export function SwapCard() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-slate-400">Multi-token stablecoin swap</p>
-            <h2 className="text-xl font-bold text-white">{realSwapAvailable ? "Arc App Kit Swap" : "Swap demo"}</h2>
+            <h2 className="text-xl font-bold text-white">{realSwapAvailable ? "Stablecoin Swap" : "Swap Preview"}</h2>
           </div>
           <span className={realSwapAvailable ? "rounded-full border border-mint/30 bg-mint/10 px-3 py-1 text-xs font-semibold text-mint" : "rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan"}>
             {realSwapAvailable ? "Circle App Kit" : "Demo Mode"}
@@ -232,8 +232,8 @@ export function SwapCard() {
               : unsupportedReason
                 ? unsupportedReason
               : appKitSwap.hasKitKey
-                ? "Demo pricing only for unsupported tokens. Circle App Kit real swaps are available on Arc Testnet for USDC, EURC, and configured USDT."
-                : "Demo pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps."}
+                ? "Preview pricing only for unsupported tokens. Real Arc Testnet swaps are available for configured USDC, EURC, and USDT routes."
+                : "Preview pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps."}
           </div>
 
           <button disabled={appKitSwap.state === "estimating" || appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
@@ -243,7 +243,7 @@ export function SwapCard() {
           {realSwapAvailable && appKitSwap.estimate ? (
             <button type="button" onClick={executeRealSwap} disabled={appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-bold text-mint transition hover:bg-mint hover:text-[#031018] disabled:opacity-60">
               {appKitSwap.state === "swapping" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Execute App Kit Swap
+              Execute Swap
             </button>
           ) : null}
         </form>

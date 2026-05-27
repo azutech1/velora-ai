@@ -21,7 +21,7 @@ import {
 export const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Send USDC", href: "/send", icon: Send },
-  { label: "Swap", href: "/swap", icon: Repeat2 },
+  { label: "Bridge & Swap", href: "/trade", icon: Repeat2 },
   { label: "Token", href: "/token", icon: Coins },
   { label: "Faucet", href: "/faucet", icon: Droplets },
   { label: "Activity", href: "/activity", icon: Activity },

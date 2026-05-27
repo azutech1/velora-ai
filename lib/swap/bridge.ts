@@ -1,4 +1,4 @@
-import { CROSS_CHAIN_USDC, getBridgeNetwork, type BridgeNetwork } from "./networks";
+import { getBridgeNetwork, type BridgeNetwork } from "./networks";
 
 export type BridgeQuote = {
   valid: boolean;
@@ -15,7 +15,7 @@ export function createBridgeHashPlaceholder(from: BridgeNetwork, to: BridgeNetwo
   return `0xbridge${from.id.slice(0, 3)}${to.id.slice(0, 3)}${Date.now().toString(16)}000000000000`;
 }
 
-export function estimateBridgeQuote(fromId: string, toId: string, amount: string): BridgeQuote {
+export function estimateBridgeQuote(fromId: string, toId: string, amount: string, tokenSymbol = "USDC"): BridgeQuote {
   const from = getBridgeNetwork(fromId);
   const to = getBridgeNetwork(toId);
   const numericAmount = Number(amount);
@@ -23,12 +23,12 @@ export function estimateBridgeQuote(fromId: string, toId: string, amount: string
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     return {
       valid: false,
-      reason: "Enter a USDC amount greater than zero.",
+      reason: `Enter a ${tokenSymbol} amount greater than zero.`,
       estimatedReceive: 0,
       bridgeFee: 0,
       gasEstimate: "Pending",
       estimatedTime: "Pending",
-      route: `${from.name} ${CROSS_CHAIN_USDC.symbol} -> ${to.name} ${CROSS_CHAIN_USDC.symbol}`,
+      route: `${from.name} ${tokenSymbol} -> ${to.name} ${tokenSymbol}`,
       hashPlaceholder: createBridgeHashPlaceholder(from, to)
     };
   }
@@ -41,7 +41,7 @@ export function estimateBridgeQuote(fromId: string, toId: string, amount: string
       bridgeFee: 0,
       gasEstimate: "Pending",
       estimatedTime: "Pending",
-      route: `${from.name} ${CROSS_CHAIN_USDC.symbol} -> ${to.name} ${CROSS_CHAIN_USDC.symbol}`,
+      route: `${from.name} ${tokenSymbol} -> ${to.name} ${tokenSymbol}`,
       hashPlaceholder: createBridgeHashPlaceholder(from, to)
     };
   }
@@ -54,7 +54,7 @@ export function estimateBridgeQuote(fromId: string, toId: string, amount: string
       bridgeFee: 0,
       gasEstimate: "Pending",
       estimatedTime: "Pending",
-      route: `${from.name} ${CROSS_CHAIN_USDC.symbol} -> ${to.name} ${CROSS_CHAIN_USDC.symbol}`,
+      route: `${from.name} ${tokenSymbol} -> ${to.name} ${tokenSymbol}`,
       hashPlaceholder: createBridgeHashPlaceholder(from, to)
     };
   }
@@ -68,7 +68,7 @@ export function estimateBridgeQuote(fromId: string, toId: string, amount: string
     bridgeFee,
     gasEstimate: "$0.012 demo gas",
     estimatedTime: to.id === "ethereum-sepolia" ? "6-8 min" : "2-4 min",
-    route: `${from.name} ${CROSS_CHAIN_USDC.symbol} -> Bridge Router Demo -> ${to.name} ${CROSS_CHAIN_USDC.symbol}`,
+    route: `${from.name} ${tokenSymbol} -> Bridge Router Demo -> ${to.name} ${tokenSymbol}`,
     hashPlaceholder: createBridgeHashPlaceholder(from, to)
   };
 }

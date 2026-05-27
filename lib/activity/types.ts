@@ -14,6 +14,11 @@ export type ActivityFeature =
   | "dashboard";
 
 export type ActivityActionType =
+  | "trade_tab_opened"
+  | "quote_requested"
+  | "swap_reviewed"
+  | "bridge_reviewed"
+  | "quote_failed"
   | "wallet_connect"
   | "wallet_disconnect"
   | "network_switch"

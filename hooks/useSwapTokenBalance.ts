@@ -33,7 +33,7 @@ export function useSwapTokenBalance(token: SwapToken) {
 
   if (!isConnected) {
     return {
-      label: `Demo balance: ${token.mockBalance} ${token.symbol}`,
+      label: `Reference balance: ${token.mockBalance} ${token.symbol}`,
       isReal: false,
       isLoading: false,
       error: null
@@ -51,7 +51,7 @@ export function useSwapTokenBalance(token: SwapToken) {
 
   if (!isConfiguredSwapToken(token)) {
     return {
-      label: `Demo balance: ${token.mockBalance} ${token.symbol}`,
+      label: `Reference balance: ${token.mockBalance} ${token.symbol}`,
       isReal: false,
       isLoading: false,
       error: null

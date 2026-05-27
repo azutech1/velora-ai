@@ -11,9 +11,10 @@ import { MetricCard, Panel, TransactionsTable } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
-import { DEMO_SWAP_VOLUME_24H, estimateDemoSwap } from "@/lib/swap/tokens";
+import { estimateDemoSwap } from "@/lib/swap/tokens";
 import { FAUCET_STORAGE_KEY, FAUCET_TOKENS, type FaucetClaim } from "@/lib/faucet/tokens";
 import { CROSS_CHAIN_NETWORKS } from "@/lib/swap/networks";
 
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [txCount, setTxCount] = useState(0);
   const [lastFaucetClaim, setLastFaucetClaim] = useState<FaucetClaim | null>(null);
   const { activities, recordActivity } = useActivityRecorder();
+  const stablecoinPrices = useStablecoinPrices();
   const eurcRate = estimateDemoSwap("USDC", "EURC", "1").output;
   const faucetDailyLimit = FAUCET_TOKENS.reduce((sum, token) => sum + token.dailyLimit, 0);
 
@@ -108,55 +110,45 @@ export default function DashboardPage() {
         </div>
 
         <Panel
-          title="Stablecoin Swap"
-          eyebrow="Demo pricing only"
+          title="Bridge & Swap"
+          eyebrow="Unified stablecoin terminal"
           action={
-            <Link href="/swap" className="rounded-lg bg-gradient-to-r from-mint to-cyan px-4 py-2 text-sm font-bold text-[#031018] shadow-neon transition hover:scale-[1.02]">
-              Open Swap
+            <Link href="/trade" className="rounded-lg bg-gradient-to-r from-mint to-cyan px-4 py-2 text-sm font-bold text-[#031018] shadow-neon transition hover:scale-[1.02]">
+              Open Bridge & Swap
             </Link>
           }
         >
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">USDC/EURC mock rate</p>
-              <p className="mt-2 text-xl font-bold text-white">1 USDC ≈ {eurcRate.toFixed(4)} EURC</p>
+              <p className="text-sm text-slate-400">Active tokens</p>
+              <p className="mt-2 text-xl font-bold text-white">USDC, EURC, USDT</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Top swap pair</p>
+              <p className="text-sm text-slate-400">Top pair</p>
               <p className="mt-2 text-xl font-bold text-white">USDC -&gt; EURC</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">24h demo volume</p>
-              <p className="mt-2 text-xl font-bold text-white">{DEMO_SWAP_VOLUME_24H}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-cyan">Demo pricing only. Real swaps remain disabled until an Arc DEX/router and liquidity source are connected.</p>
-        </Panel>
-
-        <Panel
-          title="Cross-Chain USDC"
-          eyebrow="Demo bridge routes"
-          action={
-            <Link href="/swap" className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint">
-              Bridge USDC
-            </Link>
-          }
-        >
-          <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
               <p className="text-sm text-slate-400">Supported networks</p>
               <p className="mt-2 text-xl font-bold text-white">{CROSS_CHAIN_NETWORKS.length}</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Mock bridge volume</p>
-              <p className="mt-2 text-xl font-bold text-white">$842k</p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">USDC</p>
+              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.USDC.price.toFixed(4)}</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Top route</p>
-              <p className="mt-2 text-xl font-bold text-white">Arc -&gt; Base Sepolia</p>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">EURC</p>
+              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.EURC.price.toFixed(4)}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">USDT</p>
+              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.USDT.price.toFixed(4)}</p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-cyan">Demo Mode: real bridge not connected yet. Cross-chain swaps are visual only until an Arc bridge/router is configured.</p>
+          <p className="mt-4 text-sm leading-6 text-cyan">
+            1 USDC ≈ {eurcRate.toFixed(4)} EURC. Quote mode only - real router/bridge not connected yet.
+          </p>
         </Panel>
 
         <Panel

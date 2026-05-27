@@ -14,6 +14,7 @@ export function useCrossChainSwap() {
   const [fromNetworkId, setFromNetworkId] = useState("arc-testnet");
   const [toNetworkId, setToNetworkId] = useState("base-sepolia");
   const [amount, setAmount] = useState("250");
+  const [tokenSymbol, setTokenSymbol] = useState("USDC");
   const [slippage, setSlippage] = useState("0.50");
   const [state, setState] = useState<BridgeFlowState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ export function useCrossChainSwap() {
 
   const fromNetwork = getBridgeNetwork(fromNetworkId);
   const toNetwork = getBridgeNetwork(toNetworkId);
-  const quote = useMemo<BridgeQuote>(() => estimateBridgeQuote(fromNetworkId, toNetworkId, amount), [amount, fromNetworkId, toNetworkId]);
+  const quote = useMemo<BridgeQuote>(() => estimateBridgeQuote(fromNetworkId, toNetworkId, amount, tokenSymbol), [amount, fromNetworkId, toNetworkId, tokenSymbol]);
   const sourceNetworkMatchesWallet = fromNetwork.chainId === chainId;
 
   const reviewBridge = useCallback(() => {
@@ -75,6 +76,8 @@ export function useCrossChainSwap() {
   return {
     amount,
     setAmount,
+    tokenSymbol,
+    setTokenSymbol,
     slippage,
     setSlippage,
     fromNetwork,
