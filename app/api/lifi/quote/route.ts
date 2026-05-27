@@ -15,7 +15,15 @@ type LifiQuoteRequest = {
 
 type LifiQuoteResponse = {
   toAmount?: string;
+  action?: {
+    fromAmount?: string;
+    fromToken?: {
+      address?: string;
+    };
+    fromChainId?: number;
+  };
   estimate?: {
+    approvalAddress?: string;
     toAmountMin?: string;
     gasCosts?: Array<{ amountUSD?: string }>;
     feeCosts?: Array<{ amountUSD?: string }>;
@@ -44,6 +52,10 @@ type CachedQuote = {
       provider: string;
       gasEstimateUsd: string | null;
       feeEstimateUsd: string | null;
+      approvalAddress: string | null;
+      fromAmount: string | null;
+      fromTokenAddress: string | null;
+      fromChainId: number | null;
       transactionRequest: LifiQuoteResponse["transactionRequest"] | null;
     };
   };
@@ -129,6 +141,10 @@ export async function POST(request: Request) {
         provider: payload.toolDetails?.name ?? payload.tool ?? "LI.FI",
         gasEstimateUsd: payload.estimate?.gasCosts?.[0]?.amountUSD ?? null,
         feeEstimateUsd: payload.estimate?.feeCosts?.[0]?.amountUSD ?? null,
+        approvalAddress: payload.estimate?.approvalAddress ?? payload.transactionRequest?.to ?? null,
+        fromAmount: payload.action?.fromAmount ?? fromAmount,
+        fromTokenAddress: payload.action?.fromToken?.address ?? fromToken,
+        fromChainId: payload.action?.fromChainId ?? fromChain,
         transactionRequest: payload.transactionRequest ?? null
       }
     };

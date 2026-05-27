@@ -3,8 +3,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownUp, Check, ChevronDown, Loader2, RefreshCw, Repeat2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { parseUnits, type Address, type Hex } from "viem";
-import { useAccount, useWalletClient } from "wagmi";
+import { erc20Abi, parseUnits, type Address, type Hex } from "viem";
+import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
@@ -45,6 +45,10 @@ type LifiEstimate = {
   provider: string;
   gasEstimateUsd: string | null;
   feeEstimateUsd: string | null;
+  approvalAddress: string | null;
+  fromAmount: string | null;
+  fromTokenAddress: string | null;
+  fromChainId: number | null;
   transactionRequest: {
     to?: string;
     from?: string;
@@ -59,6 +63,8 @@ type LifiEstimate = {
   } | null;
 };
 
+const NATIVE_TOKEN_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
 function parseOptionalBigInt(value?: string) {
   if (!value) return undefined;
   try {
@@ -66,6 +72,16 @@ function parseOptionalBigInt(value?: string) {
   } catch {
     return undefined;
   }
+}
+
+function isNativeOrZeroAddress(value?: string | null) {
+  if (!value) return true;
+  const normalized = value.toLowerCase();
+  return normalized === NATIVE_TOKEN_ADDRESS || normalized === "0x0000000000000000000000000000000000000000";
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function formatPrice(value: number) {
@@ -265,6 +281,7 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
 export default function TradePage() {
   const { isConnected, address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const { recordActivity } = useActivityRecorder();
   const appKitSwap = useArcAppKitSwap();
   const bridge = useCrossChainSwap();
@@ -340,6 +357,80 @@ export default function TradePage() {
     return payload.estimate;
   }
 
+  async function ensureLifiAllowance(quote: LifiEstimate, feature: "swap" | "bridge") {
+    if (!walletClient || !publicClient || !address) {
+      throw new Error("Connect wallet before approving token allowance.");
+    }
+
+    const tokenAddress = quote.fromTokenAddress;
+    const spender = quote.approvalAddress ?? quote.transactionRequest?.to ?? null;
+    const requiredAmount = parseOptionalBigInt(quote.fromAmount ?? undefined);
+
+    if (isNativeOrZeroAddress(tokenAddress) || !spender || !requiredAmount || requiredAmount <= BigInt(0)) {
+      return null;
+    }
+
+    const allowance = (await publicClient.readContract({
+      address: tokenAddress as Address,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [address as Address, spender as Address]
+    })) as bigint;
+
+    if (allowance >= requiredAmount) {
+      return null;
+    }
+
+    recordActivity({
+      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      title: feature === "swap" ? "Token approval required" : "Bridge token approval required",
+      description: "Wallet approval is required before LI.FI can move the selected ERC20 token.",
+      feature,
+      token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
+      amount: feature === "swap" ? swapAmount : bridge.amount,
+      status: "pending"
+    });
+
+    const approvalHash = await walletClient.writeContract({
+      account: address as Address,
+      address: tokenAddress as Address,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [spender as Address, requiredAmount]
+    });
+
+    recordActivity({
+      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      title: feature === "swap" ? "Token approval submitted" : "Bridge token approval submitted",
+      description: "Approval transaction submitted. Velora AI will execute the route after confirmation.",
+      feature,
+      token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
+      amount: feature === "swap" ? swapAmount : bridge.amount,
+      status: "pending",
+      txHash: approvalHash
+    });
+
+    await transactions.trackTransaction(approvalHash);
+    return approvalHash;
+  }
+
+  async function preflightLifiTransaction(quote: LifiEstimate) {
+    if (!publicClient || !address) return;
+    const request = quote.transactionRequest;
+    if (!request?.to || !request.data) return;
+
+    try {
+      await publicClient.estimateGas({
+        account: address as Address,
+        to: request.to as Address,
+        data: request.data as Hex,
+        value: parseOptionalBigInt(request.value)
+      });
+    } catch (error) {
+      throw new Error(`LI.FI transaction preflight failed before wallet confirmation: ${errorMessage(error, "route would revert")}`);
+    }
+  }
+
   async function executeLifiTransaction(quote: LifiEstimate, feature: "swap" | "bridge") {
     if (!walletClient || !address) {
       throw new Error("Connect wallet to execute this transaction.");
@@ -349,6 +440,9 @@ export default function TradePage() {
     if (!request?.to || !request.data) {
       throw new Error("This live quote does not include executable transaction data.");
     }
+
+    await ensureLifiAllowance(quote, feature);
+    await preflightLifiTransaction(quote);
 
     const hash = await walletClient.sendTransaction({
       account: address as Address,
