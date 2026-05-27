@@ -269,9 +269,8 @@ export default function TradePage() {
   const estimatedReceive = lifiQuote?.toAmount ? Number(lifiQuote.toAmount) / 1_000_000 : appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : swapQuote.output;
   const rate = liveSellPrice / Math.max(liveBuyPrice, 0.0001);
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
-  const hasLiveRouterConfig = Boolean(process.env.NEXT_PUBLIC_SWAP_ROUTER_URL || process.env.NEXT_PUBLIC_STABLECOIN_SWAP_API_URL);
   const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
-  const tradingMode: TradingMode = liveQuoteUnavailable ? "live-unavailable" : hasLiveRouterConfig && lifiQuote ? "live" : "demo";
+  const tradingMode: TradingMode = liveQuoteUnavailable ? "live-unavailable" : isLifiEnabled ? "live" : "demo";
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -373,7 +372,7 @@ export default function TradePage() {
       return;
     }
 
-    if (isLifiEnabled && hasLiveRouterConfig) {
+    if (isLifiEnabled) {
       try {
         const fromChain = getChainById(walletChain);
         if (!fromChain) {
@@ -548,7 +547,7 @@ export default function TradePage() {
       return;
     }
 
-    if (isLifiEnabled && hasLiveRouterConfig) {
+    if (isLifiEnabled) {
       try {
         const fromChain = getChainById(bridge.fromNetwork.chainId);
         const toChain = getChainById(bridge.toNetwork.chainId);
