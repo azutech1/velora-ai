@@ -6,7 +6,7 @@ export const TOKEN_ICON_PATHS = {
   WBTC: "/tokens/wbtc.svg",
   ETH: "/tokens/eth.svg",
   BTC: "/tokens/btc.svg",
-  ARC: "/tokens/arc.svg",
+  ARC: "/tokens/arc-official.jpg",
   AVL: "/tokens/avl.svg"
 } as const;
 

@@ -1,5 +1,5 @@
 export const NETWORK_ICON_PATHS = {
-  arc: "/networks/arc.svg",
+  arc: "/networks/arc-official.jpg",
   ethereum: "/networks/ethereum.svg",
   base: "/networks/base.svg",
   optimism: "/networks/optimism.svg",
