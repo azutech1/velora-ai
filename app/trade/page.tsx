@@ -3,8 +3,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownUp, Check, ChevronDown, Loader2, RefreshCw, Repeat2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { parseUnits, type Address, type Hex } from "viem";
+import { useAccount, useWalletClient } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
@@ -15,6 +15,7 @@ import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
 import { useCrossChainSwap } from "@/hooks/useCrossChainSwap";
 import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
+import { useTransactions } from "@/hooks/useTransactions";
 import { getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
@@ -43,7 +44,25 @@ type LifiEstimate = {
   provider: string;
   gasEstimateUsd: string | null;
   feeEstimateUsd: string | null;
+  transactionRequest: {
+    to?: string;
+    from?: string;
+    data?: string;
+    value?: string;
+    gasLimit?: string;
+    gasPrice?: string;
+    chainId?: number;
+  } | null;
 };
+
+function parseOptionalBigInt(value?: string) {
+  if (!value) return undefined;
+  try {
+    return BigInt(value);
+  } catch {
+    return undefined;
+  }
+}
 
 function formatPrice(value: number) {
   return `$${value.toFixed(4)}`;
@@ -241,10 +260,12 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
 
 export default function TradePage() {
   const { isConnected, address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { recordActivity } = useActivityRecorder();
   const appKitSwap = useArcAppKitSwap();
   const bridge = useCrossChainSwap();
   const prices = useStablecoinPrices();
+  const transactions = useTransactions();
   const [tab, setTab] = useState<TradeTab>("swap");
   const [sellToken, setSellToken] = useState(getSwapToken("USDC"));
   const [buyToken, setBuyToken] = useState(getSwapToken("EURC"));
@@ -294,6 +315,38 @@ export default function TradePage() {
       throw new Error("Live quote unavailable.");
     }
     return payload.estimate;
+  }
+
+  async function executeLifiTransaction(quote: LifiEstimate, feature: "swap" | "bridge") {
+    if (!walletClient || !address) {
+      throw new Error("Connect wallet to execute this transaction.");
+    }
+
+    const request = quote.transactionRequest;
+    if (!request?.to || !request.data) {
+      throw new Error("This live quote does not include executable transaction data.");
+    }
+
+    const hash = await walletClient.sendTransaction({
+      account: address as Address,
+      to: request.to as Address,
+      data: request.data as Hex,
+      value: parseOptionalBigInt(request.value)
+    });
+
+    recordActivity({
+      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      title: feature === "swap" ? "Swap transaction submitted" : "Bridge transaction submitted",
+      description: "Wallet submitted a LI.FI transaction for the live route.",
+      feature,
+      token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
+      amount: feature === "swap" ? swapAmount : bridge.amount,
+      status: "pending",
+      txHash: hash
+    });
+
+    await transactions.trackTransaction(hash);
+    return hash;
   }
 
   useEffect(() => {
@@ -470,6 +523,37 @@ export default function TradePage() {
       }
     }
 
+    if (lifiQuote?.transactionRequest) {
+      try {
+        const hash = await executeLifiTransaction(lifiQuote, "swap");
+        recordActivity({
+          actionType: "swap_completed",
+          title: "Swap confirmed",
+          description: "Live LI.FI swap transaction confirmed.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "success",
+          txHash: hash
+        });
+        setSwapMessage(`Live swap confirmed: ${hash}`);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Live swap execution failed.";
+        recordActivity({
+          actionType: "swap_failed",
+          title: "Swap failed",
+          description: reason,
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "failed"
+        });
+        setSwapMessage(reason);
+        return;
+      }
+    }
+
     recordActivity({
       actionType: "swap_completed",
       title: "Swap completed",
@@ -629,6 +713,39 @@ export default function TradePage() {
       return;
     }
 
+    if (lifiQuote?.transactionRequest) {
+      try {
+        const hash = await executeLifiTransaction(lifiQuote, "bridge");
+        recordActivity({
+          actionType: "bridge_completed",
+          title: "Bridge confirmed",
+          description: "Live LI.FI bridge transaction confirmed.",
+          feature: "bridge",
+          token: bridge.tokenSymbol,
+          amount: bridge.amount,
+          network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
+          status: "success",
+          txHash: hash
+        });
+        setBridgeMessage(`Live bridge confirmed: ${hash}`);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Live bridge execution failed.";
+        recordActivity({
+          actionType: "bridge_failed",
+          title: "Bridge failed",
+          description: reason,
+          feature: "bridge",
+          token: bridge.tokenSymbol,
+          amount: bridge.amount,
+          network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
+          status: "failed"
+        });
+        setBridgeMessage(reason);
+        return;
+      }
+    }
+
     await bridge.confirmBridge();
     recordActivity({
       actionType: "bridge_completed",
@@ -729,9 +846,9 @@ export default function TradePage() {
                       Get Quote
                     </button>
                     {swapQuoteReady ? (
-                      <button onClick={handleReviewSwap} disabled={appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:opacity-60">
-                        {appKitSwap.state === "swapping" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                        Review Swap
+                      <button onClick={handleReviewSwap} disabled={appKitSwap.state === "swapping" || transactions.isPending} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:opacity-60">
+                        {appKitSwap.state === "swapping" || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        {lifiQuote?.transactionRequest ? "Execute Swap" : "Review Swap"}
                       </button>
                     ) : null}
                   </>
@@ -785,8 +902,8 @@ export default function TradePage() {
                   <Repeat2 className="h-4 w-4" /> Get Bridge Quote
                 </button>
                 {bridgeQuoteReady ? (
-                  <button onClick={handleReviewBridge} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint">
-                    <Check className="h-4 w-4" /> Review Bridge
+                  <button onClick={handleReviewBridge} disabled={transactions.isPending} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:opacity-60">
+                    {transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {lifiQuote?.transactionRequest ? "Execute Bridge" : "Review Bridge"}
                   </button>
                 ) : null}
                 {bridgeMessage ? <p className="text-sm text-cyan">{bridgeMessage}</p> : null}

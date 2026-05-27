@@ -22,6 +22,15 @@ type LifiQuoteResponse = {
   };
   tool?: string;
   toolDetails?: { name?: string };
+  transactionRequest?: {
+    to?: string;
+    from?: string;
+    data?: string;
+    value?: string;
+    gasLimit?: string;
+    gasPrice?: string;
+    chainId?: number;
+  };
 };
 
 type CachedQuote = {
@@ -32,6 +41,7 @@ type CachedQuote = {
       provider: string;
       gasEstimateUsd: string | null;
       feeEstimateUsd: string | null;
+      transactionRequest: LifiQuoteResponse["transactionRequest"] | null;
     };
   };
   expiresAt: number;
@@ -115,7 +125,8 @@ export async function POST(request: Request) {
         toAmountMin: payload.estimate?.toAmountMin ?? null,
         provider: payload.toolDetails?.name ?? payload.tool ?? "LI.FI",
         gasEstimateUsd: payload.estimate?.gasCosts?.[0]?.amountUSD ?? null,
-        feeEstimateUsd: payload.estimate?.feeCosts?.[0]?.amountUSD ?? null
+        feeEstimateUsd: payload.estimate?.feeCosts?.[0]?.amountUSD ?? null,
+        transactionRequest: payload.transactionRequest ?? null
       }
     };
     QUOTE_CACHE.set(cacheKey, { data: normalized, expiresAt: Date.now() + CACHE_TTL_MS });
