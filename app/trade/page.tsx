@@ -3,16 +3,20 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownUp, Check, ChevronDown, Loader2, RefreshCw, Repeat2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
 import { TokenLogo } from "@/components/token/TokenLogo";
+import { TradingModeBadge } from "@/components/swap/TradingModeBadge";
 import { WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
 import { useCrossChainSwap } from "@/hooks/useCrossChainSwap";
 import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
+import { getChainById } from "@/lib/config/chains";
+import { getTokenAddress } from "@/lib/config/tokens";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
 import { SWAP_TOKENS, estimateDemoSwap, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
 
@@ -30,6 +34,16 @@ const EXTRA_COMING_SOON_TOKENS: ComingSoonToken[] = [
   { symbol: "PYUSD", name: "PayPal USD" },
   { symbol: "cirBTC", name: "Circle BTC" }
 ];
+
+type TradingMode = "live" | "demo" | "live-unavailable";
+
+type LifiEstimate = {
+  toAmount: string | null;
+  toAmountMin: string | null;
+  provider: string;
+  gasEstimateUsd: string | null;
+  feeEstimateUsd: string | null;
+};
 
 function formatPrice(value: number) {
   return `$${value.toFixed(4)}`;
@@ -226,7 +240,7 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
 }
 
 export default function TradePage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { recordActivity } = useActivityRecorder();
   const appKitSwap = useArcAppKitSwap();
   const bridge = useCrossChainSwap();
@@ -239,6 +253,8 @@ export default function TradePage() {
   const [swapMessage, setSwapMessage] = useState("");
   const [bridgeQuoteReady, setBridgeQuoteReady] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
+  const [liveQuoteUnavailable, setLiveQuoteUnavailable] = useState(false);
+  const [lifiQuote, setLifiQuote] = useState<LifiEstimate | null>(null);
 
   const activeTokens = useMemo(() => ACTIVE_STABLECOINS.map((symbol) => getSwapToken(symbol)).filter(Boolean), []);
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
@@ -250,9 +266,36 @@ export default function TradePage() {
   const swapQuote = useMemo(() => estimateDemoSwap(sellToken.symbol, buyToken.symbol, swapAmount), [buyToken.symbol, sellToken.symbol, swapAmount]);
   const liveSellPrice = prices.prices[sellToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? sellToken.mockPrice;
   const liveBuyPrice = prices.prices[buyToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? buyToken.mockPrice;
-  const estimatedReceive = appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : swapQuote.output;
+  const estimatedReceive = lifiQuote?.toAmount ? Number(lifiQuote.toAmount) / 1_000_000 : appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : swapQuote.output;
   const rate = liveSellPrice / Math.max(liveBuyPrice, 0.0001);
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
+  const hasLiveRouterConfig = Boolean(process.env.NEXT_PUBLIC_SWAP_ROUTER_URL || process.env.NEXT_PUBLIC_STABLECOIN_SWAP_API_URL);
+  const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
+  const tradingMode: TradingMode = liveQuoteUnavailable ? "live-unavailable" : hasLiveRouterConfig && lifiQuote ? "live" : "demo";
+
+  async function requestLifiQuote(params: {
+    fromChain: number;
+    toChain: number;
+    fromToken: string;
+    toToken: string;
+    fromAmount: string;
+    fromAddress: string;
+    slippage: number;
+  }) {
+    const response = await fetch("/api/lifi/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params)
+    });
+    if (!response.ok) {
+      throw new Error("Live quote unavailable.");
+    }
+    const payload = (await response.json()) as { estimate?: LifiEstimate };
+    if (!payload.estimate) {
+      throw new Error("Live quote unavailable.");
+    }
+    return payload.estimate;
+  }
 
   useEffect(() => {
     recordActivity({
@@ -272,6 +315,7 @@ export default function TradePage() {
   async function handleSwapQuote() {
     setSwapQuoteReady(false);
     setSwapMessage("");
+    setLifiQuote(null);
     recordActivity({
       actionType: "quote_requested",
       title: "Swap quote requested",
@@ -281,6 +325,11 @@ export default function TradePage() {
       amount: swapAmount,
       status: "pending"
     });
+
+    if (!isConnected || !address) {
+      setSwapMessage("Connect wallet to request a quote.");
+      return;
+    }
 
     if (!swapAmount || Number(swapAmount) <= 0 || sellToken.symbol === buyToken.symbol) {
       recordActivity({
@@ -296,27 +345,88 @@ export default function TradePage() {
       return;
     }
 
-    if (realSwapEnabled) {
+    const walletChain = bridge.fromNetwork.chainId;
+    const fromTokenAddress = getTokenAddress(sellToken.symbol, walletChain);
+    const toTokenAddress = getTokenAddress(buyToken.symbol, walletChain);
+    if (!fromTokenAddress || !toTokenAddress) {
+      setLiveQuoteUnavailable(true);
+      recordActivity({
+        actionType: "live_quote_failed",
+        title: "Live quote failed",
+        description: "Token is not available for live quote on selected chain.",
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        status: "failed"
+      });
+      recordActivity({
+        actionType: "fallback_quote_used",
+        title: "Fallback quote used",
+        description: "Estimated quote shown because live quote token mapping is unavailable.",
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        status: "info"
+      });
+      setSwapQuoteReady(true);
+      setSwapMessage("Live quote unavailable — showing estimated quote.");
+      return;
+    }
+
+    if (isLifiEnabled && hasLiveRouterConfig) {
       try {
-        await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : "Quote could not be fetched.";
+        const fromChain = getChainById(walletChain);
+        if (!fromChain) {
+          throw new Error("Route currently unavailable.");
+        }
+        const quote = await requestLifiQuote({
+          fromChain: fromChain.lifiChainId,
+          toChain: fromChain.lifiChainId,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromAmount: parseUnits(swapAmount, sellToken.decimals).toString(),
+          fromAddress: address,
+          slippage: 0.5
+        });
+        setLifiQuote(quote);
+        setLiveQuoteUnavailable(false);
         recordActivity({
-          actionType: "quote_failed",
-          title: "Swap quote failed",
-          description: reason,
+          actionType: "live_quote_success",
+          title: "Live quote success",
+          description: "LI.FI live quote returned successfully.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "success"
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Live quote unavailable.";
+        setLiveQuoteUnavailable(true);
+        setLifiQuote(null);
+        recordActivity({
+          actionType: "live_quote_failed",
+          title: "Live quote failed",
+          description: "LI.FI quote request failed.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
           status: "failed"
         });
-        setSwapMessage(reason);
-        return;
+        recordActivity({
+          actionType: "fallback_quote_used",
+          title: "Fallback quote used",
+          description: "Estimated quote shown after live quote failure.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "info"
+        });
+        setSwapMessage(reason === "Live quote unavailable." ? "Live quote unavailable — showing estimated quote." : "Live quote unavailable — showing estimated quote.");
       }
     }
 
     setSwapQuoteReady(true);
-    setSwapMessage("Quote ready. Review swap before execution.");
+    setSwapMessage("Quote ready. Review swap.");
   }
 
   async function handleReviewSwap() {
@@ -373,9 +483,10 @@ export default function TradePage() {
     setSwapMessage("Swap reviewed in quote mode. Real router not connected yet.");
   }
 
-  function handleBridgeQuote() {
+  async function handleBridgeQuote() {
     setBridgeQuoteReady(false);
     setBridgeMessage("");
+    setLifiQuote(null);
     recordActivity({
       actionType: "quote_requested",
       title: "Bridge quote requested",
@@ -386,6 +497,11 @@ export default function TradePage() {
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
       status: "pending"
     });
+    if (!isConnected || !address) {
+      setBridgeMessage("Connect wallet to request a quote.");
+      return;
+    }
+
     if (!bridge.quote.valid) {
       recordActivity({
         actionType: "quote_failed",
@@ -400,8 +516,92 @@ export default function TradePage() {
       return;
     }
 
+    if (bridge.fromNetwork.chainId === bridge.toNetwork.chainId) {
+      setBridgeMessage("Choose different source and destination networks.");
+      return;
+    }
+
+    const fromTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.fromNetwork.chainId);
+    const toTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.toNetwork.chainId);
+    if (!fromTokenAddress || !toTokenAddress) {
+      setLiveQuoteUnavailable(true);
+      recordActivity({
+        actionType: "live_quote_failed",
+        title: "Live bridge quote failed",
+        description: "Token is not available for live bridge quote on selected networks.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "failed"
+      });
+      recordActivity({
+        actionType: "fallback_quote_used",
+        title: "Fallback bridge quote used",
+        description: "Estimated bridge quote shown due to missing live token mapping.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "info"
+      });
+      setBridgeQuoteReady(true);
+      setBridgeMessage("Live quote unavailable — showing estimated quote.");
+      return;
+    }
+
+    if (isLifiEnabled && hasLiveRouterConfig) {
+      try {
+        const fromChain = getChainById(bridge.fromNetwork.chainId);
+        const toChain = getChainById(bridge.toNetwork.chainId);
+        if (!fromChain || !toChain) {
+          throw new Error("Route currently unavailable.");
+        }
+        const quote = await requestLifiQuote({
+          fromChain: fromChain.lifiChainId,
+          toChain: toChain.lifiChainId,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromAmount: parseUnits(bridge.amount, 6).toString(),
+          fromAddress: address,
+          slippage: 0.5
+        });
+        setLifiQuote(quote);
+        setLiveQuoteUnavailable(false);
+        recordActivity({
+          actionType: "live_quote_success",
+          title: "Live bridge quote success",
+          description: "LI.FI bridge quote returned successfully.",
+          feature: "bridge",
+          token: bridge.tokenSymbol,
+          amount: bridge.amount,
+          status: "success"
+        });
+      } catch {
+        setLiveQuoteUnavailable(true);
+        setLifiQuote(null);
+        recordActivity({
+          actionType: "live_quote_failed",
+          title: "Live bridge quote failed",
+          description: "LI.FI bridge quote failed.",
+          feature: "bridge",
+          token: bridge.tokenSymbol,
+          amount: bridge.amount,
+          status: "failed"
+        });
+        recordActivity({
+          actionType: "fallback_quote_used",
+          title: "Fallback bridge quote used",
+          description: "Estimated bridge quote shown after live quote failure.",
+          feature: "bridge",
+          token: bridge.tokenSymbol,
+          amount: bridge.amount,
+          status: "info"
+        });
+        setBridgeMessage("Live quote unavailable — showing estimated quote.");
+      }
+    }
+
     setBridgeQuoteReady(true);
-    setBridgeMessage("Bridge quote ready. Review bridge before execution.");
+    setBridgeMessage("Bridge quote ready. Review bridge.");
   }
 
   async function handleReviewBridge() {
@@ -467,7 +667,7 @@ export default function TradePage() {
               ))}
             </div>
 
-            <p className="mb-4 rounded-lg border border-cyan/20 bg-cyan/10 p-3 text-sm text-cyan">Quote mode only - real router/bridge not connected yet.</p>
+            <TradingModeBadge mode={tradingMode} />
 
             {tab === "swap" ? (
               <div className="space-y-4">
@@ -512,9 +712,11 @@ export default function TradePage() {
                 <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
                   <p className="text-slate-300">Live token price: <span className="font-semibold text-white">{formatPrice(liveSellPrice)}</span></p>
                   <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
+                  {lifiQuote?.provider ? <p className="text-slate-300">Route provider: <span className="font-semibold text-white">{lifiQuote.provider}</span></p> : null}
                   <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ≈ {rate.toFixed(6)} {buyToken.symbol}</span></p>
                   <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
-                  <p className="text-slate-300">Network fee: <span className="font-semibold text-white">${swapQuote.networkFee.toFixed(4)}</span></p>
+                  <p className="text-slate-300">Network fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `$${swapQuote.networkFee.toFixed(4)}`}</span></p>
+                  {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}
                 </div>
 
                 {!isConnected ? (
@@ -573,10 +775,11 @@ export default function TradePage() {
                 </label>
 
                 <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
-                  <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{bridge.quote.estimatedReceive.toFixed(4)} {bridge.tokenSymbol}</span></p>
-                  <p className="text-slate-300">Bridge fee: <span className="font-semibold text-white">{bridge.quote.bridgeFee.toFixed(4)} {bridge.tokenSymbol}</span></p>
+                  <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{lifiQuote?.toAmount ? (Number(lifiQuote.toAmount) / 1_000_000).toFixed(4) : bridge.quote.estimatedReceive.toFixed(4)} {bridge.tokenSymbol}</span></p>
+                  <p className="text-slate-300">Bridge fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `${bridge.quote.bridgeFee.toFixed(4)} ${bridge.tokenSymbol}`}</span></p>
                   <p className="text-slate-300">ETA: <span className="font-semibold text-white">{bridge.quote.estimatedTime}</span></p>
-                  <p className="text-slate-300">Route preview: <span className="font-semibold text-white">{bridge.quote.route}</span></p>
+                  <p className="text-slate-300">Route preview: <span className="font-semibold text-white">{lifiQuote?.provider ?? bridge.quote.route}</span></p>
+                  {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}
                 </div>
 
                 <button onClick={handleBridgeQuote} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon">

@@ -1,3 +1,5 @@
+import { APP_CHAINS } from "@/lib/config/chains";
+
 export type BridgeNetworkStatus = "supported" | "coming soon";
 
 export type BridgeNetwork = {
@@ -11,51 +13,15 @@ export type BridgeNetwork = {
 };
 
 export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
-  {
-    id: "arc-testnet",
-    name: "Arc Testnet",
-    chainId: 5042002,
-    rpcUrl: "https://rpc.testnet.arc.network",
-    explorerUrl: "https://testnet.arcscan.app",
-    status: "supported",
-    iconId: "arc"
-  },
-  {
-    id: "ethereum-sepolia",
-    name: "Ethereum Sepolia",
-    chainId: 11155111,
-    rpcUrl: "https://ethereum-sepolia-rpc.placeholder",
-    explorerUrl: "https://sepolia.etherscan.io",
-    status: "supported",
-    iconId: "ethereum"
-  },
-  {
-    id: "base-sepolia",
-    name: "Base Sepolia",
-    chainId: 84532,
-    rpcUrl: "https://base-sepolia-rpc.placeholder",
-    explorerUrl: "https://sepolia.basescan.org",
-    status: "supported",
-    iconId: "base"
-  },
-  {
-    id: "optimism-sepolia",
-    name: "Optimism Sepolia",
-    chainId: 11155420,
-    rpcUrl: "https://optimism-sepolia-rpc.placeholder",
-    explorerUrl: "https://sepolia-optimism.etherscan.io",
-    status: "supported",
-    iconId: "optimism"
-  },
-  {
-    id: "arbitrum-sepolia",
-    name: "Arbitrum Sepolia",
-    chainId: 421614,
-    rpcUrl: "https://arbitrum-sepolia-rpc.placeholder",
-    explorerUrl: "https://sepolia.arbiscan.io",
-    status: "supported",
-    iconId: "arbitrum"
-  }
+  ...APP_CHAINS.map((chain) => ({
+    id: chain.id,
+    name: chain.name,
+    chainId: chain.chainId,
+    rpcUrl: chain.rpcUrl,
+    explorerUrl: chain.explorer,
+    status: "supported" as const,
+    iconId: chain.icon
+  }))
 ];
 
 export function getBridgeNetwork(id: string) {
