@@ -8,6 +8,7 @@ import { FaucetCard } from "@/components/faucet/FaucetCard";
 import { FaucetEligibility } from "@/components/faucet/FaucetEligibility";
 import { FaucetHistory } from "@/components/faucet/FaucetHistory";
 import { FaucetStats } from "@/components/faucet/FaucetStats";
+import { TokenLogo } from "@/components/token/TokenLogo";
 import { useFaucet } from "@/hooks/useFaucet";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { CIRCLE_FAUCET_URL, FAUCET_SAFETY_TEXT, FAUCET_TOKENS, type FaucetClaim } from "@/lib/faucet/tokens";
@@ -70,7 +71,7 @@ export default function FaucetPage() {
             <div>
               <p className="text-sm text-slate-400">Official external faucet</p>
               <h2 className="text-xl font-bold text-white">Circle Testnet Faucet</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Use Circle&apos;s public faucet directly for supported testnet USDC, EURC, and cirBTC. This opens Circle in a new tab and does not run through Velora AI.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Use Circle&apos;s public faucet directly for supported testnet assets when available. This opens Circle in a new tab and does not run through Velora AI.</p>
             </div>
             <a href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer" className="rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-bold text-mint transition hover:bg-mint hover:text-[#031018]">
               Open Circle Faucet
@@ -102,7 +103,7 @@ export default function FaucetPage() {
               {FAUCET_TOKENS.map((token) => (
                 <div key={token.symbol} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-4">
                   <div className="flex items-center gap-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-full border border-mint/30 bg-mint/10 text-xs font-black text-mint">{token.icon}</div>
+                    <TokenLogo symbol={token.symbol} size={36} />
                     <div>
                       <p className="font-semibold text-white">{token.symbol}</p>
                       <p className="text-xs text-slate-400">{token.name}</p>

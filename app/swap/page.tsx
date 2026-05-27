@@ -46,7 +46,7 @@ export default function SwapPage() {
                 <PopularPairs onPairSelect={(from, to) => setSelectedPair(`${from} -> ${to}`)} />
                 <p className="mt-4 text-sm text-cyan">Selected pair: {selectedPair}</p>
               </Panel>
-              <Panel title="Stablecoin rates" eyebrow="USDC, EURC, USDT, DAI, PYUSD">
+              <Panel title="Stablecoin rates" eyebrow="USDC, EURC, USDT">
                 <StablecoinRates />
               </Panel>
             </div>

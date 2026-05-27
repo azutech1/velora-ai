@@ -4,13 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { RadioTower, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
+import { NetworkLogo } from "@/components/token/NetworkLogo";
 
 function NetworkIcon({ network }: { network: BridgeNetwork }) {
-  return (
-    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-cyan/30 bg-cyan/10 text-xs font-black text-cyan shadow-cyan">
-      {network.icon}
-    </div>
-  );
+  return <NetworkLogo id={network.iconId} size={40} />;
 }
 
 export function NetworkPill({ network }: { network: BridgeNetwork }) {

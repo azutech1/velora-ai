@@ -9,6 +9,7 @@ import { BridgeRoutePreview } from "./BridgeRoutePreview";
 import { CrossChainConfirmModal } from "./CrossChainConfirmModal";
 import { NetworkSelector } from "./NetworkSelector";
 import { CROSS_CHAIN_USDC } from "@/lib/swap/networks";
+import { TokenLogo } from "@/components/token/TokenLogo";
 
 export function CrossChainSwap() {
   const bridge = useCrossChainSwap();
@@ -91,7 +92,7 @@ export function CrossChainSwap() {
             <p className="text-sm text-slate-300">From token</p>
             <div className="mt-2 flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-full border border-mint/30 bg-mint/10 text-sm font-black text-mint">{CROSS_CHAIN_USDC.icon}</div>
+                <TokenLogo symbol={CROSS_CHAIN_USDC.symbol} size={40} />
                 <div>
                   <p className="font-bold text-white">{CROSS_CHAIN_USDC.symbol}</p>
                   <p className="text-xs text-slate-400">{CROSS_CHAIN_USDC.name}</p>

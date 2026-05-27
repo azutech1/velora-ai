@@ -7,7 +7,7 @@ export type BridgeNetwork = {
   rpcUrl: string;
   explorerUrl: string;
   status: BridgeNetworkStatus;
-  icon: string;
+  iconId: string;
 };
 
 export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
@@ -18,7 +18,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     rpcUrl: "https://rpc.testnet.arc.network",
     explorerUrl: "https://testnet.arcscan.app",
     status: "supported",
-    icon: "A"
+    iconId: "arc"
   },
   {
     id: "ethereum-sepolia",
@@ -27,7 +27,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     rpcUrl: "https://ethereum-sepolia-rpc.placeholder",
     explorerUrl: "https://sepolia.etherscan.io",
     status: "supported",
-    icon: "Ξ"
+    iconId: "ethereum"
   },
   {
     id: "base-sepolia",
@@ -36,7 +36,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     rpcUrl: "https://base-sepolia-rpc.placeholder",
     explorerUrl: "https://sepolia.basescan.org",
     status: "supported",
-    icon: "B"
+    iconId: "base"
   },
   {
     id: "optimism-sepolia",
@@ -45,7 +45,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     rpcUrl: "https://optimism-sepolia-rpc.placeholder",
     explorerUrl: "https://sepolia-optimism.etherscan.io",
     status: "supported",
-    icon: "O"
+    iconId: "optimism"
   },
   {
     id: "arbitrum-sepolia",
@@ -54,7 +54,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     rpcUrl: "https://arbitrum-sepolia-rpc.placeholder",
     explorerUrl: "https://sepolia.arbiscan.io",
     status: "supported",
-    icon: "Ar"
+    iconId: "arbitrum"
   }
 ];
 
@@ -65,6 +65,11 @@ export function getBridgeNetwork(id: string) {
 export const CROSS_CHAIN_USDC = {
   symbol: "USDC",
   name: "USDC Testnet",
-  decimals: 6,
-  icon: "$"
+  decimals: 6
+};
+
+export const CROSS_CHAIN_EURC = {
+  symbol: "EURC",
+  name: "EURC Testnet",
+  decimals: 6
 };

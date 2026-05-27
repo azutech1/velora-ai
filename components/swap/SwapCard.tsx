@@ -232,7 +232,7 @@ export function SwapCard() {
               : unsupportedReason
                 ? unsupportedReason
               : appKitSwap.hasKitKey
-                ? "Demo pricing only for unsupported tokens. Circle App Kit real swaps are available on Arc Testnet for USDC, EURC, and cirBTC."
+                ? "Demo pricing only for unsupported tokens. Circle App Kit real swaps are available on Arc Testnet for USDC, EURC, and configured USDT."
                 : "Demo pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps."}
           </div>
 

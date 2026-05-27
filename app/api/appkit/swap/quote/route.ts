@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { formatUnits, isAddress, parseUnits } from "viem";
 import { ArcTestnet } from "@circle-fin/app-kit/chains";
-import { ARC_APP_KIT_CHAIN, ARC_CIRBTC_ADDRESS, ARC_USDT_ADDRESS, CIRCLE_APP_KIT_KEY, ZERO_ADDRESS, type ArcAppKitSwapToken } from "@/lib/appkit/config";
+import { ARC_APP_KIT_CHAIN, ARC_USDT_ADDRESS, CIRCLE_APP_KIT_KEY, ZERO_ADDRESS, type ArcAppKitSwapToken } from "@/lib/appkit/config";
 
 export const runtime = "nodejs";
 
@@ -48,7 +48,6 @@ const arcTestnet = ArcTestnet as {
 const TOKEN_META: Partial<Record<ArcAppKitSwapToken, { address?: string | null; decimals: number }>> = {
   USDC: { address: arcTestnet.usdcAddress, decimals: 6 },
   EURC: { address: arcTestnet.eurcAddress, decimals: 6 },
-  cirBTC: { address: ARC_CIRBTC_ADDRESS, decimals: 8 },
   USDT: {
     address: ARC_USDT_ADDRESS && ARC_USDT_ADDRESS !== ZERO_ADDRESS ? ARC_USDT_ADDRESS : arcTestnet.usdtAddress,
     decimals: 6
@@ -164,7 +163,7 @@ export async function POST(request: Request) {
   const outputToken = TOKEN_META[tokenOut];
   if (!inputToken?.address || !outputToken?.address) {
     const unsupportedToken = !inputToken?.address ? tokenIn : tokenOut;
-    const message = unsupportedToken === "USDT" ? "USDT is not supported by App Kit on Arc yet." : "Real Circle quotes are currently configured for USDC, EURC, and cirBTC on Arc Testnet only.";
+    const message = unsupportedToken === "USDT" ? "USDT is not supported by App Kit on Arc yet." : "Real Circle quotes are currently configured for USDC and EURC on Arc Testnet only.";
     return errorResponse(message);
   }
 

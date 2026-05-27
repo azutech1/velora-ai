@@ -4,8 +4,7 @@ const rows = [
   ["USDC", "EURC"],
   ["EURC", "USDC"],
   ["USDC", "USDT"],
-  ["USDC", "DAI"],
-  ["USDC", "PYUSD"]
+  ["USDT", "USDC"]
 ];
 
 export function StablecoinRates() {

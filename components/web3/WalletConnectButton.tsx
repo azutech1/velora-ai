@@ -4,6 +4,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown, Loader2, LogOut, Wallet } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useAuthContext } from "@/providers/AuthProvider";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -76,6 +77,8 @@ function WalletActivityTracker({
 }
 
 export function WalletConnectButton({ compact = false }: { compact?: boolean }) {
+  const auth = useAuthContext();
+
   return (
     <ConnectButton.Custom>
       {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted, authenticationStatus }) => {
@@ -123,6 +126,15 @@ export function WalletConnectButton({ compact = false }: { compact?: boolean }) 
                 {chain.name}
               </button>
             ) : null}
+            {auth.isAuthenticated ? (
+              <button onClick={auth.logout} className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-mint/30 hover:text-white">
+                Secure logout
+              </button>
+            ) : (
+              <button onClick={auth.signIn} disabled={auth.state === "signing"} className="rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-semibold text-mint transition hover:bg-mint hover:text-[#031018] disabled:opacity-60">
+                {auth.state === "signing" ? "Signing..." : "Sign in"}
+              </button>
+            )}
             <button onClick={openAccountModal} className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-white">
               <Wallet className="h-4 w-4 text-cyan" />
               {account.displayName || shortAddress(account.address)}

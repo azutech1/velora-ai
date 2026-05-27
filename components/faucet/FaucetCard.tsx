@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { type FaucetClaim, type FaucetToken } from "@/lib/faucet/tokens";
+import { TokenLogo } from "@/components/token/TokenLogo";
 
 function formatCooldown(ms: number) {
   if (ms <= 0) return "Ready";
@@ -29,7 +30,7 @@ export function FaucetCard({
     <motion.article whileHover={{ y: -5 }} className="glass rounded-lg p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-full border border-mint/30 bg-mint/10 text-sm font-black text-mint shadow-neon">{token.icon}</div>
+          <TokenLogo symbol={token.symbol} size={48} />
           <div>
             <h3 className="text-lg font-bold text-white">{token.symbol}</h3>
             <p className="text-sm text-slate-400">{token.name}</p>

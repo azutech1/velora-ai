@@ -4,6 +4,10 @@ export const ARC_TESTNET = {
   id: 5042002,
   name: "Arc Testnet",
   rpcUrl: process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL || "https://rpc.testnet.arc.network",
+  rpcFallbackUrls: (process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_FALLBACK_URLS || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean),
   explorerUrl: process.env.NEXT_PUBLIC_ARC_TESTNET_EXPLORER_URL || "https://testnet.arcscan.app",
   nativeCurrency: {
     name: "USDC",
@@ -23,7 +27,7 @@ export const arcTestnetChain = defineChain({
   nativeCurrency: ARC_TESTNET.nativeCurrency,
   rpcUrls: {
     default: {
-      http: [ARC_TESTNET.rpcUrl]
+      http: [ARC_TESTNET.rpcUrl, ...ARC_TESTNET.rpcFallbackUrls]
     }
   },
   blockExplorers: {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Wrapped Ether logo">
+  <circle cx="32" cy="32" r="30" fill="#141B2D"/>
+  <circle cx="32" cy="32" r="26" fill="none" stroke="#00F5C4" stroke-width="3"/>
+  <circle cx="32" cy="32" r="22" fill="#627EEA"/>
+  <path fill="#fff" fill-opacity=".86" d="M32 15l10.5 17.4L32 38.4 21.5 32.4 32 15z"/>
+  <path fill="#fff" d="M32 41l10.5-6.1L32 49.4 21.5 34.9 32 41z"/>
+</svg>

@@ -5,15 +5,12 @@ import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SWAP_TOKENS, type SwapToken, type SwapTokenCategory } from "@/lib/swap/tokens";
 import { cx } from "@/components/azu/utils";
+import { TokenLogo } from "@/components/token/TokenLogo";
 
 const filters: Array<"all" | SwapTokenCategory> = ["all", "stablecoin", "wrapped asset", "native ecosystem token"];
 
 function TokenIcon({ token }: { token: SwapToken }) {
-  return (
-    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-mint/30 bg-mint/10 text-sm font-black text-mint shadow-neon">
-      {token.icon}
-    </div>
-  );
+  return <TokenLogo symbol={token.symbol} size={40} />;
 }
 
 export function TokenPill({ token }: { token: SwapToken }) {
@@ -85,8 +82,9 @@ export function TokenSelector({ token, onSelect, label }: { token: SwapToken; on
                     >
                       <TokenPill token={item} />
                       <span className="text-right text-xs text-slate-400">
-                        Demo balance
+                        {item.contractAddress === "0x0000000000000000000000000000000000000000" ? "Demo balance" : "Arc balance"}
                         <span className="block text-sm font-semibold text-white">{item.mockBalance}</span>
+                        <span className="mt-1 inline-flex rounded-full border border-mint/20 bg-mint/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-mint">Verified</span>
                       </span>
                     </button>
                   ))}
