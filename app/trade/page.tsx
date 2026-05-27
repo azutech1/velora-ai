@@ -20,6 +20,7 @@ import { getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
 import { SWAP_TOKENS, estimateDemoSwap, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
+import { getTradeProviderPriority, shouldPreferArcNativeRoute } from "@/lib/trade/provider-priority";
 
 type TradeTab = "swap" | "bridge";
 
@@ -295,6 +296,25 @@ export default function TradePage() {
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
   const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
   const tradingMode: TradingMode = liveQuoteUnavailable ? "live-unavailable" : isLifiEnabled ? "live" : "demo";
+  const providerPriority = useMemo(
+    () =>
+      getTradeProviderPriority({
+        fromChainId: bridge.fromNetwork.chainId,
+        toChainId: bridge.fromNetwork.chainId,
+        fromToken: sellToken.symbol,
+        toToken: buyToken.symbol,
+        lifiEnabled: isLifiEnabled
+      }),
+    [bridge.fromNetwork.chainId, buyToken.symbol, isLifiEnabled, sellToken.symbol]
+  );
+  const preferredProvider = providerPriority[0];
+  const arcNativePreferred = shouldPreferArcNativeRoute({
+    fromChainId: bridge.fromNetwork.chainId,
+    toChainId: bridge.fromNetwork.chainId,
+    fromToken: sellToken.symbol,
+    toToken: buyToken.symbol,
+    lifiEnabled: isLifiEnabled
+  });
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -404,6 +424,19 @@ export default function TradePage() {
     }
 
     const walletChain = bridge.fromNetwork.chainId;
+    if (arcNativePreferred) {
+      recordActivity({
+        actionType: "arc_native_route_checked",
+        title: "Arc-native route checked",
+        description: "Velora AI checked the preferred Arc-native USDC/EURC route before using fallback liquidity.",
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        network: "Arc Testnet",
+        status: "info"
+      });
+    }
+
     const fromTokenAddress = getTokenAddress(sellToken.symbol, walletChain);
     const toTokenAddress = getTokenAddress(buyToken.symbol, walletChain);
     if (!fromTokenAddress || !toTokenAddress) {
@@ -451,7 +484,7 @@ export default function TradePage() {
         recordActivity({
           actionType: "live_quote_success",
           title: "Live quote success",
-          description: "LI.FI live quote returned successfully.",
+          description: arcNativePreferred ? "Arc-native adapter is not enabled yet; LI.FI fallback quote returned successfully." : "LI.FI live quote returned successfully.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
@@ -464,7 +497,7 @@ export default function TradePage() {
         recordActivity({
           actionType: "live_quote_failed",
           title: "Live quote failed",
-          description: "LI.FI quote request failed.",
+          description: arcNativePreferred ? "Arc-native adapter is reserved and LI.FI fallback quote failed." : "LI.FI quote request failed.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
@@ -834,6 +867,7 @@ export default function TradePage() {
                 <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
                   <p className="text-slate-300">Live token price: <span className="font-semibold text-white">{formatPrice(liveSellPrice)}</span></p>
                   <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
+                  <p className="text-slate-300">Preferred route: <span className="font-semibold text-white">{preferredProvider.label}</span></p>
                   {lifiQuote?.provider ? <p className="text-slate-300">Route provider: <span className="font-semibold text-white">{lifiQuote.provider}</span></p> : null}
                   <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ≈ {rate.toFixed(6)} {buyToken.symbol}</span></p>
                   <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
@@ -860,6 +894,11 @@ export default function TradePage() {
                   </>
                 )}
                 {swapMessage ? <p className="text-sm text-cyan">{swapMessage}</p> : null}
+                {arcNativePreferred ? (
+                  <p className="text-xs text-slate-400">
+                    Arc-native USDC/EURC is checked first. Until the official StableFX/App Kit execution adapter is enabled, executable quotes can fall back to LI.FI.
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-4">

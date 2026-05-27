@@ -16,6 +16,7 @@ export type ActivityFeature =
 export type ActivityActionType =
   | "trade_tab_opened"
   | "quote_requested"
+  | "arc_native_route_checked"
   | "live_quote_success"
   | "live_quote_failed"
   | "fallback_quote_used"

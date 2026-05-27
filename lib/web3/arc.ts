@@ -15,8 +15,9 @@ export const ARC_TESTNET = {
     decimals: 18
   },
   usdcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_USDC_ADDRESS || "0x3600000000000000000000000000000000000000") as Address,
-  // Add the official Arc Testnet EURC contract address here once Circle/Arc publishes it.
-  eurcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_EURC_ADDRESS || "0x0000000000000000000000000000000000000000") as Address,
+  eurcAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_EURC_ADDRESS || "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a") as Address,
+  stableFxEscrowAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_STABLEFX_ESCROW_ADDRESS || "0x867650F5eAe8df91445971f14d89fd84F0C9a9f8") as Address,
+  permit2Address: (process.env.NEXT_PUBLIC_ARC_TESTNET_PERMIT2_ADDRESS || "0x000000000022D473030F116dDEE9F6B43aC78BA3") as Address,
   // Paste the official Arc Testnet USDT address here only after Circle/App Kit confirms support.
   usdtAddress: (process.env.NEXT_PUBLIC_ARC_TESTNET_USDT_ADDRESS || "0x0000000000000000000000000000000000000000") as Address
 } as const;

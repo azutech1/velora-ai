@@ -5,7 +5,7 @@ type TradingMode = "live" | "demo" | "live-unavailable";
 export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   const text =
     mode === "live"
-      ? "Live Quote Mode - LI.FI quote route enabled."
+      ? "Live Route Mode - Arc-native first, LI.FI fallback."
       : mode === "live-unavailable"
         ? "Live quote unavailable - showing estimated quote."
         : "Preview Quote Mode - estimated pricing for testnet preview.";
@@ -20,7 +20,7 @@ export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   return (
     <div className="mb-4">
       <p className={`rounded-lg border p-3 text-sm ${className}`}>{text}</p>
-      <p className="mt-2 text-xs text-slate-400">Live quotes use the Velora AI LI.FI route. Real execution is enabled only after a supported route returns transaction data.</p>
+      <p className="mt-2 text-xs text-slate-400">Velora AI checks Arc-native USDC/EURC routes first, then LI.FI when the native adapter is unavailable. Real execution is enabled only after a supported route returns transaction data.</p>
     </div>
   );
 }
