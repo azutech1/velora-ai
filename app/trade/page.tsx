@@ -690,13 +690,13 @@ export default function TradePage() {
     recordActivity({
       actionType: "swap_completed",
       title: "Swap completed",
-      description: "Demo quote review completed in quote mode.",
+      description: "Estimated quote reviewed. No live transaction route was available.",
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
       status: "success"
     });
-    setSwapMessage("Swap reviewed in quote mode. Real router not connected yet.");
+    setSwapMessage("Estimated quote reviewed. Execute is available only when LI.FI returns transaction data.");
   }
 
   async function handleBridgeQuote() {
@@ -993,6 +993,7 @@ export default function TradePage() {
                     Arc-native USDC/EURC is checked first. Until the official StableFX/App Kit execution adapter is enabled, executable quotes can fall back to LI.FI.
                   </p>
                 ) : null}
+                <p className="text-xs text-slate-500">Arc Testnet only. These tokens have no real monetary value.</p>
               </div>
             ) : (
               <div className="space-y-4">
