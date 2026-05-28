@@ -80,10 +80,6 @@ function isNativeOrZeroAddress(value?: string | null) {
   return normalized === NATIVE_TOKEN_ADDRESS || normalized === "0x0000000000000000000000000000000000000000";
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
 function formatPrice(value: number) {
   return `$${value.toFixed(4)}`;
 }
@@ -427,7 +423,14 @@ export default function TradePage() {
         value: parseOptionalBigInt(request.value)
       });
     } catch (error) {
-      throw new Error(`LI.FI transaction preflight failed before wallet confirmation: ${errorMessage(error, "route would revert")}`);
+      console.warn("[Velora AI] LI.FI route preflight reverted", {
+        routeProvider: quote.provider,
+        to: request.to,
+        fromToken: quote.fromTokenAddress,
+        approvalAddress: quote.approvalAddress,
+        error
+      });
+      throw new Error("Live route is not executable right now. Click Get Quote again, try a smaller amount, or wait for a fresh LI.FI route. No gas was spent.");
     }
   }
 
@@ -467,6 +470,27 @@ export default function TradePage() {
 
     await transactions.trackTransaction(hash);
     return hash;
+  }
+
+  async function requestCurrentSwapLifiQuote() {
+    const chainId = bridge.fromNetwork.chainId;
+    const fromTokenAddress = getTokenAddress(sellToken.symbol, chainId);
+    const toTokenAddress = getTokenAddress(buyToken.symbol, chainId);
+    const fromChain = getChainById(chainId);
+
+    if (!address || !fromChain || !fromTokenAddress || !toTokenAddress) {
+      throw new Error("Live route is unavailable for the selected token pair.");
+    }
+
+    return requestLifiQuote({
+      fromChain: fromChain.lifiChainId,
+      toChain: fromChain.lifiChainId,
+      fromToken: fromTokenAddress,
+      toToken: toTokenAddress,
+      fromAmount: parseUnits(swapAmount, sellToken.decimals).toString(),
+      fromAddress: address,
+      slippage: 0.5
+    });
   }
 
   useEffect(() => {
@@ -560,19 +584,7 @@ export default function TradePage() {
 
     if (isLifiEnabled) {
       try {
-        const fromChain = getChainById(walletChain);
-        if (!fromChain) {
-          throw new Error("Route currently unavailable.");
-        }
-        const quote = await requestLifiQuote({
-          fromChain: fromChain.lifiChainId,
-          toChain: fromChain.lifiChainId,
-          fromToken: fromTokenAddress,
-          toToken: toTokenAddress,
-          fromAmount: parseUnits(swapAmount, sellToken.decimals).toString(),
-          fromAddress: address,
-          slippage: 0.5
-        });
+        const quote = await requestCurrentSwapLifiQuote();
         setLifiQuote(quote);
         setLiveQuoteUnavailable(false);
         recordActivity({
@@ -658,7 +670,10 @@ export default function TradePage() {
 
     if (lifiQuote?.transactionRequest) {
       try {
-        const hash = await executeLifiTransaction(lifiQuote, "swap");
+        setSwapMessage("Refreshing live route before wallet confirmation...");
+        const freshQuote = await requestCurrentSwapLifiQuote();
+        setLifiQuote(freshQuote);
+        const hash = await executeLifiTransaction(freshQuote, "swap");
         recordActivity({
           actionType: "swap_completed",
           title: "Swap confirmed",
