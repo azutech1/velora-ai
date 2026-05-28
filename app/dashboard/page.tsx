@@ -262,7 +262,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </Panel>
-          <Panel title="Recent transactions">
+          <Panel title="Recent payment activity">
             <TransactionsTable rows={transactions.slice(0, 4)} />
           </Panel>
         </div>

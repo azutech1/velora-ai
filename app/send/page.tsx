@@ -177,7 +177,7 @@ export default function SendPage() {
   }
 
   return (
-    <AppShell title="Send USDC">
+    <AppShell title="Payments" eyebrow="Arc Network USDC payment composer">
       <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
         <Panel title="Transfer details" eyebrow="Arc Network payment composer">
           <form onSubmit={submit} className="space-y-4">

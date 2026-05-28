@@ -5,9 +5,7 @@ import {
   Coins,
   Cpu,
   Droplets,
-  History,
   LayoutDashboard,
-  LineChart,
   Network,
   Repeat2,
   Send,
@@ -15,21 +13,26 @@ import {
   ShieldCheck,
   Sparkles,
   Wallet,
-  Zap
+  Zap,
+  type LucideIcon
 } from "lucide-react";
 
-export const navItems = [
+export type NavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  secondary?: boolean;
+};
+
+export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Send USDC", href: "/send", icon: Send },
+  { label: "Payments", href: "/send", icon: Send },
   { label: "Bridge & Swap", href: "/trade", icon: Repeat2 },
-  { label: "Token", href: "/token", icon: Coins },
   { label: "Faucet", href: "/faucet", icon: Droplets },
   { label: "Activity", href: "/activity", icon: Activity },
-  { label: "Transactions", href: "/transactions", icon: History },
   { label: "AI Automation", href: "/automation", icon: Cpu },
   { label: "AI Agents", href: "/agents", icon: Bot },
-  { label: "Analytics", href: "/analytics", icon: LineChart },
-  { label: "Settings", href: "/settings", icon: Settings }
+  { label: "Settings", href: "/settings", icon: Settings, secondary: true }
 ];
 
 export const featureCards = [

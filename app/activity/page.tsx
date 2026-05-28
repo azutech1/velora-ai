@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { Download, ShieldCheck, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
-import { MetricCard, Panel } from "@/components/azu/ui";
+import { transactions } from "@/components/azu/data";
+import { MetricCard, Panel, TransactionsTable } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { ActivityFeature, ActivityStatus } from "@/lib/activity/types";
@@ -87,6 +88,10 @@ export default function ActivityPage() {
           <p className="mt-4 rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
             Activity records are stored locally in demo mode. Production will require backend indexing and user consent.
           </p>
+        </Panel>
+
+        <Panel title="Transaction history" eyebrow="Merged into the unified Activity workspace">
+          <TransactionsTable rows={transactions} />
         </Panel>
 
         <Panel title="Activity timeline" eyebrow={`${filteredActivities.length} matching records`}>

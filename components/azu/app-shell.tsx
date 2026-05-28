@@ -36,12 +36,14 @@ export function AmbientBackground() {
 function Sidebar() {
   const pathname = usePathname();
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const primaryNavItems = navItems.filter((item) => !item.secondary);
+  const secondaryNavItems = navItems.filter((item) => item.secondary);
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-[#06101d]/78 px-5 py-6 backdrop-blur-2xl lg:block">
       <Logo />
-      <nav className="mt-10 space-y-2">
-        {navItems.map((item) => {
+      <nav className="mt-9 space-y-1.5">
+        {primaryNavItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -57,6 +59,26 @@ function Sidebar() {
             </Link>
           );
         })}
+        {secondaryNavItems.length ? (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            {secondaryNavItems.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cx(
+                    "group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-[0.18em] transition",
+                    active ? "border border-cyan/30 bg-cyan/10 text-white" : "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
+                  )}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </nav>
       <div className="glass mt-10 rounded-lg p-4">
         <p className="text-sm font-semibold text-mint">Arc Policy Guard</p>
@@ -79,6 +101,8 @@ function Sidebar() {
 export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const primaryNavItems = navItems.filter((item) => !item.secondary);
+  const secondaryNavItems = navItems.filter((item) => item.secondary);
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -121,20 +145,52 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
       <AnimatePresence>
         {mobileOpen && (
           <motion.div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="h-full w-80 max-w-[88vw] border-r border-white/10 bg-[#06101d] p-5">
+            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="flex h-full w-80 max-w-[88vw] flex-col border-r border-white/10 bg-[#06101d] p-5">
               <div className="flex items-center justify-between">
                 <Logo />
                 <button className="rounded-lg border border-white/10 p-2 text-slate-300" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <nav className="mt-8 space-y-2">
-                {navItems.map((item) => (
-                  <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-200 hover:bg-white/[0.06]">
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                ))}
+              <nav className="mt-8 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+                {primaryNavItems.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cx(
+                        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition",
+                        active ? "border border-mint/30 bg-mint/10 text-white" : "text-slate-200 hover:bg-white/[0.06]"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+                {secondaryNavItems.length ? (
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    {secondaryNavItems.map((item) => {
+                      const active = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMobileOpen(false)}
+                          className={cx(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                            active ? "border border-cyan/30 bg-cyan/10 text-white" : "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
+                          )}
+                        >
+                          <item.icon className="h-3.5 w-3.5" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </nav>
             </motion.aside>
           </motion.div>
