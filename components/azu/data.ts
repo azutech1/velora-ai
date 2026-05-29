@@ -64,7 +64,7 @@ export const agents = [
 export const rules = [
   { name: "Auto-pay inference invoices below $750", enabled: true, limit: "$750", saved: "$1,280" },
   { name: "Require approval for new recipient wallets", enabled: true, limit: "Manual", saved: "$0" },
-  { name: "Pause spends if Arc health drops below 98%", enabled: true, limit: "98%", saved: "$4,900" },
+  { name: "Pause spends while testnet metrics are unavailable", enabled: true, limit: "Manual", saved: "--" },
   { name: "Route API payments through verified keys only", enabled: false, limit: "API", saved: "$620" }
 ];
 
