@@ -154,7 +154,7 @@ function ActivityRow({ record, index }: { record: ActivityRecord; index: number 
               {record.token ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.token}</span> : null}
               {record.amount ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.amount}</span> : null}
               {record.network ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.network}</span> : null}
-              {record.txHash ? (
+              {record.txHash && record.txHash !== "N/A" ? (
                 explorerUrl ? (
                   <a className="rounded-full bg-white/[0.05] px-3 py-1 text-cyan hover:text-mint" href={explorerUrl} target="_blank" rel="noreferrer">
                     Tx: {shortAddress(record.txHash)}

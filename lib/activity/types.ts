@@ -42,6 +42,7 @@ export type ActivityActionType =
   | "usdc_send_started"
   | "usdc_send_completed"
   | "usdc_send_failed"
+  | "usdc_receive_completed"
   | "ai_automation_created"
   | "ai_automation_toggled"
   | "ai_agent_viewed"

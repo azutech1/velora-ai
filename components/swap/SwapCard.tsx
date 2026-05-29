@@ -115,14 +115,14 @@ export function SwapCard() {
     setState("success");
     setMessage(`Demo preview ready: ${amount} ${fromToken.symbol} to ${formatTokenAmount(quote.output, toToken.symbol)}.`);
     recordActivity({
-      actionType: "swap_completed",
-      title: "Swap preview completed",
+      actionType: "swap_reviewed",
+      title: "Swap preview reviewed",
       description: `Demo quote prepared for ${fromToken.symbol} to ${toToken.symbol}.`,
       feature: "swap",
       token: `${fromToken.symbol}/${toToken.symbol}`,
       amount,
       network: "Arc Testnet",
-      status: "success"
+      status: "info"
     });
   }
 

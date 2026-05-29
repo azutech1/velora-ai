@@ -772,13 +772,13 @@ export default function TradePage() {
     }
 
     recordActivity({
-      actionType: "swap_completed",
-      title: "Swap completed",
+      actionType: "swap_reviewed",
+      title: "Swap reviewed",
       description: "Estimated quote reviewed. No live transaction route was available.",
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
-      status: "success",
+      status: "info",
       metadata: getSwapActivityMetadata("reviewed")
     });
     setSwapMessage("Estimated quote reviewed. Execute is available only when LI.FI returns transaction data.");
@@ -977,15 +977,14 @@ export default function TradePage() {
 
     await bridge.confirmBridge();
     recordActivity({
-      actionType: "bridge_completed",
-      title: "Bridge completed",
+      actionType: "bridge_reviewed",
+      title: "Bridge reviewed",
       description: "Bridge quote confirmed in quote mode.",
       feature: "bridge",
       token: bridge.tokenSymbol,
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "success",
-      txHash: bridge.quote.hashPlaceholder,
+      status: "info",
       metadata: getBridgeActivityMetadata("reviewed")
     });
     setBridgeMessage(`Bridge reviewed in quote mode: ${bridge.quote.hashPlaceholder}`);

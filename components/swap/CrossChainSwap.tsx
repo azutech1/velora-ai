@@ -49,15 +49,14 @@ export function CrossChainSwap() {
     await bridge.confirmBridge();
     setModalOpen(false);
     recordActivity({
-      actionType: "bridge_completed",
-      title: "Bridge completed",
-      description: `Demo bridge completed from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
+      actionType: "bridge_reviewed",
+      title: "Bridge reviewed",
+      description: `Bridge quote reviewed from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
       feature: "bridge",
       token: "USDC",
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "success",
-      txHash: bridge.quote.hashPlaceholder
+      status: "info"
     });
   }
 

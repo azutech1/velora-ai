@@ -68,6 +68,7 @@ export function saveActivity(input: ActivityInput) {
     token: input.token ?? "N/A",
     amount: input.amount ?? "N/A",
     network: input.network ?? "N/A",
+    txHash: input.txHash ?? "N/A",
     timestamp: now
   };
 
