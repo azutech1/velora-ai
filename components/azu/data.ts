@@ -86,17 +86,17 @@ export const activityLogs = [
 ];
 
 export const networkSignals = [
-  { label: "Arc health", value: "99.99%", detail: "18 validators synced" },
-  { label: "Gas estimate", value: "$0.0038", detail: "Low congestion" },
-  { label: "Finality", value: "1.8s", detail: "Median confirmation" },
-  { label: "Policy engine", value: "Active", detail: "4 rules watching" }
+  { label: "Arc network", value: "Arc Testnet", detail: "Connect wallet for live state" },
+  { label: "Gas estimate", value: "--", detail: "Available during transaction preview" },
+  { label: "Finality", value: "--", detail: "Shown from confirmed activity" },
+  { label: "Policy engine", value: "Ready", detail: "Controls are configured in Automation" }
 ];
 
 export const dashboardMetrics = [
-  { title: "USDC Balance", value: "$284,920.42", detail: "+12.8% this week", icon: CircleDollarSign },
-  { title: "AVL Balance", value: "12,840 AVL", detail: "Utility access credits", icon: Coins },
-  { title: "Arc Network", value: "99.99%", detail: "Testnet online", icon: Network },
-  { title: "Transactions", value: "1,284", detail: "+214 this week", icon: Activity },
-  { title: "AI Agents", value: "4 active", detail: "64 automations", icon: Bot },
-  { title: "Total Volume", value: "$2.84M", detail: "Across Arc rails", icon: Wallet }
+  { title: "USDC Balance", value: "--", detail: "Connect wallet", icon: CircleDollarSign },
+  { title: "AVL Rewards", value: "Coming Soon", detail: "Not live yet", icon: Coins, badge: "Future utility token" },
+  { title: "Arc Network", value: "Arc Testnet", detail: "Connect wallet for live status", icon: Network },
+  { title: "Recent Activity", value: "--", detail: "No activity yet", icon: Activity },
+  { title: "AI Agents", value: "Ready", detail: "Agent permissions available", icon: Bot },
+  { title: "Volume", value: "--", detail: "Volume tracking coming soon", icon: Wallet }
 ];

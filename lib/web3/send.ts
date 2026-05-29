@@ -18,24 +18,40 @@ export function validateUSDCSend(recipient: string, amount: string): SendValidat
     return { valid: false, reason: "Enter a valid EVM recipient address." };
   }
 
-  const numericAmount = Number(amount);
+  const trimmedAmount = amount.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmedAmount)) {
+    return { valid: false, reason: "Enter a valid decimal USDC amount." };
+  }
+
+  const numericAmount = Number(trimmedAmount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     return { valid: false, reason: "Enter a USDC amount greater than zero." };
   }
 
-  return {
-    valid: true,
-    recipient,
-    amountUnits: parseUnits(amount, USDC_DECIMALS)
-  };
+  const decimalPart = trimmedAmount.split(".")[1];
+  if (decimalPart && decimalPart.length > USDC_DECIMALS) {
+    return { valid: false, reason: `USDC supports up to ${USDC_DECIMALS} decimal places.` };
+  }
+
+  try {
+    return {
+      valid: true,
+      recipient,
+      amountUnits: parseUnits(trimmedAmount, USDC_DECIMALS)
+    };
+  } catch {
+    return { valid: false, reason: "Unable to parse this USDC amount." };
+  }
 }
 
 export function createUSDCSendContractRequest(recipient: Address, amount: string) {
+  const trimmedAmount = amount.trim();
+
   return {
     chainId: ARC_CHAIN_ID,
     address: USDC_CONTRACT_ADDRESS,
     abi: erc20UsdcAbi,
     functionName: "transfer",
-    args: [recipient, parseUnits(amount, USDC_DECIMALS)]
+    args: [recipient, parseUnits(trimmedAmount, USDC_DECIMALS)]
   } as const;
 }

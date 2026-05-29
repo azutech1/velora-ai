@@ -5,12 +5,15 @@ import { ArrowDownLeft, ArrowUpRight, ChevronRight, LucideIcon } from "lucide-re
 import { transactions } from "./data";
 import { cx } from "./utils";
 
-export function MetricCard({ title, value, detail, icon: Icon }: { title: string; value: string; detail: string; icon: LucideIcon }) {
+export function MetricCard({ title, value, detail, icon: Icon, badge }: { title: string; value: string; detail: string; icon: LucideIcon; badge?: string }) {
   return (
     <motion.div whileHover={{ y: -4 }} className="glass rounded-lg p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-400">{title}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-slate-400">{title}</p>
+            {badge ? <span className="rounded-full border border-mint/20 bg-mint/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-mint">{badge}</span> : null}
+          </div>
           <p className="mt-2 text-2xl font-bold text-white">{value}</p>
           <p className="mt-2 text-xs text-mint">{detail}</p>
         </div>

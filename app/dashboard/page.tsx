@@ -1,22 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bot, CheckCircle2, Droplets, RadioTower, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, Bot, CheckCircle2, CircleDollarSign, Coins, Network, RadioTower, Search, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { formatUnits } from "viem";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useAccount, useReadContract } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
-import { VolumeAreaChart } from "@/components/azu/charts";
-import { activityLogs, agents, dashboardMetrics, networkSignals, rules, transactions } from "@/components/azu/data";
-import { MetricCard, Panel, TransactionsTable } from "@/components/azu/ui";
+import { MetricCard, Panel } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
-import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
+import type { ActivityRecord } from "@/lib/activity/types";
+import { erc20UsdcAbi, USDC_CONTRACT_ADDRESS } from "@/lib/contracts/usdc";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
-import { estimateDemoSwap } from "@/lib/swap/tokens";
-import { FAUCET_STORAGE_KEY, FAUCET_TOKENS, type FaucetClaim } from "@/lib/faucet/tokens";
-import { CROSS_CHAIN_NETWORKS } from "@/lib/swap/networks";
 
 type StoredTx = {
   hash: string;
@@ -25,24 +23,134 @@ type StoredTx = {
   createdAt: string;
 };
 
+function buildActivityChartData(records: ActivityRecord[]) {
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    return {
+      key: date.toISOString().slice(0, 10),
+      label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      activity: 0
+    };
+  });
+
+  records.forEach((record) => {
+    const key = new Date(record.timestamp).toISOString().slice(0, 10);
+    const bucket = days.find((day) => day.key === key);
+    if (bucket) bucket.activity += 1;
+  });
+
+  return days;
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="grid min-h-64 place-items-center rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
+      <div>
+        <Search className="mx-auto h-10 w-10 text-cyan" />
+        <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-400">{message}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { chainId, expectedChain, isArc } = useArcNetwork();
   const [lastTx, setLastTx] = useState<StoredTx | null>(null);
-  const [txCount, setTxCount] = useState(0);
-  const [lastFaucetClaim, setLastFaucetClaim] = useState<FaucetClaim | null>(null);
   const { activities, recordActivity } = useActivityRecorder();
-  const stablecoinPrices = useStablecoinPrices();
-  const eurcRate = estimateDemoSwap("USDC", "EURC", "1").output;
-  const faucetDailyLimit = FAUCET_TOKENS.reduce((sum, token) => sum + token.dailyLimit, 0);
+
+  const { data: usdcBalance, isLoading: isUsdcLoading, isError: isUsdcError } = useReadContract({
+    address: USDC_CONTRACT_ADDRESS,
+    abi: erc20UsdcAbi,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(isConnected && isArc && address) }
+  });
+
+  const walletActivities = useMemo(() => {
+    if (!isConnected || !address) return [];
+    const normalizedAddress = address.toLowerCase();
+    return activities.filter((activity) => activity.walletAddress.toLowerCase() === normalizedAddress);
+  }, [activities, address, isConnected]);
+
+  const transactionActivities = useMemo(
+    () => walletActivities.filter((activity) => Boolean(activity.txHash) || ["send", "swap", "bridge"].includes(activity.feature)),
+    [walletActivities]
+  );
+
+  const chartData = useMemo(() => buildActivityChartData(walletActivities), [walletActivities]);
+  const hasChartData = chartData.some((item) => item.activity > 0);
+
+  const formattedUsdcBalance = useMemo(() => {
+    if (!isConnected) return "Connect wallet";
+    if (!isArc) return "Switch to Arc";
+    if (isUsdcLoading) return "Loading...";
+    if (isUsdcError || typeof usdcBalance !== "bigint") return "No data available";
+    const value = Number(formatUnits(usdcBalance, 6));
+    return `${value.toLocaleString(undefined, { maximumFractionDigits: 4 })} USDC`;
+  }, [isArc, isConnected, isUsdcError, isUsdcLoading, usdcBalance]);
+
+  const insightItems = useMemo(() => {
+    if (!isConnected || walletActivities.length === 0) return [];
+    const failedSwaps = walletActivities.filter((activity) => activity.feature === "swap" && activity.status === "failed").length;
+    const completedSwaps = walletActivities.filter((activity) => activity.feature === "swap" && activity.status === "success").length;
+    const bridgeActions = walletActivities.filter((activity) => activity.feature === "bridge").length;
+    const sendActions = walletActivities.filter((activity) => activity.feature === "send").length;
+    const insights: Array<[string, string]> = [];
+
+    if (failedSwaps > 0) insights.push(["Swap review", `${failedSwaps} swap ${failedSwaps === 1 ? "attempt needs" : "attempts need"} attention.`]);
+    if (completedSwaps > 0) insights.push(["Stablecoin activity", `${completedSwaps} completed swap ${completedSwaps === 1 ? "is" : "are"} recorded for this wallet.`]);
+    if (bridgeActions > 0) insights.push(["Bridge activity", `${bridgeActions} bridge ${bridgeActions === 1 ? "action has" : "actions have"} been recorded.`]);
+    if (sendActions > 0) insights.push(["Payment activity", `${sendActions} USDC payment ${sendActions === 1 ? "action is" : "actions are"} available in Activity.`]);
+
+    return insights;
+  }, [isConnected, walletActivities]);
+
+  const metrics = [
+    {
+      title: "USDC Balance",
+      value: formattedUsdcBalance,
+      detail: !isConnected ? "Connect wallet" : isArc ? "Arc ERC-20 balance" : "Unsupported network",
+      icon: CircleDollarSign
+    },
+    {
+      title: "AVL Rewards",
+      value: "Coming Soon",
+      detail: "Not live yet",
+      icon: Coins,
+      badge: "Future utility token"
+    },
+    {
+      title: "Arc Network",
+      value: isConnected ? (isArc ? "Arc Testnet Connected" : "Unsupported network") : "Connect wallet",
+      detail: isConnected ? expectedChain.name : "No data available",
+      icon: Network
+    },
+    {
+      title: "Recent Activity",
+      value: isConnected ? (walletActivities.length ? `${walletActivities.length}` : "No activity yet") : "--",
+      detail: isConnected ? "Recorded actions" : "No data available",
+      icon: Activity
+    },
+    {
+      title: "AI Agents",
+      value: isConnected ? "Ready" : "Connect wallet",
+      detail: "Agent permissions are managed in AI Agents",
+      icon: Bot
+    },
+    {
+      title: "Volume",
+      value: "--",
+      detail: isConnected ? "Volume tracking coming soon" : "No volume data",
+      icon: Wallet
+    }
+  ];
 
   useEffect(() => {
     const raw = window.localStorage.getItem("velora:lastTransaction");
-    const count = window.localStorage.getItem("velora:transactionCount");
-    const faucetRaw = window.localStorage.getItem(FAUCET_STORAGE_KEY);
     setLastTx(raw ? (JSON.parse(raw) as StoredTx) : null);
-    setTxCount(count ? Number(count) : 0);
-    setLastFaucetClaim(faucetRaw ? (JSON.parse(faucetRaw) as FaucetClaim[])[0] ?? null : null);
   }, []);
 
   useEffect(() => {
@@ -59,7 +167,7 @@ export default function DashboardPage() {
   return (
     <AppShell title="Dashboard">
       <div className="space-y-6">
-        <Panel title="Wallet connection" eyebrow="Live Web3 status">
+        <Panel title="Wallet Status" eyebrow="Live Web3 status">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
               <div className="flex items-center gap-2 text-cyan">
@@ -67,161 +175,122 @@ export default function DashboardPage() {
                 <p className="font-semibold text-white">Connected wallet</p>
               </div>
               <p className="mt-3 break-all text-sm text-slate-400">
-                {isConnecting || isReconnecting ? "Connecting..." : isConnected && address ? address : "Disconnected"}
+                {isConnecting || isReconnecting ? "Connecting..." : isConnected && address ? address : "Connect wallet"}
               </p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Selected network</p>
-              <p className="mt-3 font-semibold text-white">{isConnected ? (isArc ? expectedChain.name : `Chain ${chainId}`) : "No wallet network"}</p>
+              <p className="text-sm text-slate-400">Network</p>
+              <p className="mt-3 font-semibold text-white">{isConnected ? (isArc ? expectedChain.name : `Chain ${chainId}`) : "No data available"}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Session transactions</p>
-              <p className="mt-3 font-semibold text-white">{txCount}</p>
+              <p className="text-sm text-slate-400">Session activity</p>
+              <p className="mt-3 font-semibold text-white">{isConnected ? (walletActivities.length ? `${walletActivities.length} records` : "No activity yet") : "--"}</p>
             </div>
           </div>
         </Panel>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-          {dashboardMetrics.map((metric) => (
+          {metrics.map((metric) => (
             <MetricCard key={metric.title} {...metric} />
           ))}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Panel title="Analytics overview" eyebrow="Real-time USDC payment intelligence">
-            <div className="h-72">
-              <VolumeAreaChart />
-            </div>
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <Panel title="Activity Overview" eyebrow="Wallet-driven activity">
+            {!isConnected || !hasChartData ? (
+              <EmptyState message={"No activity available yet.\nConnect wallet and start using Velora AI."} />
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#00F5C4" stopOpacity={0.32} />
+                        <stop offset="100%" stopColor="#00C2FF" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} width={32} />
+                    <Tooltip contentStyle={{ background: "#07111f", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#e2e8f0" }} />
+                    <Area type="monotone" dataKey="activity" stroke="#00F5C4" strokeWidth={2} fill="url(#activityFill)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </Panel>
-          <Panel title="AI insights panel" eyebrow="Autonomous finance monitor">
-            <div className="space-y-4">
-              {[
-                ["Spend anomaly", "Nova is 18% under its weekly API payment baseline."],
-                ["Fee opportunity", "Arc fees are low. Batch creator payouts within the next hour."],
-                ["Risk note", "One new recipient awaits policy confirmation."]
-              ].map(([title, text]) => (
-                <div key={title} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <p className="font-semibold text-white">{title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
-                </div>
-              ))}
-            </div>
+
+          <Panel title="AI Insights" eyebrow="Generated from wallet activity">
+            {!isConnected || insightItems.length === 0 ? (
+              <EmptyState message={isConnected ? "No AI insights yet." : "Connect wallet to generate insights from real activity."} />
+            ) : (
+              <div className="space-y-4">
+                {insightItems.map(([title, text]) => (
+                  <div key={title} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <p className="font-semibold text-white">{title}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </Panel>
         </div>
 
-        <Panel
-          title="Bridge & Swap"
-          eyebrow="Unified stablecoin terminal"
-          action={
-            <Link href="/trade" className="rounded-lg bg-gradient-to-r from-mint to-cyan px-4 py-2 text-sm font-bold text-[#031018] shadow-neon transition hover:scale-[1.02]">
-              Open Bridge & Swap
-            </Link>
-          }
-        >
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Active tokens</p>
-              <p className="mt-2 text-xl font-bold text-white">USDC, EURC, USDT</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Top pair</p>
-              <p className="mt-2 text-xl font-bold text-white">USDC -&gt; EURC</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Supported networks</p>
-              <p className="mt-2 text-xl font-bold text-white">{CROSS_CHAIN_NETWORKS.length}</p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-              <p className="text-xs text-slate-500">USDC</p>
-              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.USDC.price.toFixed(4)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-              <p className="text-xs text-slate-500">EURC</p>
-              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.EURC.price.toFixed(4)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-              <p className="text-xs text-slate-500">USDT</p>
-              <p className="mt-1 font-semibold text-white">${stablecoinPrices.prices.USDT.price.toFixed(4)}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-cyan">
-            1 USDC ≈ {eurcRate.toFixed(4)} EURC. Quote mode only - real router/bridge not connected yet.
-          </p>
-        </Panel>
-
-        <Panel
-          title="Testnet Faucet"
-          eyebrow="Arc development tokens"
-          action={
-            <Link href="/faucet" className="rounded-lg border border-mint/30 bg-mint/10 px-4 py-2 text-sm font-bold text-mint transition hover:bg-mint hover:text-[#031018]">
-              Open Faucet
-            </Link>
-          }
-        >
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <Droplets className="h-5 w-5 text-cyan" />
-              <p className="mt-3 text-sm text-slate-400">Available faucet tokens</p>
-              <p className="mt-2 text-xl font-bold text-white">{FAUCET_TOKENS.length}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Last claim</p>
-              <p className="mt-2 text-xl font-bold text-white">{lastFaucetClaim ? lastFaucetClaim.symbol : "None"}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Daily remaining claims</p>
-              <p className="mt-2 text-xl font-bold text-white">{faucetDailyLimit}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-cyan">Faucet tokens are for Arc testnet development only and have no real monetary value.</p>
-        </Panel>
-
         <div className="grid gap-6 xl:grid-cols-3">
           <Panel
-            title="Recent Velora Activity"
-            eyebrow="Latest 5 recorded actions"
+            title="Recent Activity"
+            eyebrow="Latest recorded actions"
             action={
               <Link href="/activity" className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint">
                 View Activity
               </Link>
             }
           >
-            <ActivityTimeline records={activities.slice(0, 5)} emptyText="No Velora AI activity recorded yet." />
+            <ActivityTimeline records={walletActivities.slice(0, 5)} emptyText={isConnected ? "No activity recorded for this wallet yet." : "Connect wallet to view activity."} />
           </Panel>
-          <Panel title="AI agent activity">
+
+          <Panel title="AI Agents" eyebrow="Automation workspace">
             <div className="space-y-4">
-              {agents.slice(0, 3).map((agent) => (
-                <div key={agent.name} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Bot className="h-5 w-5 text-cyan" />
-                      <div>
-                        <p className="font-semibold text-white">{agent.name}</p>
-                        <p className="text-xs text-slate-400">{agent.activity}</p>
-                      </div>
+              {["Agent permissions", "Automation rules", "Marketplace readiness"].map((item) => (
+                <div key={item} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                  <div className="flex items-center gap-3">
+                    <Bot className="h-5 w-5 text-cyan" />
+                    <div>
+                      <p className="font-semibold text-white">{item}</p>
+                      <p className="text-xs text-slate-400">{isConnected ? "Ready for authenticated configuration" : "Connect wallet to configure"}</p>
                     </div>
-                    <span className="h-2.5 w-2.5 rounded-full bg-mint shadow-neon" />
                   </div>
                 </div>
               ))}
             </div>
           </Panel>
-          <Panel title="Arc network status">
-            <div className="grid gap-3">
-              {networkSignals.map((signal) => (
-                <div key={signal.label} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-4">
+
+          <Panel title="Arc Network" eyebrow="Connection status">
+            <div className="space-y-4">
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm text-slate-400">{signal.label}</p>
-                    <p className="mt-1 font-bold text-white">{signal.value}</p>
+                    <p className="text-sm text-slate-400">Status</p>
+                    <p className="mt-2 font-bold text-white">{isConnected ? (isArc ? "Arc Testnet Connected" : "Switch to Arc Testnet") : "Connect wallet"}</p>
                   </div>
                   <RadioTower className="h-5 w-5 text-mint" />
                 </div>
-              ))}
+              </div>
+              <p className="text-sm leading-6 text-slate-400">Velora AI uses Arc network state from the connected wallet. No uptime or volume estimates are displayed without live data.</p>
             </div>
           </Panel>
-          <Panel title="Last transaction">
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
+          <Panel title="Stablecoin Activity">
+            {transactionActivities.length ? (
+              <ActivityTimeline records={transactionActivities.slice(0, 4)} emptyText="No transactions yet." />
+            ) : (
+              <EmptyState message={isConnected ? "No transactions yet." : "Connect wallet to view stablecoin activity."} />
+            )}
+          </Panel>
+
+          <Panel title="Last Transaction">
             {lastTx ? (
               <div className="space-y-4">
                 <div className="rounded-lg border border-mint/20 bg-mint/10 p-4">
@@ -243,48 +312,24 @@ export default function DashboardPage() {
                 </a>
               </div>
             ) : (
-              <p className="text-sm leading-6 text-slate-400">No confirmed USDC transaction has been recorded in this browser session yet.</p>
+              <p className="text-sm leading-6 text-slate-400">{isConnected ? "No confirmed USDC transaction has been recorded yet." : "Connect wallet to see the latest confirmed transaction."}</p>
             )}
           </Panel>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
-          <Panel title="Automation overview">
-            <div className="grid gap-3 md:grid-cols-3">
-              {rules.slice(0, 3).map((rule) => (
-                <div key={rule.name} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <CheckCircle2 className="h-5 w-5 text-mint" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">{rule.name}</p>
-                    <p className="text-xs text-slate-400">Saved {rule.saved} in reviewed spend</p>
-                  </div>
+        <Panel title="Automation Status" eyebrow="Policy controls">
+          <div className="grid gap-3 md:grid-cols-3">
+            {["Spending policies", "Approval controls", "Agent permissions"].map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <CheckCircle2 className="h-5 w-5 text-mint" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{item}</p>
+                  <p className="text-xs text-slate-400">{isConnected ? "Available in AI Automation" : "Connect wallet to configure"}</p>
                 </div>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="Recent payment activity">
-            <TransactionsTable rows={transactions.slice(0, 4)} />
-          </Panel>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
-          <Panel title="Connected account">
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-slate-400">Wallet address</p>
-              <p className="mt-2 break-all text-white">{address ?? "Connect a wallet to activate Arc Testnet actions."}</p>
-            </div>
-          </Panel>
-          <Panel title="Live transaction feed">
-            <div className="space-y-4">
-              {activityLogs.map((log, index) => (
-                <div key={log} className="flex gap-3">
-                  <div className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full border border-cyan/30 bg-cyan/10 text-xs text-cyan">{index + 1}</div>
-                  <p className="text-sm leading-6 text-slate-300">{log}</p>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
       </div>
     </AppShell>
   );
