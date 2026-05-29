@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, LucideIcon } from "lucide-react";
-import { transactions } from "./data";
 import { cx } from "./utils";
 
 export function MetricCard({ title, value, detail, icon: Icon, badge }: { title: string; value: string; detail: string; icon: LucideIcon; badge?: string }) {
@@ -51,7 +50,22 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={cx("rounded-full px-3 py-1 text-xs font-medium", styles)}>{status}</span>;
 }
 
-export function TransactionsTable({ rows = transactions }: { rows?: typeof transactions }) {
+type TransactionTableRow = {
+  id: string;
+  type: "Send" | "Receive";
+  counterparty: string;
+  amount: string;
+  status: string;
+  time: string;
+  explorer: string;
+  explorerUrl?: string;
+};
+
+export function TransactionsTable({ rows }: { rows: TransactionTableRow[] }) {
+  if (!rows.length) {
+    return <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">No transactions yet.</div>;
+  }
+
   return (
     <div className="scrollbar-soft overflow-x-auto">
       <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-left text-sm">
@@ -79,7 +93,7 @@ export function TransactionsTable({ rows = transactions }: { rows?: typeof trans
               <td className="px-4 py-4"><StatusBadge status={tx.status} /></td>
               <td className="px-4 py-4">{tx.time}</td>
               <td className="rounded-r-lg px-4 py-4">
-                <a className="inline-flex items-center gap-1 text-cyan hover:text-mint" href="#" aria-label={`Open ${tx.id} in explorer`}>
+                <a className="inline-flex items-center gap-1 text-cyan hover:text-mint" href={tx.explorerUrl} target="_blank" rel="noreferrer" aria-label={`Open ${tx.id} in explorer`}>
                   {tx.explorer} <ChevronRight className="h-3 w-3" />
                 </a>
               </td>

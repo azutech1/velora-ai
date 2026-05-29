@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock3, Info, Search } from "lucide-react";
 import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
-import { shortAddress } from "@/lib/utils/format";
+import { APP_CHAINS } from "@/lib/config/chains";
+import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
 import { TokenLogo } from "@/components/token/TokenLogo";
@@ -30,6 +31,16 @@ function metadataText(record: ActivityRecord, key: string) {
 
 function labelize(value: string) {
   return value.replaceAll("_", " ");
+}
+
+function isEvmTransactionHash(value?: string) {
+  return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value));
+}
+
+function getExplorerUrl(record: ActivityRecord) {
+  if (!isEvmTransactionHash(record.txHash)) return null;
+  const chain = APP_CHAINS.find((item) => item.name === record.network) ?? APP_CHAINS[0];
+  return explorerTxUrl(chain.explorer, record.txHash as string);
 }
 
 function TradeDetails({ record }: { record: ActivityRecord }) {
@@ -106,42 +117,57 @@ export function ActivityTimeline({ records, emptyText = "No activity recorded ye
   return (
     <div className="space-y-3">
       {records.map((record, index) => (
-        <motion.article
-          key={record.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.12) }}
-          className="rounded-lg border border-white/10 bg-white/[0.04] p-4"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 gap-3">
-              <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-cyan/20 bg-cyan/10 text-cyan">
-                <Activity className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold text-white">{record.title}</h3>
-                  <span className={cx("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold", statusStyle(record.status))}>
-                    <StatusIcon status={record.status} />
-                    {record.status}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{record.description}</p>
-                <TradeDetails record={record} />
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                  <span className="rounded-full bg-white/[0.05] px-3 py-1 capitalize">{record.feature}</span>
-                  <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.walletAddress === "guest" ? "Guest" : shortAddress(record.walletAddress)}</span>
-                  {record.token ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.token}</span> : null}
-                  {record.amount ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.amount}</span> : null}
-                  {record.network ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.network}</span> : null}
-                  {record.txHash ? <span className="rounded-full bg-white/[0.05] px-3 py-1">Tx: {shortAddress(record.txHash)}</span> : null}
-                </div>
-              </div>
-            </div>
-            <time className="text-xs text-slate-500">{new Date(record.timestamp).toLocaleString()}</time>
-          </div>
-        </motion.article>
+        <ActivityRow key={record.id} record={record} index={index} />
       ))}
     </div>
+  );
+}
+
+function ActivityRow({ record, index }: { record: ActivityRecord; index: number }) {
+  const explorerUrl = getExplorerUrl(record);
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.12) }}
+      className="rounded-lg border border-white/10 bg-white/[0.04] p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3">
+          <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-cyan/20 bg-cyan/10 text-cyan">
+            <Activity className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-white">{record.title}</h3>
+              <span className={cx("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold", statusStyle(record.status))}>
+                <StatusIcon status={record.status} />
+                {record.status}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{record.description}</p>
+            <TradeDetails record={record} />
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+              <span className="rounded-full bg-white/[0.05] px-3 py-1 capitalize">{record.feature}</span>
+              <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.walletAddress === "guest" ? "Guest" : shortAddress(record.walletAddress)}</span>
+              {record.token ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.token}</span> : null}
+              {record.amount ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.amount}</span> : null}
+              {record.network ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.network}</span> : null}
+              {record.txHash ? (
+                explorerUrl ? (
+                  <a className="rounded-full bg-white/[0.05] px-3 py-1 text-cyan hover:text-mint" href={explorerUrl} target="_blank" rel="noreferrer">
+                    Tx: {shortAddress(record.txHash)}
+                  </a>
+                ) : (
+                  <span className="rounded-full bg-white/[0.05] px-3 py-1">Tx: {shortAddress(record.txHash)}</span>
+                )
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <time className="text-xs text-slate-500">{new Date(record.timestamp).toLocaleString()}</time>
+      </div>
+    </motion.article>
   );
 }

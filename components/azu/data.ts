@@ -54,15 +54,6 @@ export const analyticsData = [
   { day: "Sun", volume: 148000, agents: 64, transactions: 249, fees: 338 }
 ];
 
-export const transactions = [
-  { id: "0x8f2...19a", type: "Send", counterparty: "Nova Support Agent", amount: "-2,450.00", status: "Confirmed", time: "18 sec ago", explorer: "ArcScan" },
-  { id: "0xa01...7cd", type: "Receive", counterparty: "Arc Treasury Vault", amount: "+8,100.00", status: "Confirmed", time: "4 min ago", explorer: "ArcScan" },
-  { id: "0x74e...ba9", type: "Send", counterparty: "Inference Credits", amount: "-680.50", status: "Pending", time: "8 min ago", explorer: "ArcScan" },
-  { id: "0x31c...492", type: "Send", counterparty: "Data Labeling Pool", amount: "-1,240.00", status: "Confirmed", time: "31 min ago", explorer: "ArcScan" },
-  { id: "0xe0b...0cc", type: "Receive", counterparty: "Partner Settlement", amount: "+14,900.00", status: "Confirmed", time: "1 hr ago", explorer: "ArcScan" },
-  { id: "0xb92...f17", type: "Send", counterparty: "Vector Compute API", amount: "-4,250.00", status: "Failed", time: "2 hr ago", explorer: "ArcScan" }
-];
-
 export const agents = [
   { name: "Nova", role: "API cost manager", status: "Active", spend: "$12,480", limit: "$18k/mo", activity: "Paid 8 inference invoices", health: 84 },
   { name: "Lyra", role: "Creator payout agent", status: "Active", spend: "$42,910", limit: "$60k/mo", activity: "Queued 24 USDC transfers", health: 72 },

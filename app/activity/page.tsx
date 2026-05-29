@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, ShieldCheck, Trash2 } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
-import { transactions } from "@/components/azu/data";
-import { MetricCard, Panel, TransactionsTable } from "@/components/azu/ui";
+import { MetricCard, Panel } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { ActivityFeature, ActivityStatus } from "@/lib/activity/types";
@@ -13,7 +12,7 @@ const featureOptions: Array<"all" | ActivityFeature> = ["all", "wallet", "networ
 const statusOptions: Array<"all" | ActivityStatus> = ["all", "pending", "success", "failed", "info"];
 
 export default function ActivityPage() {
-  const { activities, clearDemoActivity, exportCsv } = useActivityRecorder();
+  const { activities, exportCsv } = useActivityRecorder();
   const [feature, setFeature] = useState<(typeof featureOptions)[number]>("all");
   const [status, setStatus] = useState<(typeof statusOptions)[number]>("all");
   const [token, setToken] = useState("all");
@@ -55,14 +54,11 @@ export default function ActivityPage() {
 
         <Panel
           title="Activity controls"
-          eyebrow="Demo mode local recorder"
+          eyebrow="Wallet transaction recorder"
           action={
             <div className="flex flex-wrap gap-2">
               <button onClick={downloadCsv} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint">
                 <Download className="h-4 w-4" /> Export CSV
-              </button>
-              <button onClick={() => clearDemoActivity()} className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-200 transition hover:bg-red-500/20">
-                <Trash2 className="h-4 w-4" /> Clear demo activity
               </button>
             </div>
           }
@@ -85,17 +81,10 @@ export default function ActivityPage() {
               ))}
             </select>
           </div>
-          <p className="mt-4 rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-            Activity records are stored locally in demo mode. Production will require backend indexing and user consent.
-          </p>
-        </Panel>
-
-        <Panel title="Transaction history" eyebrow="Merged into the unified Activity workspace">
-          <TransactionsTable rows={transactions} />
         </Panel>
 
         <Panel title="Activity timeline" eyebrow={`${filteredActivities.length} matching records`}>
-          <ActivityTimeline records={filteredActivities} />
+          <ActivityTimeline records={filteredActivities} emptyText="No transactions yet." />
         </Panel>
       </div>
     </AppShell>

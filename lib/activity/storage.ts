@@ -65,6 +65,9 @@ export function saveActivity(input: ActivityInput) {
     ...input,
     id: createActivityId(input, walletAddress),
     walletAddress,
+    token: input.token ?? "N/A",
+    amount: input.amount ?? "N/A",
+    network: input.network ?? "N/A",
     timestamp: now
   };
 

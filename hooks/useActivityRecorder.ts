@@ -60,7 +60,7 @@ export function useActivityRecorder() {
     [address, isAuthenticated, walletAddress]
   );
 
-  const clearDemoActivity = useCallback(
+  const clearActivity = useCallback(
     (walletAddress?: string | null) => {
       clearActivities(walletAddress);
       refresh();
@@ -72,11 +72,11 @@ export function useActivityRecorder() {
     () => ({
       activities,
       recordActivity,
-      clearDemoActivity,
+      clearActivity,
       exportCsv: exportActivitiesToCsv,
       syncing,
       storageMode: isAuthenticated && hasSupabaseConfig() ? "database" : "local"
     }),
-    [activities, clearDemoActivity, isAuthenticated, recordActivity, syncing]
+    [activities, clearActivity, isAuthenticated, recordActivity, syncing]
   );
 }

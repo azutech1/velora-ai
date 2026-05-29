@@ -14,7 +14,7 @@ export function FaucetEligibility({ isConnected, isArc }: { isConnected: boolean
           <p className="text-sm text-slate-400">Faucet eligibility</p>
           <h2 className="text-xl font-bold text-white">Arc testnet access</h2>
         </div>
-        <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Demo Mode</span>
+        <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Wallet required</span>
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">

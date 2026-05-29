@@ -33,11 +33,11 @@ export default function FaucetPage() {
     try {
       const claim = await requestToken(token);
       setSuccessClaim(claim);
-      setToast({ type: "success", text: `${claim.amount} requested in Demo Mode.` });
+      setToast({ type: "success", text: `${claim.amount} requested.` });
       recordActivity({
         actionType: token.symbol === "AVL" ? "avl_testnet_claim" : "faucet_claim",
         title: `${token.symbol} faucet claim`,
-        description: `${claim.amount} requested from the Velora AI demo faucet.`,
+        description: `${claim.amount} requested from the configured faucet.`,
         feature: "faucet",
         token: token.symbol,
         amount: claim.amount,
@@ -86,7 +86,7 @@ export default function FaucetPage() {
               <p className="text-sm text-slate-400">Token request cards</p>
               <h2 className="text-xl font-bold text-white">Request testnet assets</h2>
             </div>
-            <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Demo Mode</span>
+            <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Real claims only</span>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {FAUCET_TOKENS.map((token) => (
@@ -124,7 +124,7 @@ export default function FaucetPage() {
             <motion.div initial={{ y: 20, scale: 0.96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.96 }} className="glass w-full max-w-md rounded-lg p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-400">Demo faucet success</p>
+                  <p className="text-sm text-slate-400">Faucet request submitted</p>
                   <h2 className="mt-1 text-xl font-bold text-white">{successClaim.amount}</h2>
                 </div>
                 <button onClick={() => setSuccessClaim(null)} className="rounded-lg border border-white/10 p-2 text-slate-400 hover:text-white" aria-label="Close success modal">
@@ -133,13 +133,13 @@ export default function FaucetPage() {
               </div>
               <div className="mt-6 rounded-lg border border-mint/20 bg-mint/10 p-4 text-sm text-mint">
                 <Check className="mb-2 h-5 w-5" />
-                Mock claim created. This does not call a real faucet API.
+                Faucet transaction hash received from the configured faucet.
               </div>
               <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-xs text-slate-500">Mock transaction hash</p>
+                <p className="text-xs text-slate-500">Transaction hash</p>
                 <p className="mt-2 break-all text-sm font-semibold text-white">{successClaim.hash}</p>
                 <a className="mt-3 inline-flex text-sm text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, successClaim.hash)} target="_blank" rel="noreferrer">
-                  Explorer placeholder: {shortAddress(successClaim.hash)}
+                  Open transaction: {shortAddress(successClaim.hash)}
                 </a>
               </div>
             </motion.div>

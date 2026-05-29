@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { useArcNetwork } from "./useArcNetwork";
-import { ARC_FAUCET_API_URL, createMockFaucetHash, FAUCET_STORAGE_KEY, FAUCET_TOKENS, type FaucetClaim, type FaucetToken } from "@/lib/faucet/tokens";
+import { ARC_FAUCET_API_URL, FAUCET_STORAGE_KEY, FAUCET_TOKENS, type FaucetClaim, type FaucetToken } from "@/lib/faucet/tokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+type FaucetApiResponse = {
+  txHash?: string;
+  hash?: string;
+  amount?: string;
+};
 
 function todayClaims(claims: FaucetClaim[], symbol: string) {
   const now = Date.now();
@@ -71,28 +77,45 @@ export function useFaucet() {
         setLoadingSymbol(token.symbol);
         setMessage(null);
 
-        // Future integration: POST to ARC_FAUCET_API_URL with wallet address,
-        // token symbol, and desired amount once the official Arc faucet API is available.
-        if (ARC_FAUCET_API_URL) {
-          // Keep this in Demo Mode until the API contract, auth, and response schema are confirmed.
+        if (!ARC_FAUCET_API_URL) {
+          throw new Error("Open the official faucet to request real testnet assets.");
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 850));
+
+        const response = await fetch(ARC_FAUCET_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            walletAddress: address,
+            token: token.symbol,
+            amount: token.faucetAmount
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Faucet request failed.");
+        }
+
+        const payload = (await response.json()) as FaucetApiResponse;
+        const hash = payload.txHash ?? payload.hash;
+        if (!hash) {
+          throw new Error("Faucet did not return a transaction hash.");
+        }
 
         const claim: FaucetClaim = {
           id: `${token.symbol}-${Date.now()}`,
           symbol: token.symbol,
-          amount: token.faucetAmount,
-          hash: createMockFaucetHash(token.symbol),
+          amount: payload.amount ?? token.faucetAmount,
+          hash,
           claimedAt: new Date().toISOString()
         };
         persistClaims([claim, ...claims].slice(0, 20));
-        setMessage(`${token.faucetAmount} requested in Demo Mode.`);
+        setMessage(`${claim.amount} requested.`);
         return claim;
       } finally {
         setLoadingSymbol(null);
       }
     },
-    [claims, getEligibility, persistClaims]
+    [address, claims, getEligibility, persistClaims]
   );
 
   const dailyRemainingClaims = useMemo(

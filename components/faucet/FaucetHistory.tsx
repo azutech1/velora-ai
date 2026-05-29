@@ -23,7 +23,7 @@ export function FaucetHistory({ claims }: { claims: FaucetClaim[] }) {
             </div>
           ))
         ) : (
-          <p className="text-sm leading-6 text-slate-400">No demo faucet claims yet. Claim history is stored locally in this browser.</p>
+          <p className="text-sm leading-6 text-slate-400">No faucet claims yet.</p>
         )}
       </div>
     </section>
