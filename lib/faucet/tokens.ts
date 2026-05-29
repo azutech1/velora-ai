@@ -1,7 +1,6 @@
 export type FaucetToken = {
   symbol: string;
   name: string;
-  mockBalance: string;
   faucetAmount: string;
   dailyLimit: number;
   cooldownMinutes: number;
@@ -16,10 +15,10 @@ export type FaucetClaim = {
 };
 
 export const FAUCET_TOKENS: FaucetToken[] = [
-  { symbol: "ARC", name: "ARC Testnet", mockBalance: "24.50", faucetAmount: "10 test ARC", dailyLimit: 3, cooldownMinutes: 30 },
-  { symbol: "USDC", name: "USDC Testnet", mockBalance: "284.20", faucetAmount: "100 test USDC", dailyLimit: 3, cooldownMinutes: 30 },
-  { symbol: "EURC", name: "EURC Testnet", mockBalance: "180.50", faucetAmount: "100 test EURC", dailyLimit: 3, cooldownMinutes: 30 },
-  { symbol: "AVL", name: "Velora AI Token Testnet", mockBalance: "12,840", faucetAmount: "1,000 test AVL", dailyLimit: 3, cooldownMinutes: 30 }
+  { symbol: "ARC", name: "ARC Testnet", faucetAmount: "10 test ARC", dailyLimit: 3, cooldownMinutes: 30 },
+  { symbol: "USDC", name: "USDC Testnet", faucetAmount: "100 test USDC", dailyLimit: 3, cooldownMinutes: 30 },
+  { symbol: "EURC", name: "EURC Testnet", faucetAmount: "100 test EURC", dailyLimit: 3, cooldownMinutes: 30 },
+  { symbol: "AVL", name: "Velora AI Token Testnet", faucetAmount: "1,000 test AVL", dailyLimit: 3, cooldownMinutes: 30 }
 ];
 
 export const FAUCET_SAFETY_TEXT = "Faucet tokens are for Arc testnet development only and have no real monetary value.";

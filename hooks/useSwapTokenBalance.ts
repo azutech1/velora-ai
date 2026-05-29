@@ -31,30 +31,45 @@ export function useSwapTokenBalance(token: SwapToken) {
     return `${groupedWhole}${trimmedFraction ? `.${trimmedFraction}` : ""}`;
   }, [balance.data, token.decimals]);
 
+  const numericBalance = useMemo(() => {
+    if (typeof balance.data !== "bigint") return null;
+    const parsed = Number(formatUnits(balance.data, token.decimals));
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [balance.data, token.decimals]);
+
+  const emptyBalance = {
+    formattedBalance: null,
+    numericBalance: null,
+    rawBalance: null
+  };
+
   if (!isConnected) {
     return {
-      label: `Reference balance: ${token.mockBalance} ${token.symbol}`,
+      label: "Connect wallet to view balances",
       isReal: false,
       isLoading: false,
-      error: null
+      error: null,
+      ...emptyBalance
     };
   }
 
   if (!isArcChainId(chainId)) {
     return {
-      label: "Switch to Arc Testnet to read live balance",
+      label: "Switch to Arc Testnet to view balances",
       isReal: false,
       isLoading: false,
-      error: null
+      error: null,
+      ...emptyBalance
     };
   }
 
   if (!isConfiguredSwapToken(token)) {
     return {
-      label: `Reference balance: ${token.mockBalance} ${token.symbol}`,
+      label: "Balance unavailable",
       isReal: false,
       isLoading: false,
-      error: null
+      error: null,
+      ...emptyBalance
     };
   }
 
@@ -63,16 +78,18 @@ export function useSwapTokenBalance(token: SwapToken) {
       label: `Loading ${token.symbol} balance...`,
       isReal: true,
       isLoading: true,
-      error: null
+      error: null,
+      ...emptyBalance
     };
   }
 
   if (balance.error) {
     return {
-      label: `Unable to read ${token.symbol} balance`,
+      label: "Balance unavailable",
       isReal: true,
       isLoading: false,
-      error: balance.error
+      error: balance.error,
+      ...emptyBalance
     };
   }
 
@@ -80,6 +97,9 @@ export function useSwapTokenBalance(token: SwapToken) {
     label: `Wallet balance: ${formattedBalance ?? "0"} ${token.symbol}`,
     isReal: true,
     isLoading: false,
-    error: null
+    error: null,
+    formattedBalance: formattedBalance ?? "0",
+    numericBalance: numericBalance ?? 0,
+    rawBalance: typeof balance.data === "bigint" ? balance.data : BigInt(0)
   };
 }

@@ -109,7 +109,7 @@ export default function FaucetPage() {
                       <p className="text-xs text-slate-400">{token.name}</p>
                     </div>
                   </div>
-                  <p className="text-sm text-mint">{token.mockBalance}</p>
+                  <p className="text-right text-sm text-slate-400">{isConnected ? "Balance unavailable" : "Connect wallet to view balances"}</p>
                 </div>
               ))}
             </div>

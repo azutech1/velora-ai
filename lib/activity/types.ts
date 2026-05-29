@@ -23,6 +23,8 @@ export type ActivityActionType =
   | "swap_reviewed"
   | "bridge_reviewed"
   | "quote_failed"
+  | "swap"
+  | "bridge"
   | "wallet_connect"
   | "wallet_disconnect"
   | "network_switch"

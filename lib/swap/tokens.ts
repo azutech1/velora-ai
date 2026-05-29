@@ -7,7 +7,6 @@ export type SwapToken = {
   symbol: string;
   name: string;
   decimals: number;
-  mockBalance: string;
   mockPrice: number;
   contractAddress: Address;
   category: SwapTokenCategory;
@@ -16,15 +15,15 @@ export type SwapToken = {
 const UNCONFIGURED_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 export const SWAP_TOKENS: SwapToken[] = [
-  { symbol: "USDC", name: "USD Coin", decimals: 6, mockBalance: "284,920.42", mockPrice: 1, contractAddress: (getConfiguredTokenAddress("USDC", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
-  { symbol: "EURC", name: "Euro Coin", decimals: 6, mockBalance: "42,180.10", mockPrice: 1.08, contractAddress: (getConfiguredTokenAddress("EURC", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
-  { symbol: "USDT", name: "Tether USD", decimals: 6, mockBalance: "18,450.00", mockPrice: 1, contractAddress: (getConfiguredTokenAddress("USDT", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
-  { symbol: "WETH", name: "Wrapped Ether", decimals: 18, mockBalance: "12.84", mockPrice: 3850, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
-  { symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8, mockBalance: "0.82", mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
-  { symbol: "ETH", name: "Ether", decimals: 18, mockBalance: "18.40", mockPrice: 3850, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
-  { symbol: "BTC", name: "Bitcoin", decimals: 8, mockBalance: "1.24", mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
-  { symbol: "ARC", name: "Arc Testnet Token", decimals: 18, mockBalance: "1,250.00", mockPrice: 0, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" },
-  { symbol: "AVL", name: "Velora AI Token", decimals: 18, mockBalance: "12,840", mockPrice: 0.08, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" }
+  { symbol: "USDC", name: "USD Coin", decimals: 6, mockPrice: 1, contractAddress: (getConfiguredTokenAddress("USDC", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
+  { symbol: "EURC", name: "Euro Coin", decimals: 6, mockPrice: 1.08, contractAddress: (getConfiguredTokenAddress("EURC", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
+  { symbol: "USDT", name: "Tether USD", decimals: 6, mockPrice: 1, contractAddress: (getConfiguredTokenAddress("USDT", 5042002) ?? UNCONFIGURED_TOKEN_ADDRESS) as Address, category: "stablecoin" },
+  { symbol: "WETH", name: "Wrapped Ether", decimals: 18, mockPrice: 3850, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
+  { symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8, mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
+  { symbol: "ETH", name: "Ether", decimals: 18, mockPrice: 3850, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
+  { symbol: "BTC", name: "Bitcoin", decimals: 8, mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
+  { symbol: "ARC", name: "Arc Testnet Token", decimals: 18, mockPrice: 0, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" },
+  { symbol: "AVL", name: "Velora AI Token", decimals: 18, mockPrice: 0.08, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" }
 ];
 
 export const QUICK_SWAP_PAIRS = [

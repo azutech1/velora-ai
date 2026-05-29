@@ -82,8 +82,7 @@ export function TokenSelector({ token, onSelect, label }: { token: SwapToken; on
                     >
                       <TokenPill token={item} />
                       <span className="text-right text-xs text-slate-400">
-                        {item.contractAddress === "0x0000000000000000000000000000000000000000" ? "Reference balance" : "Arc balance"}
-                        <span className="block text-sm font-semibold text-white">{item.mockBalance}</span>
+                        <span className="block capitalize">{item.category}</span>
                         <span className="mt-1 inline-flex rounded-full border border-mint/20 bg-mint/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-mint">Verified</span>
                       </span>
                     </button>

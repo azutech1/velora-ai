@@ -28,7 +28,7 @@ export function TokenOverview() {
           {[
             ["Network", AVL_TOKEN.network],
             ["Total supply", AVL_TOKEN.totalSupply],
-            ["Mock balance", AVL_TOKEN.mockBalance],
+            ["Rewards status", "Coming Soon"],
             ["Decimals", String(AVL_TOKEN.decimals)]
           ].map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">

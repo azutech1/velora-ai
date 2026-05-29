@@ -15,6 +15,7 @@ import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
 import { useCrossChainSwap } from "@/hooks/useCrossChainSwap";
 import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
+import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 import { useTransactions } from "@/hooks/useTransactions";
 import { getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
@@ -89,8 +90,15 @@ function formatChange(change: number) {
   return `${sign}${change.toFixed(2)}%`;
 }
 
-function parseMockBalance(token: SwapToken) {
-  return Number(token.mockBalance.replaceAll(",", "")) || 0;
+function formatDisplayAmount(value: number) {
+  if (!Number.isFinite(value)) return "";
+  return value.toFixed(4).replace(/\.?0+$/, "");
+}
+
+function formatLifiAmount(value: string | null | undefined, decimals = 6) {
+  if (!value) return "";
+  const numeric = Number(value) / 10 ** decimals;
+  return formatDisplayAmount(numeric);
 }
 
 function PriceTicker() {
@@ -286,7 +294,7 @@ export default function TradePage() {
   const [tab, setTab] = useState<TradeTab>("swap");
   const [sellToken, setSellToken] = useState(getSwapToken("USDC"));
   const [buyToken, setBuyToken] = useState(getSwapToken("EURC"));
-  const [swapAmount, setSwapAmount] = useState("250");
+  const [swapAmount, setSwapAmount] = useState("0");
   const [swapQuoteReady, setSwapQuoteReady] = useState(false);
   const [swapMessage, setSwapMessage] = useState("");
   const [bridgeQuoteReady, setBridgeQuoteReady] = useState(false);
@@ -295,6 +303,10 @@ export default function TradePage() {
   const [lifiQuote, setLifiQuote] = useState<LifiEstimate | null>(null);
 
   const activeTokens = useMemo(() => ACTIVE_STABLECOINS.map((symbol) => getSwapToken(symbol)).filter(Boolean), []);
+  const sellTokenBalance = useSwapTokenBalance(sellToken);
+  const buyTokenBalance = useSwapTokenBalance(buyToken);
+  const hasSellBalance = typeof sellTokenBalance.numericBalance === "number" && sellTokenBalance.numericBalance > 0;
+  const balanceActionDisabled = !hasSellBalance || sellTokenBalance.isLoading;
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
     const fromExisting = SWAP_TOKENS.filter((token) => !ACTIVE_STABLECOINS.includes(token.symbol as (typeof ACTIVE_STABLECOINS)[number])).map((token) => ({ symbol: token.symbol, name: token.name }));
     const merged = [...fromExisting, ...EXTRA_COMING_SOON_TOKENS];
@@ -434,6 +446,41 @@ export default function TradePage() {
     }
   }
 
+  function getSwapActivityMetadata(trackingStatus: string, quote: LifiEstimate | null = lifiQuote) {
+    return {
+      tradeType: "swap",
+      fromToken: sellToken.symbol,
+      toToken: buyToken.symbol,
+      fromAmount: swapAmount,
+      estimatedReceiveAmount: quote?.toAmount ? formatLifiAmount(quote.toAmount, buyToken.decimals) : formatDisplayAmount(estimatedReceive),
+      fromChain: bridge.fromNetwork.name,
+      toChain: bridge.fromNetwork.name,
+      fromChainIconId: bridge.fromNetwork.iconId,
+      toChainIconId: bridge.fromNetwork.iconId,
+      routeProvider: quote?.provider ?? preferredProvider.label,
+      quoteMode: quote?.transactionRequest ? "live" : liveQuoteUnavailable ? "fallback" : "preview",
+      trackingStatus
+    };
+  }
+
+  function getBridgeActivityMetadata(trackingStatus: string, quote: LifiEstimate | null = lifiQuote) {
+    return {
+      tradeType: "bridge",
+      token: bridge.tokenSymbol,
+      fromAmount: bridge.amount,
+      estimatedReceiveAmount: quote?.toAmount ? formatLifiAmount(quote.toAmount, 6) : formatDisplayAmount(bridge.quote.estimatedReceive),
+      fromChain: bridge.fromNetwork.name,
+      toChain: bridge.toNetwork.name,
+      fromChainIconId: bridge.fromNetwork.iconId,
+      toChainIconId: bridge.toNetwork.iconId,
+      routeProvider: quote?.provider ?? bridge.quote.route,
+      quoteMode: quote?.transactionRequest ? "live" : liveQuoteUnavailable ? "fallback" : "preview",
+      trackingStatus,
+      bridgeFee: quote?.feeEstimateUsd ? `$${quote.feeEstimateUsd}` : `${formatDisplayAmount(bridge.quote.bridgeFee)} ${bridge.tokenSymbol}`,
+      eta: bridge.quote.estimatedTime
+    };
+  }
+
   async function executeLifiTransaction(quote: LifiEstimate, feature: "swap" | "bridge") {
     if (!walletClient || !address) {
       throw new Error("Connect wallet to execute this transaction.");
@@ -465,7 +512,8 @@ export default function TradePage() {
       token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
       amount: feature === "swap" ? swapAmount : bridge.amount,
       status: "pending",
-      txHash: hash
+      txHash: hash,
+      metadata: feature === "swap" ? getSwapActivityMetadata("transaction_submitted", quote) : getBridgeActivityMetadata("transaction_submitted", quote)
     });
 
     await transactions.trackTransaction(hash);
@@ -504,8 +552,16 @@ export default function TradePage() {
   }, [recordActivity, tab]);
 
   function setPercent(percent: 0.5 | 1) {
-    const value = parseMockBalance(sellToken) * percent;
-    setSwapAmount(value.toFixed(2));
+    const available = sellTokenBalance.numericBalance ?? 0;
+    if (available <= 0) {
+      setSwapAmount("0");
+      return;
+    }
+
+    const value = available * percent;
+    const precision = sellToken.decimals > 6 ? 6 : 2;
+    const formatted = value.toFixed(precision).replace(/\.?0+$/, "");
+    setSwapAmount(formatted || "0");
   }
 
   async function handleSwapQuote() {
@@ -519,7 +575,8 @@ export default function TradePage() {
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
-      status: "pending"
+      status: "pending",
+      metadata: getSwapActivityMetadata("quote_requested")
     });
 
     if (!isConnected || !address) {
@@ -535,7 +592,8 @@ export default function TradePage() {
         feature: "swap",
         token: `${sellToken.symbol}/${buyToken.symbol}`,
         amount: swapAmount,
-        status: "failed"
+        status: "failed",
+        metadata: getSwapActivityMetadata("quote_failed")
       });
       setSwapMessage("Enter a valid amount and choose different tokens.");
       return;
@@ -551,7 +609,8 @@ export default function TradePage() {
         token: `${sellToken.symbol}/${buyToken.symbol}`,
         amount: swapAmount,
         network: "Arc Testnet",
-        status: "info"
+        status: "info",
+        metadata: getSwapActivityMetadata("arc_native_route_checked")
       });
     }
 
@@ -566,7 +625,8 @@ export default function TradePage() {
         feature: "swap",
         token: `${sellToken.symbol}/${buyToken.symbol}`,
         amount: swapAmount,
-        status: "failed"
+        status: "failed",
+        metadata: getSwapActivityMetadata("live_quote_failed")
       });
       recordActivity({
         actionType: "fallback_quote_used",
@@ -575,7 +635,8 @@ export default function TradePage() {
         feature: "swap",
         token: `${sellToken.symbol}/${buyToken.symbol}`,
         amount: swapAmount,
-        status: "info"
+        status: "info",
+        metadata: getSwapActivityMetadata("fallback_quote_used")
       });
       setSwapQuoteReady(true);
       setSwapMessage("Live quote unavailable — showing estimated quote.");
@@ -594,7 +655,8 @@ export default function TradePage() {
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "success"
+          status: "success",
+          metadata: getSwapActivityMetadata("live_quote_success", quote)
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : "Live quote unavailable.";
@@ -607,7 +669,8 @@ export default function TradePage() {
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "failed"
+          status: "failed",
+          metadata: getSwapActivityMetadata("live_quote_failed")
         });
         recordActivity({
           actionType: "fallback_quote_used",
@@ -616,7 +679,8 @@ export default function TradePage() {
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "info"
+          status: "info",
+          metadata: getSwapActivityMetadata("fallback_quote_used")
         });
         setSwapMessage(reason === "Live quote unavailable." ? "Live quote unavailable — showing estimated quote." : "Live quote unavailable — showing estimated quote.");
       }
@@ -634,7 +698,8 @@ export default function TradePage() {
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
-      status: "info"
+      status: "info",
+      metadata: getSwapActivityMetadata("reviewed")
     });
 
     if (realSwapEnabled && appKitSwap.estimate) {
@@ -648,7 +713,8 @@ export default function TradePage() {
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
           status: "success",
-          txHash: result.txHash
+          txHash: result.txHash,
+          metadata: getSwapActivityMetadata("confirmed")
         });
         setSwapMessage(`Swap submitted: ${result.txHash}`);
         return;
@@ -661,7 +727,8 @@ export default function TradePage() {
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "failed"
+          status: "failed",
+          metadata: getSwapActivityMetadata("failed")
         });
         setSwapMessage(reason);
         return;
@@ -682,7 +749,8 @@ export default function TradePage() {
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
           status: "success",
-          txHash: hash
+          txHash: hash,
+          metadata: getSwapActivityMetadata("confirmed", freshQuote)
         });
         setSwapMessage(`Live swap confirmed: ${hash}`);
         return;
@@ -695,7 +763,8 @@ export default function TradePage() {
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "failed"
+          status: "failed",
+          metadata: getSwapActivityMetadata("failed")
         });
         setSwapMessage(reason);
         return;
@@ -709,7 +778,8 @@ export default function TradePage() {
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
-      status: "success"
+      status: "success",
+      metadata: getSwapActivityMetadata("reviewed")
     });
     setSwapMessage("Estimated quote reviewed. Execute is available only when LI.FI returns transaction data.");
   }
@@ -726,7 +796,8 @@ export default function TradePage() {
       token: bridge.tokenSymbol,
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "pending"
+      status: "pending",
+      metadata: getBridgeActivityMetadata("quote_requested")
     });
     if (!isConnected || !address) {
       setBridgeMessage("Connect wallet to request a quote.");
@@ -741,7 +812,8 @@ export default function TradePage() {
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
-        status: "failed"
+        status: "failed",
+        metadata: getBridgeActivityMetadata("quote_failed")
       });
       setBridgeMessage(bridge.quote.reason ?? "Bridge quote invalid.");
       return;
@@ -763,7 +835,8 @@ export default function TradePage() {
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
-        status: "failed"
+        status: "failed",
+        metadata: getBridgeActivityMetadata("live_quote_failed")
       });
       recordActivity({
         actionType: "fallback_quote_used",
@@ -772,7 +845,8 @@ export default function TradePage() {
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
-        status: "info"
+        status: "info",
+        metadata: getBridgeActivityMetadata("fallback_quote_used")
       });
       setBridgeQuoteReady(true);
       setBridgeMessage("Live quote unavailable — showing estimated quote.");
@@ -804,7 +878,8 @@ export default function TradePage() {
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
-          status: "success"
+          status: "success",
+          metadata: getBridgeActivityMetadata("live_quote_success", quote)
         });
       } catch {
         setLiveQuoteUnavailable(true);
@@ -816,7 +891,8 @@ export default function TradePage() {
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
-          status: "failed"
+          status: "failed",
+          metadata: getBridgeActivityMetadata("live_quote_failed")
         });
         recordActivity({
           actionType: "fallback_quote_used",
@@ -825,7 +901,8 @@ export default function TradePage() {
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
-          status: "info"
+          status: "info",
+          metadata: getBridgeActivityMetadata("fallback_quote_used")
         });
         setBridgeMessage("Live quote unavailable — showing estimated quote.");
       }
@@ -844,7 +921,8 @@ export default function TradePage() {
       token: bridge.tokenSymbol,
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "info"
+      status: "info",
+      metadata: getBridgeActivityMetadata("reviewed")
     });
     const ok = bridge.reviewBridge();
     if (!ok) {
@@ -855,7 +933,8 @@ export default function TradePage() {
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
-        status: "failed"
+        status: "failed",
+        metadata: getBridgeActivityMetadata("failed")
       });
       setBridgeMessage(bridge.error ?? "Bridge review failed.");
       return;
@@ -873,7 +952,8 @@ export default function TradePage() {
           amount: bridge.amount,
           network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
           status: "success",
-          txHash: hash
+          txHash: hash,
+          metadata: getBridgeActivityMetadata("confirmed")
         });
         setBridgeMessage(`Live bridge confirmed: ${hash}`);
         return;
@@ -887,7 +967,8 @@ export default function TradePage() {
           token: bridge.tokenSymbol,
           amount: bridge.amount,
           network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-          status: "failed"
+          status: "failed",
+          metadata: getBridgeActivityMetadata("failed")
         });
         setBridgeMessage(reason);
         return;
@@ -904,7 +985,8 @@ export default function TradePage() {
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
       status: "success",
-      txHash: bridge.quote.hashPlaceholder
+      txHash: bridge.quote.hashPlaceholder,
+      metadata: getBridgeActivityMetadata("reviewed")
     });
     setBridgeMessage(`Bridge reviewed in quote mode: ${bridge.quote.hashPlaceholder}`);
   }
@@ -941,9 +1023,30 @@ export default function TradePage() {
                     <div className="rounded-lg border border-white/10 bg-black/30 p-2">
                       <input value={swapAmount} onChange={(event) => setSwapAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none" inputMode="decimal" />
                       <div className="mt-2 flex gap-2">
-                        <button type="button" onClick={() => setPercent(0.5)} className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:text-white">50%</button>
-                        <button type="button" onClick={() => setPercent(1)} className="rounded-full border border-mint/30 bg-mint/10 px-3 py-1 text-xs font-semibold text-mint">Max</button>
+                        <button
+                          type="button"
+                          onClick={() => setPercent(0.5)}
+                          disabled={balanceActionDisabled}
+                          className={cx(
+                            "rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:text-white",
+                            balanceActionDisabled && "cursor-not-allowed opacity-50 hover:text-slate-300"
+                          )}
+                        >
+                          50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPercent(1)}
+                          disabled={balanceActionDisabled}
+                          className={cx(
+                            "rounded-full border border-mint/30 bg-mint/10 px-3 py-1 text-xs font-semibold text-mint",
+                            balanceActionDisabled && "cursor-not-allowed opacity-50"
+                          )}
+                        >
+                          Max
+                        </button>
                       </div>
+                      <p className={cx("mt-2 text-xs", sellTokenBalance.isReal && !sellTokenBalance.error ? "text-mint" : "text-slate-400")}>{sellTokenBalance.label}</p>
                     </div>
                     <TokenPicker label="Sell token" selected={sellToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setSellToken} />
                   </div>
@@ -968,7 +1071,10 @@ export default function TradePage() {
                 <label className="block text-sm text-slate-300">
                   Receive
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
-                    <input value={estimatedReceive ? estimatedReceive.toFixed(4) : "0"} readOnly className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                    <div>
+                      <input value={estimatedReceive ? estimatedReceive.toFixed(4) : "0"} readOnly className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                      <p className={cx("mt-2 text-xs", buyTokenBalance.isReal && !buyTokenBalance.error ? "text-mint" : "text-slate-400")}>{buyTokenBalance.label}</p>
+                    </div>
                     <TokenPicker label="Receive token" selected={buyToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setBuyToken} />
                   </div>
                 </label>

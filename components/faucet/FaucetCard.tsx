@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAccount } from "wagmi";
 import { type FaucetClaim, type FaucetToken } from "@/lib/faucet/tokens";
 import { TokenLogo } from "@/components/token/TokenLogo";
 
@@ -23,6 +24,7 @@ export function FaucetCard({
   loading: boolean;
   onRequest: (token: FaucetToken) => Promise<FaucetClaim>;
 }) {
+  const { isConnected } = useAccount();
   const [selectedAmount, setSelectedAmount] = useState(token.faucetAmount);
   const status = useMemo(() => (eligibility.eligible ? "Ready" : eligibility.reason), [eligibility.eligible, eligibility.reason]);
 
@@ -41,8 +43,8 @@ export function FaucetCard({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-          <p className="text-xs text-slate-500">Mock balance</p>
-          <p className="mt-1 font-semibold text-white">{token.mockBalance}</p>
+          <p className="text-xs text-slate-500">Wallet balance</p>
+          <p className="mt-1 font-semibold text-white">{isConnected ? "Balance unavailable" : "Connect wallet to view balances"}</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
           <p className="text-xs text-slate-500">Daily remaining</p>

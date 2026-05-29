@@ -5,7 +5,6 @@ export const AVL_TOKEN = {
   symbol: "AVL",
   network: "Arc",
   decimals: 18,
-  mockBalance: "12,840 AVL",
   totalSupply: "100,000,000 AVL",
   contractAddress: "0x0000000000000000000000000000000000000000" as Address,
   purpose:
@@ -32,6 +31,6 @@ export const AVL_UTILITIES = [
 ];
 
 export const SUPPORTED_SWAP_TOKENS = [
-  { symbol: "USDC", name: "USD Coin", balance: "284,920.42", decimals: 6 },
-  { symbol: "AVL", name: "Velora AI Token", balance: "12,840", decimals: 18 }
+  { symbol: "USDC", name: "USD Coin", decimals: 6 },
+  { symbol: "AVL", name: "Velora AI Token", decimals: 18 }
 ];
