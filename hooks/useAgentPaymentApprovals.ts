@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentPaymentExecutionRequest, AgentPaymentExecutionResult, AgentPaymentRecord } from "@/lib/agent-payments/types";
 import { listPersistedAgentPayments, updatePersistedAgentPayment } from "@/lib/agent-payments/database";
+import { validateAgentPaymentApproval } from "@/lib/agent-payments/policy";
 import {
   AGENT_PAYMENTS_UPDATED_EVENT,
   approveStoredAgentPayment,
@@ -102,6 +103,33 @@ export function useAgentPaymentApprovals() {
   const approvePayment = useCallback(
     async (paymentId: string) => {
       setError(null);
+      const pending = listAgentPayments().find((payment) => payment.paymentId === paymentId) ?? null;
+      if (!pending) {
+        setError("Payment approval request was not found.");
+        return null;
+      }
+      const policyCheck = validateAgentPaymentApproval(pending, listAgentPayments());
+      if (!policyCheck.allowed) {
+        const blocked = rejectStoredAgentPayment(paymentId, policyCheck.reason ?? "Payment policy blocked approval.");
+        persistPayment(blocked);
+        setError(policyCheck.reason ?? "Payment policy blocked approval.");
+        recordActivity({
+          actionType: "approval_rejected",
+          title: "Agent payment blocked by policy",
+          description: policyCheck.reason ?? "Payment policy blocked approval.",
+          feature: "agent_payments",
+          token: pending.token,
+          amount: pending.amount,
+          network: pending.network,
+          status: "failed",
+          metadata: {
+            paymentId: pending.paymentId,
+            destination: pending.destination,
+            paymentType: pending.paymentType
+          }
+        });
+        return blocked;
+      }
       const approved = approveStoredAgentPayment(paymentId);
       if (!approved) {
         setError("Payment approval request was not found.");

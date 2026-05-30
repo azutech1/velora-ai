@@ -58,6 +58,20 @@ export type AgentPaymentPolicy = {
   mode: "prepare-only";
 };
 
+export type AgentPaymentSafetyPolicy = {
+  perPaymentLimit: string;
+  dailySpendLimit: string;
+  monthlySpendLimit: string;
+  requireAllowlist: boolean;
+};
+
+export type AgentPaymentRecipient = {
+  id: string;
+  name: string;
+  address: string;
+  createdAt: string;
+};
+
 export type AgentPaymentExecutionLog = {
   id: string;
   timestamp: string;

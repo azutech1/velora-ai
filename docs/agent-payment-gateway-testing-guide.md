@@ -84,6 +84,21 @@ Use this before approving or retrying payments.
 
 Use `Withdraw` only when testing return flow from Gateway to the execution wallet.
 
+## Safety Policy Test
+
+Use this before production release.
+
+1. Open `/agent-payments`.
+2. In `Payment Safety`, set `Per-payment limit` to `0.005`.
+3. Create a `0.01 USDC` Payment Agent request.
+4. Try to approve it.
+5. Confirm approval is blocked by policy.
+6. Set the per-payment limit back to `1`.
+7. Enable `Require allowlist`.
+8. Create a payment to a new recipient.
+9. Confirm approval is blocked until the recipient is added to the allowlist.
+10. Add the recipient, create a new request, and approve it.
+
 ## x402 / Arc Nanopayment Test
 
 Use a real x402-protected resource URL that advertises Circle Gateway batching support.

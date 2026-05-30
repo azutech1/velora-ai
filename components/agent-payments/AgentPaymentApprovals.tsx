@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronRight, Clock3, Loader2, ReceiptText, RotateCcw, X } from "lucide-react";
 import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
+import { PaymentSafetyControls } from "@/components/agent-payments/PaymentSafetyControls";
 import { useAgentPaymentApprovals } from "@/hooks/useAgentPaymentApprovals";
 import type { AgentPaymentRecord, AgentPaymentStatus } from "@/lib/agent-payments/types";
 import { APP_CHAINS } from "@/lib/config/chains";
@@ -273,6 +274,8 @@ export function AgentPaymentApprovals() {
           </div>
         </div>
       </Panel>
+
+      <PaymentSafetyControls payments={recentPayments} />
 
       <Panel title="Recent Agent Payments" eyebrow="Approved payment lifecycle and transaction records">
         <RecentPaymentsTable rows={recentPayments} executingPaymentId={executingPaymentId} onRetry={(paymentId) => void retryPayment(paymentId)} />
