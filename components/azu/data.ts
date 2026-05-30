@@ -7,6 +7,7 @@ import {
   Droplets,
   LayoutDashboard,
   Network,
+  ReceiptText,
   Repeat2,
   Send,
   Settings,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
   { label: "Activity", href: "/activity", icon: Activity },
   { label: "AI Automation", href: "/automation", icon: Cpu },
   { label: "AI Agents", href: "/agents", icon: Bot },
+  { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }
 ];
 
