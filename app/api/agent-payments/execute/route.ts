@@ -45,6 +45,12 @@ function isEvmTransactionHash(value?: string) {
   return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value));
 }
 
+function normalizePrivateKey(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+}
+
 export async function POST(request: Request) {
   const logs: AgentPaymentExecutionLog[] = [createLog("info", "Circle Gateway execution request received.")];
   const body = (await request.json().catch(() => null)) as unknown;
@@ -57,9 +63,9 @@ export async function POST(request: Request) {
     return jsonFailure("Payment amount must be greater than zero USDC.", logs);
   }
 
-  const privateKey = process.env.AGENT_PAYMENTS_PRIVATE_KEY;
+  const privateKey = normalizePrivateKey(process.env.AGENT_PAYMENTS_PRIVATE_KEY);
   if (!privateKey || !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
-    return jsonFailure("AGENT_PAYMENTS_PRIVATE_KEY is not configured with a valid EOA private key.", logs, 503);
+    return jsonFailure("AGENT_PAYMENTS_PRIVATE_KEY must be a valid EOA private key: 64 hex characters, with or without 0x.", logs, 503);
   }
 
   const chain = (process.env.AGENT_PAYMENTS_GATEWAY_CHAIN || "arcTestnet") as SupportedChainName;
