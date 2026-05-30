@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Bot, CheckCircle2, CircleDollarSign, LockKeyhole, Network, PlugZap, ReceiptText, ShieldCheck, WalletCards } from "lucide-react";
 import { AgentPaymentApprovals } from "@/components/agent-payments/AgentPaymentApprovals";
+import { GatewayFunding } from "@/components/agent-payments/GatewayFunding";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { agentPaymentPolicy, agentPaymentRails, agentPaymentServices } from "@/lib/agent-payments/config";
@@ -87,6 +88,7 @@ export default function AgentPaymentsPage() {
           </div>
         </Panel>
 
+        <GatewayFunding />
         <AgentPaymentApprovals />
       </div>
     </AppShell>

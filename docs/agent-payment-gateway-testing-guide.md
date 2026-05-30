@@ -19,8 +19,10 @@ Use an EOA private key only. Circle Gateway nanopayments require EOA signatures 
 
 1. Fund the execution wallet with testnet USDC.
 2. Fund the wallet with enough native gas for the one-time Gateway deposit or Gateway withdrawal transaction.
-3. Deposit USDC into the Circle Gateway Wallet for `arcTestnet`.
-4. Confirm Gateway available balance is greater than the approval amount.
+3. Open `/agent-payments`.
+4. Use `Gateway Funding` to refresh wallet and Gateway balances.
+5. Deposit USDC into the Circle Gateway Wallet for `arcTestnet`.
+6. Confirm Gateway available balance is greater than the approval amount.
 
 ## Manual UI Flow
 
@@ -66,6 +68,21 @@ npm.cmd run dev
    - Completed or Failed
 16. Confirm Activity records an approval entry and a completion or failure entry.
 17. If a transaction hash is returned, open the explorer link and verify the transaction.
+
+## Gateway Funding Test
+
+Use this before approving or retrying payments.
+
+1. Open `/agent-payments`.
+2. In `Gateway Funding`, click `Refresh`.
+3. Confirm `Wallet USDC` shows the execution wallet balance.
+4. Enter a small amount such as `1`.
+5. Click `Deposit`.
+6. Wait for the Gateway action result.
+7. Confirm `Gateway Available` increases.
+8. Retry a failed payment.
+
+Use `Withdraw` only when testing return flow from Gateway to the execution wallet.
 
 ## x402 / Arc Nanopayment Test
 
