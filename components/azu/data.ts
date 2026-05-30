@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  UserCircle,
   Wallet,
   Zap,
   type LucideIcon
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { label: "AI Automation", href: "/automation", icon: Cpu },
   { label: "AI Agents", href: "/agents", icon: Bot },
   { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
+  { label: "Profile", href: "/profile", icon: UserCircle },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }
 ];
 
