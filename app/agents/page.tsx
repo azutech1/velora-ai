@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
+import { PaymentAgentWorkspace } from "@/components/agents/PaymentAgentWorkspace";
 import { useAIAgents } from "@/hooks/useAIAgents";
 
 const statusStyles = {
@@ -119,28 +120,32 @@ export default function AgentsPage() {
                 </button>
               }
             >
-              <div className="space-y-4 text-sm">
-                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Instructions</p>
-                  <p className="mt-2 leading-6 text-slate-300">{selectedAgent.instructions}</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+              {selectedAgent.id === "payment-agent" ? (
+                <PaymentAgentWorkspace />
+              ) : (
+                <div className="space-y-4 text-sm">
                   <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="flex items-center gap-2 font-semibold text-white"><Workflow className="h-4 w-4 text-cyan" /> Allowed actions</p>
-                    <ul className="mt-3 space-y-2 text-slate-300">
-                      {selectedAgent.allowedActions.map((action) => <li key={action}>{action}</li>)}
-                    </ul>
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Instructions</p>
+                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.instructions}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                      <p className="flex items-center gap-2 font-semibold text-white"><Workflow className="h-4 w-4 text-cyan" /> Allowed actions</p>
+                      <ul className="mt-3 space-y-2 text-slate-300">
+                        {selectedAgent.allowedActions.map((action) => <li key={action}>{action}</li>)}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                      <p className="flex items-center gap-2 font-semibold text-white"><LockKeyhole className="h-4 w-4 text-mint" /> Spending limits</p>
+                      <p className="mt-3 leading-6 text-slate-300">{selectedAgent.spendingLimits}</p>
+                    </div>
                   </div>
                   <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="flex items-center gap-2 font-semibold text-white"><LockKeyhole className="h-4 w-4 text-mint" /> Spending limits</p>
-                    <p className="mt-3 leading-6 text-slate-300">{selectedAgent.spendingLimits}</p>
+                    <p className="flex items-center gap-2 font-semibold text-white"><Database className="h-4 w-4 text-cyan" /> Data sources</p>
+                    <p className="mt-2 text-slate-300">{selectedAgent.dataSources.join(", ")}</p>
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <p className="flex items-center gap-2 font-semibold text-white"><Database className="h-4 w-4 text-cyan" /> Data sources</p>
-                  <p className="mt-2 text-slate-300">{selectedAgent.dataSources.join(", ")}</p>
-                </div>
-              </div>
+              )}
             </Panel>
 
             <Panel title="Agent approval queue" eyebrow="Review before preparation">

@@ -51,3 +51,9 @@ export const agentPaymentServices: AgentPaymentService[] = [
 ];
 
 export const agentPaymentHistory: AgentPaymentRecord[] = [];
+
+export const agentPaymentGatewayDefaults = {
+  chain: "arcTestnet",
+  network: "Arc Testnet",
+  token: "USDC"
+} as const;

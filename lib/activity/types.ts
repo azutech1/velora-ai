@@ -9,6 +9,7 @@ export type ActivityFeature =
   | "bridge"
   | "send"
   | "automation"
+  | "agent_payments"
   | "settings"
   | "token"
   | "dashboard";
@@ -54,6 +55,8 @@ export type ActivityActionType =
   | "approval_requested"
   | "approval_approved"
   | "approval_rejected"
+  | "agent_payment_completed"
+  | "agent_payment_failed"
   | "ai_action_prepared"
   | "ai_action_failed"
   | "settings_updated"

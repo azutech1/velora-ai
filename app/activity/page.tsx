@@ -8,7 +8,7 @@ import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { ActivityFeature, ActivityStatus } from "@/lib/activity/types";
 
-const featureOptions: Array<"all" | ActivityFeature> = ["all", "wallet", "network", "faucet", "social", "swap", "bridge", "send", "automation", "settings", "token", "dashboard"];
+const featureOptions: Array<"all" | ActivityFeature> = ["all", "wallet", "network", "faucet", "social", "swap", "bridge", "send", "automation", "agent_payments", "settings", "token", "dashboard"];
 const statusOptions: Array<"all" | ActivityStatus> = ["all", "pending", "success", "failed", "info"];
 
 export default function ActivityPage() {
