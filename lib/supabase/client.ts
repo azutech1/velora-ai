@@ -11,20 +11,21 @@ export function hasSupabaseConfig() {
 export function createSupabaseRestClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = typeof window === "undefined" ? process.env.SUPABASE_SERVICE_ROLE_KEY : undefined;
 
   if (!url || !anonKey) {
     return null;
   }
 
   const supabaseUrl = url;
-  const supabaseAnonKey = anonKey;
+  const supabaseKey = serviceRoleKey || anonKey;
 
   async function request<T>(path: string, options: SupabaseFetchOptions = {}) {
     const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
       method: options.method ?? "GET",
       headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
         "Content-Type": "application/json",
         Prefer: "return=representation"
       },

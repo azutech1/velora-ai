@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CalendarClock, CheckCircle2, CreditCard, ExternalLink, Loader2, Plus, Repeat, Send, WalletCards } from "lucide-react";
 import { isAddress } from "viem";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useUser } from "@/hooks/useUser";
+import { createPersistedAgentPayment } from "@/lib/agent-payments/database";
 import { saveAgentPaymentRequest } from "@/lib/agent-payments/storage";
 import type { AgentPaymentRecord, AgentPaymentType } from "@/lib/agent-payments/types";
 import { shortAddress } from "@/lib/utils/format";
@@ -44,6 +46,7 @@ function validateForm(form: PaymentFormState) {
 
 export function PaymentAgentWorkspace() {
   const { recordActivity } = useActivityRecorder();
+  const { isAuthenticated } = useUser();
   const [form, setForm] = useState<PaymentFormState>(initialForm);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +82,12 @@ export function PaymentAgentWorkspace() {
         description: form.description.trim(),
         scheduleDate: form.paymentType === "scheduled" ? form.scheduleDate : undefined
       });
+
+      if (isAuthenticated) {
+        void createPersistedAgentPayment(request).catch((syncError) => {
+          console.warn("[Velora Agent Payments] Supabase create failed; local request retained.", syncError);
+        });
+      }
 
       recordActivity({
         actionType: "approval_requested",

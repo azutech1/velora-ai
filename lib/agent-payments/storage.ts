@@ -42,6 +42,10 @@ export function listAgentPayments(): AgentPaymentRecord[] {
   }
 }
 
+export function setAgentPayments(records: AgentPaymentRecord[]) {
+  publish(records);
+}
+
 export function saveAgentPaymentRequest(input: AgentPaymentRequestInput): AgentPaymentRecord {
   const paymentId = createId("pay");
   const record: AgentPaymentRecord = {

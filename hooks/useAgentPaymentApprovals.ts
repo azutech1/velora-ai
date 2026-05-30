@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentPaymentExecutionRequest, AgentPaymentExecutionResult, AgentPaymentRecord } from "@/lib/agent-payments/types";
+import { listPersistedAgentPayments, updatePersistedAgentPayment } from "@/lib/agent-payments/database";
 import {
   AGENT_PAYMENTS_UPDATED_EVENT,
   approveStoredAgentPayment,
@@ -9,9 +10,11 @@ import {
   failStoredAgentPayment,
   listAgentPayments,
   markAgentPaymentExecuting,
-  rejectStoredAgentPayment
+  rejectStoredAgentPayment,
+  setAgentPayments
 } from "@/lib/agent-payments/storage";
 import { useActivityRecorder } from "./useActivityRecorder";
+import { useUser } from "./useUser";
 
 function toExecutionRequest(payment: AgentPaymentRecord): AgentPaymentExecutionRequest {
   return {
@@ -52,6 +55,7 @@ export function useAgentPaymentApprovals() {
   const [executingPaymentId, setExecutingPaymentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { recordActivity } = useActivityRecorder();
+  const { isAuthenticated } = useUser();
 
   const refresh = useCallback(() => {
     setPayments(listAgentPayments());
@@ -64,6 +68,37 @@ export function useAgentPaymentApprovals() {
     return () => window.removeEventListener(AGENT_PAYMENTS_UPDATED_EVENT, refresh);
   }, [refresh]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    setLoading(true);
+    listPersistedAgentPayments()
+      .then((persisted) => {
+        if (cancelled || !persisted) return;
+        const local = listAgentPayments();
+        const byId = new Map<string, AgentPaymentRecord>();
+        [...local, ...persisted].forEach((payment) => byId.set(payment.paymentId, payment));
+        setAgentPayments(Array.from(byId.values()));
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  const persistPayment = useCallback(
+    (payment: AgentPaymentRecord | null) => {
+      if (!payment || !isAuthenticated) return;
+      void updatePersistedAgentPayment(payment).catch((persistError) => {
+        console.warn("[Velora Agent Payments] Supabase sync failed; local payment retained.", persistError);
+      });
+    },
+    [isAuthenticated]
+  );
+
   const approvePayment = useCallback(
     async (paymentId: string) => {
       setError(null);
@@ -72,6 +107,7 @@ export function useAgentPaymentApprovals() {
         setError("Payment approval request was not found.");
         return null;
       }
+      persistPayment(approved);
 
       recordActivity({
         actionType: "approval_approved",
@@ -94,6 +130,7 @@ export function useAgentPaymentApprovals() {
 
       const executing = markAgentPaymentExecuting(paymentId);
       if (!executing) return approved;
+      persistPayment(executing);
       setExecutingPaymentId(paymentId);
 
       const result = await executePayment(executing);
@@ -101,6 +138,7 @@ export function useAgentPaymentApprovals() {
 
       if (result.status === "completed") {
         const completed = completeStoredAgentPayment(paymentId, result);
+        persistPayment(completed);
         if (completed) {
           recordActivity({
             actionType: "agent_payment_completed",
@@ -126,6 +164,7 @@ export function useAgentPaymentApprovals() {
       }
 
       const failed = failStoredAgentPayment(paymentId, result);
+      persistPayment(failed);
       setError(result.error ?? "Payment execution failed.");
       if (failed) {
         recordActivity({
@@ -149,7 +188,7 @@ export function useAgentPaymentApprovals() {
       }
       return failed;
     },
-    [recordActivity]
+    [persistPayment, recordActivity]
   );
 
   const rejectPayment = useCallback(
@@ -160,6 +199,7 @@ export function useAgentPaymentApprovals() {
         setError("Payment approval request was not found.");
         return null;
       }
+      persistPayment(rejected);
 
       recordActivity({
         actionType: "approval_rejected",
@@ -182,7 +222,7 @@ export function useAgentPaymentApprovals() {
 
       return rejected;
     },
-    [recordActivity]
+    [persistPayment, recordActivity]
   );
 
   const retryPayment = useCallback(
@@ -193,19 +233,24 @@ export function useAgentPaymentApprovals() {
         setError("Failed payment was not found.");
         return null;
       }
+      persistPayment(executing);
       setExecutingPaymentId(paymentId);
 
       const result = await executePayment(executing);
       setExecutingPaymentId(null);
 
       if (result.status === "completed") {
-        return completeStoredAgentPayment(paymentId, result);
+        const completed = completeStoredAgentPayment(paymentId, result);
+        persistPayment(completed);
+        return completed;
       }
 
       setError(result.error ?? "Payment retry failed.");
-      return failStoredAgentPayment(paymentId, result);
+      const failed = failStoredAgentPayment(paymentId, result);
+      persistPayment(failed);
+      return failed;
     },
-    []
+    [persistPayment]
   );
 
   return useMemo(
