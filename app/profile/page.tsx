@@ -149,11 +149,18 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<ProfileTab>("positions");
   const { activities, exportCsv } = useActivityRecorder();
   const portfolio = usePortfolioBalances();
-  const stats = useMemo(() => activityCounts(activities), [activities]);
+  const profileActivities = useMemo(() => {
+    if (!isConnected || !address) return [];
+    const connectedWallet = address.toLowerCase();
+    return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet);
+  }, [activities, address, isConnected]);
+  const stats = useMemo(() => activityCounts(profileActivities), [profileActivities]);
   const hasAssets = portfolio.positions.some((position) => position.balance > 0);
+  const statValue = (value: number) => (isConnected ? String(value) : "--");
 
   function downloadCsv() {
-    const blob = new Blob([exportCsv(activities)], { type: "text/csv;charset=utf-8" });
+    if (!isConnected || !profileActivities.length) return;
+    const blob = new Blob([exportCsv(profileActivities)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -178,7 +185,7 @@ export default function ProfilePage() {
               <button onClick={copyAddress} disabled={!address} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan/10 disabled:cursor-not-allowed disabled:opacity-50">
                 <Copy className="h-4 w-4" /> Copy Wallet
               </button>
-              <button onClick={() => portfolio.refresh()} className="inline-flex items-center gap-2 rounded-lg border border-mint/30 px-3 py-2 text-xs font-semibold text-mint hover:bg-mint/10">
+              <button onClick={() => portfolio.refresh()} disabled={!isConnected} className="inline-flex items-center gap-2 rounded-lg border border-mint/30 px-3 py-2 text-xs font-semibold text-mint hover:bg-mint/10 disabled:cursor-not-allowed disabled:opacity-50">
                 <RefreshCw className={cx("h-4 w-4", portfolio.refreshing ? "animate-spin" : "")} /> Refresh Portfolio
               </button>
               <button onClick={() => disconnect()} disabled={!isConnected} className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50">
@@ -201,17 +208,17 @@ export default function ProfilePage() {
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
               <p className="text-sm text-slate-400">Total Portfolio Value</p>
               <p className="mt-2 text-4xl font-bold text-white">{isConnected ? portfolio.totalValueLabel : "--"}</p>
-              <p className={cx("mt-2 text-sm font-semibold", portfolio.dailyChange >= 0 ? "text-mint" : "text-red-200")}>{isConnected ? portfolio.dailyChangeLabel : "+0.00%"} Daily change</p>
+              <p className={cx("mt-2 text-sm font-semibold", isConnected ? (portfolio.dailyChange >= 0 ? "text-mint" : "text-red-200") : "text-slate-500")}>{isConnected ? portfolio.dailyChangeLabel : "--"} Daily change</p>
             </div>
           </div>
         </Panel>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <MetricCard title="Total Transactions" value={String(stats.total)} detail="Velora AI activity" icon={WalletCards} />
-          <MetricCard title="Total Swaps" value={String(stats.swaps)} detail="Swap records" icon={WalletCards} />
-          <MetricCard title="Total Bridges" value={String(stats.bridges)} detail="Bridge records" icon={WalletCards} />
-          <MetricCard title="Total Agent Payments" value={String(stats.agentPayments)} detail="Agent payment activity" icon={WalletCards} />
-          <MetricCard title="Total Automation Actions" value={String(stats.automation)} detail="Approval and automation events" icon={WalletCards} />
+          <MetricCard title="Total Transactions" value={statValue(stats.total)} detail="Velora AI activity" icon={WalletCards} />
+          <MetricCard title="Total Swaps" value={statValue(stats.swaps)} detail="Swap records" icon={WalletCards} />
+          <MetricCard title="Total Bridges" value={statValue(stats.bridges)} detail="Bridge records" icon={WalletCards} />
+          <MetricCard title="Total Agent Payments" value={statValue(stats.agentPayments)} detail="Agent payment activity" icon={WalletCards} />
+          <MetricCard title="Total Automation Actions" value={statValue(stats.automation)} detail="Approval and automation events" icon={WalletCards} />
         </div>
 
         <Panel
@@ -229,7 +236,7 @@ export default function ProfilePage() {
         >
           {tab === "positions" ? (
             !isConnected ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view holdings</div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view profile</div>
             ) : !hasAssets && !portfolio.isLoading ? (
               <div className="space-y-4">
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">No assets found</div>
@@ -241,18 +248,18 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-4">
               <div className="flex justify-end">
-                <button onClick={downloadCsv} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan hover:border-mint/40 hover:text-mint">
+                <button onClick={downloadCsv} disabled={!isConnected || !profileActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan hover:border-mint/40 hover:text-mint disabled:cursor-not-allowed disabled:opacity-50">
                   <Download className="h-4 w-4" /> Export Activity CSV
                 </button>
               </div>
-              <ActivitiesTable records={activities} />
+              <ActivitiesTable records={profileActivities} />
             </div>
           )}
         </Panel>
 
         {tab === "activities" ? (
           <Panel title="Activity Timeline" eyebrow="Detailed action feed">
-            <ActivityTimeline records={activities} emptyText="No activity yet" />
+            <ActivityTimeline records={profileActivities} emptyText="No activity yet" />
           </Panel>
         ) : null}
       </div>
