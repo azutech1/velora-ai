@@ -71,6 +71,7 @@ export function WalletTransactionTracker() {
           status: "success",
           txHash,
           metadata: {
+            source: "wallet_watcher",
             from: log.args.from ?? null,
             to: log.args.to ?? null
           }

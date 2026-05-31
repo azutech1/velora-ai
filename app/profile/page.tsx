@@ -88,6 +88,12 @@ function activityCounts(records: ActivityRecord[]) {
   };
 }
 
+function isVeloraProfileActivity(record: ActivityRecord) {
+  if (record.actionType === "usdc_receive_completed" && record.metadata?.source === "wallet_watcher") return false;
+  if (record.actionType === "usdc_receive_completed" && record.title === "USDC received") return false;
+  return true;
+}
+
 function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
   if (!records.length) {
     return (
@@ -154,7 +160,7 @@ export default function ProfilePage() {
   const profileActivities = useMemo(() => {
     if (!isConnected || !address) return [];
     const connectedWallet = address.toLowerCase();
-    return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet);
+    return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet && isVeloraProfileActivity(activity));
   }, [activities, address, isConnected]);
   const stats = useMemo(() => activityCounts(profileActivities), [profileActivities]);
   const hasAssets = portfolio.positions.some((position) => position.balance > 0);
