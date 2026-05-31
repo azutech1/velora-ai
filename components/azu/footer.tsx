@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Bug, FileText, Github, Globe2, MessageCircle, Radio, Send, Shield, Twitter } from "lucide-react";
+import { BookOpen, Bug, FileText, Globe2, MessageCircle, Radio, Send, Shield, Twitter } from "lucide-react";
 import { Logo } from "./brand";
 
 const productLinks = [
@@ -19,7 +19,6 @@ const productLinks = [
 
 const developerLinks = [
   { label: "Documentation", href: "/docs" },
-  { label: "GitHub", href: "https://github.com/azutech1/velora-ai" },
   { label: "API Reference", href: "/docs#api-reference" },
   { label: "Integration Guide", href: "/docs#integration-guide" },
   { label: "Status Page", href: "/docs#status" },
@@ -44,7 +43,6 @@ const legalLinks = [
 const socialLinks = [
   { label: "X / Twitter", href: "https://x.com/UseVeloraAI", icon: Twitter },
   { label: "Website", href: "https://www.veloraai.xyz", icon: Globe2 },
-  { label: "GitHub", href: "https://github.com/azutech1/velora-ai", icon: Github },
   { label: "Discord", href: "/docs#community", icon: MessageCircle },
   { label: "Telegram", href: "/docs#community", icon: Send }
 ];
@@ -118,7 +116,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <p>© 2026 Velora AI. All rights reserved.</p>
+          <p>&copy; 2026 Velora AI. All rights reserved.</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {legalLinks.map((link) => (
               <Link key={link.href} href={link.href} className="inline-flex items-center gap-1.5 transition hover:text-cyan">
