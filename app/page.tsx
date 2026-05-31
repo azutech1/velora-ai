@@ -6,6 +6,7 @@ import { ArrowRight, ChevronRight, Sparkles } from "lucide-react";
 import { AmbientBackground } from "@/components/azu/app-shell";
 import { HeroOrbit, Logo } from "@/components/azu/brand";
 import { featureCards } from "@/components/azu/data";
+import { SiteFooter } from "@/components/azu/footer";
 import { WalletConnectButton } from "@/components/web3/WalletConnectButton";
 
 export default function LandingPage() {
@@ -55,6 +56,7 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+      <SiteFooter />
     </main>
   );
 }

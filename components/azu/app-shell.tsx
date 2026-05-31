@@ -11,6 +11,7 @@ import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletCon
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { Logo } from "./brand";
 import { navItems } from "./data";
+import { SiteFooter } from "./footer";
 import { cx } from "./utils";
 
 export function AmbientBackground() {
@@ -144,6 +145,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
             >
               {children}
             </motion.div>
+            <SiteFooter />
           </div>
         </div>
       </section>
