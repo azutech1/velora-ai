@@ -46,7 +46,7 @@ export default function AdminPage() {
   return (
     <AppShell title="Admin" eyebrow="Creator platform controls">
       <div className="space-y-6">
-        <Panel title="Admin Mode" eyebrow="Creator wallet detected">
+        <Panel title="Platform Admin" eyebrow="Creator wallet detected">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-mint/20 bg-mint/10 p-4">
               <p className="text-sm text-slate-300">Connected admin wallet</p>

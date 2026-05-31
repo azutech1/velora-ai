@@ -10,7 +10,7 @@ export function useAdminMode() {
   return useMemo(
     () => ({
       isAdmin: Boolean(isConnected && isAdminWallet(address)),
-      modeLabel: isConnected && isAdminWallet(address) ? "Admin Mode" : "User Mode"
+      adminLabel: isConnected && isAdminWallet(address) ? "Platform Admin" : null
     }),
     [address, isConnected]
   );

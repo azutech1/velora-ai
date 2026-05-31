@@ -182,7 +182,7 @@ export default function ProfilePage() {
         {isConnected && isAdmin ? (
           <Panel title="Admin Tools" eyebrow="Creator wallet access">
             <div className="rounded-lg border border-mint/20 bg-mint/10 p-4 text-sm text-slate-300">
-              Admin Mode is enabled for this wallet. Platform setup and integration controls are available from the Admin page.
+              Platform Admin access is enabled for this wallet. Platform setup and integration controls are available from the Admin page.
             </div>
           </Panel>
         ) : null}

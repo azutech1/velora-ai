@@ -104,7 +104,7 @@ function Sidebar() {
 export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { isAdmin, modeLabel } = useAdminMode();
+  const { isAdmin, adminLabel } = useAdminMode();
   const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || isAdmin);
   const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
@@ -128,7 +128,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <NetworkBadge />
-                <span className={cx("rounded-full border px-3 py-2 text-xs font-bold", isAdmin ? "border-mint/30 bg-mint/10 text-mint" : "border-cyan/30 bg-cyan/10 text-cyan")}>{modeLabel}</span>
+                {adminLabel ? <span className="rounded-full border border-mint/30 bg-mint/10 px-3 py-2 text-xs font-bold text-mint">{adminLabel}</span> : null}
                 <button className="rounded-lg border border-white/10 p-3 text-slate-300 hover:text-white" aria-label="Notifications">
                   <Bell className="h-4 w-4" />
                 </button>
