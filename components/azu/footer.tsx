@@ -10,7 +10,6 @@ const productLinks = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Payments", href: "/send" },
   { label: "Bridge & Swap", href: "/trade" },
-  { label: "Activity", href: "/activity" },
   { label: "AI Automation", href: "/automation" },
   { label: "AI Agents", href: "/agents" },
   { label: "Agent Payments", href: "/agent-payments" },
