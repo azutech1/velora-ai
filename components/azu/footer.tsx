@@ -13,6 +13,7 @@ const productLinks = [
   { label: "AI Automation", href: "/automation" },
   { label: "AI Agents", href: "/agents" },
   { label: "Agent Payments", href: "/agent-payments" },
+  { label: "Velora Token", href: "/token" },
   { label: "Profile", href: "/profile" }
 ];
 

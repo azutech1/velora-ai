@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Copy, Download, ExternalLink, LogOut, RefreshCw, Search, WalletCards } from "lucide-react";
+import { Award, BadgeCheck, Copy, Crown, Download, ExternalLink, LogOut, RefreshCw, Search, Sparkles, WalletCards } from "lucide-react";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
@@ -13,6 +13,7 @@ import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
 import { APP_CHAINS, getChainById } from "@/lib/config/chains";
+import { calculateVeloraPoints } from "@/lib/tokens/velora";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
 
 type ProfileTab = "positions" | "activities";
@@ -163,6 +164,8 @@ export default function ProfilePage() {
     return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet && isVeloraProfileActivity(activity));
   }, [activities, address, isConnected]);
   const stats = useMemo(() => activityCounts(profileActivities), [profileActivities]);
+  const tokenParticipation = useMemo(() => calculateVeloraPoints(profileActivities), [profileActivities]);
+  const earnedBadges = tokenParticipation.badges.filter((badge) => badge.earned);
   const hasAssets = portfolio.positions.some((position) => position.balance > 0);
   const statValue = (value: number) => (isConnected ? String(value) : "--");
 
@@ -236,6 +239,48 @@ export default function ProfilePage() {
           <MetricCard title="Total Agent Payments" value={statValue(stats.agentPayments)} detail="Agent payment activity" icon={WalletCards} />
           <MetricCard title="Total Automation Actions" value={statValue(stats.automation)} detail="Approval and automation events" icon={WalletCards} />
         </div>
+
+        <Panel title="Velora Token Participation" eyebrow="Badges, points, rank, and early adopter status">
+          {!isConnected ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view token participation</div>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <Sparkles className="h-5 w-5 text-mint" />
+                  <p className="mt-4 text-sm text-slate-400">Points</p>
+                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.totalPoints}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <Crown className="h-5 w-5 text-cyan" />
+                  <p className="mt-4 text-sm text-slate-400">Rank</p>
+                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.rank}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <Award className="h-5 w-5 text-mint" />
+                  <p className="mt-4 text-sm text-slate-400">Early Adopter Status</p>
+                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.earlyAdopterStatus}</p>
+                </div>
+              </div>
+              {earnedBadges.length ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {earnedBadges.map((badge) => (
+                    <div key={badge.id} className="rounded-lg border border-mint/30 bg-mint/10 p-4">
+                      <div className="flex items-center gap-3">
+                        <BadgeCheck className="h-5 w-5 text-mint" />
+                        <p className="font-bold text-white">{badge.name}</p>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{badge.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-slate-400">No badges earned yet</div>
+              )}
+              <p className="text-xs leading-6 text-slate-500">Participation may be considered for future ecosystem rewards. This does not promise token distribution, profit, eligibility, or allocation.</p>
+            </div>
+          )}
+        </Panel>
 
         <Panel
           title="Portfolio"

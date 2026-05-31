@@ -36,6 +36,7 @@ export const navItems: NavItem[] = [
   { label: "AI Automation", href: "/automation", icon: Cpu },
   { label: "AI Agents", href: "/agents", icon: Bot },
   { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
+  { label: "Velora Token", href: "/token", icon: Coins },
   { label: "Profile", href: "/profile", icon: UserCircle },
   { label: "Admin", href: "/admin", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }
