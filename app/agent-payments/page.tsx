@@ -2,11 +2,14 @@
 
 import { motion } from "framer-motion";
 import { Bot, CheckCircle2, CircleDollarSign, LockKeyhole, Network, PlugZap, ReceiptText, ShieldCheck, WalletCards } from "lucide-react";
+import { useAccount } from "wagmi";
 import { AgentPaymentApprovals } from "@/components/agent-payments/AgentPaymentApprovals";
 import { GatewayFunding } from "@/components/agent-payments/GatewayFunding";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { agentPaymentPolicy, agentPaymentRails, agentPaymentServices } from "@/lib/agent-payments/config";
+import { shortAddress } from "@/lib/utils/format";
 
 const statusStyles = {
   available: "border-mint/20 bg-mint/10 text-mint",
@@ -15,25 +18,36 @@ const statusStyles = {
 };
 
 export default function AgentPaymentsPage() {
+  const { address, isConnected } = useAccount();
+  const { isAdmin } = useAdminMode();
   const connectedServices = agentPaymentServices.filter((service) => service.status === "available").length;
 
   return (
     <AppShell title="Agent Payments" eyebrow="Approval-first nanopayment architecture">
       <div className="space-y-6">
+        {!isConnected ? (
+          <Panel title="Agent Payments" eyebrow="Wallet access required">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to access this section.</div>
+          </Panel>
+        ) : null}
+
+        {isConnected ? (
+          <>
           <Panel title="Agent payment control center" eyebrow="Prepare-only MVP">
             <p className="max-w-3xl text-sm leading-6 text-slate-400">
-            Agent Payments connects user-approved payment requests to Circle Gateway and Arc Nanopayments execution. Agents can draft payment requests, but they cannot spend funds automatically.
+            Agent Payments lets agents prepare USDC payment requests for your approval. Agents can draft payment requests, but they cannot spend funds automatically.
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard title="Agent Wallet Balance" value={agentPaymentPolicy.agentWalletBalance} detail="Connect future agent wallet" icon={WalletCards} />
+            <MetricCard title="Agent Wallet Balance" value={agentPaymentPolicy.agentWalletBalance} detail={address ? shortAddress(address) : "Connect wallet"} icon={WalletCards} />
             <MetricCard title="Daily Spend Limit" value={agentPaymentPolicy.dailySpendLimit} detail="User-defined approval policy" icon={ShieldCheck} />
             <MetricCard title="Monthly Spend Limit" value={agentPaymentPolicy.monthlySpendLimit} detail="User-defined approval policy" icon={CircleDollarSign} />
             <MetricCard title="Available Budget" value={agentPaymentPolicy.availableBudget} detail="Calculated after wallet setup" icon={ReceiptText} />
-            <MetricCard title="Active Connected Services" value={String(connectedServices)} detail="No services connected yet" icon={PlugZap} />
+            <MetricCard title="Active Connected Services" value={isAdmin ? String(connectedServices) : "--"} detail={isAdmin ? "Platform service registry" : "User services not configured"} icon={PlugZap} />
           </div>
         </Panel>
 
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        {isAdmin ? (
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <Panel title="Connected services" eyebrow="Payment-capable service registry">
             <div className="grid gap-4 md:grid-cols-2">
               {agentPaymentServices.map((service) => (
@@ -72,9 +86,28 @@ export default function AgentPaymentsPage() {
               ))}
             </div>
           </Panel>
-        </div>
+          </div>
+        ) : (
+          <Panel title="User payment workspace" eyebrow="Wallet-specific approvals">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-sm text-slate-400">User agent wallet</p>
+                <p className="mt-2 break-all font-semibold text-white">{address ? shortAddress(address) : "--"}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-sm text-slate-400">Gateway setup</p>
+                <p className="mt-2 font-semibold text-white">Gateway setup is not available for this wallet yet.</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-sm text-slate-400">Approval policy</p>
+                <p className="mt-2 font-semibold text-white">Manual approval required</p>
+              </div>
+            </div>
+          </Panel>
+        )}
 
-        <Panel title="Nanopayment integration slots" eyebrow="Future Circle Arc payment rails">
+        {isAdmin ? (
+          <Panel title="Nanopayment integration slots" eyebrow="Future Circle Arc payment rails">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {agentPaymentRails.map((rail) => (
               <div key={rail} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
@@ -86,10 +119,13 @@ export default function AgentPaymentsPage() {
               </div>
             ))}
           </div>
-        </Panel>
+          </Panel>
+        ) : null}
 
-        <GatewayFunding />
+        {isAdmin ? <GatewayFunding /> : null}
         <AgentPaymentApprovals />
+          </>
+        ) : null}
       </div>
     </AppShell>
   );

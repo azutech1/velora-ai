@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarClock, CheckCircle2, CreditCard, ExternalLink, Loader2, Plus, Repeat, Send, WalletCards } from "lucide-react";
 import { isAddress } from "viem";
+import { useAccount } from "wagmi";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useUser } from "@/hooks/useUser";
 import { createPersistedAgentPayment } from "@/lib/agent-payments/database";
@@ -45,6 +46,7 @@ function validateForm(form: PaymentFormState) {
 }
 
 export function PaymentAgentWorkspace() {
+  const { address, isConnected } = useAccount();
   const { recordActivity } = useActivityRecorder();
   const { isAuthenticated } = useUser();
   const [form, setForm] = useState<PaymentFormState>(initialForm);
@@ -60,6 +62,10 @@ export function PaymentAgentWorkspace() {
 
   function createRequest() {
     setError(null);
+    if (!isConnected || !address) {
+      setError("Connect wallet to create payment requests.");
+      return;
+    }
     const validationError = validateForm(form);
     if (validationError) {
       setError(validationError);
@@ -70,6 +76,7 @@ export function PaymentAgentWorkspace() {
     try {
       const request = saveAgentPaymentRequest({
         agentName: "Payment Agent",
+        walletAddress: address,
         serviceName: form.recipientName.trim(),
         recipientName: form.recipientName.trim(),
         amount: form.amount.trim(),

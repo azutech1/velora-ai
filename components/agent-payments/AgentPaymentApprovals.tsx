@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronRight, Clock3, Loader2, ReceiptText, RotateCcw, X } from "lucide-react";
+import { useAccount } from "wagmi";
 import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { PaymentSafetyControls } from "@/components/agent-payments/PaymentSafetyControls";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { useAgentPaymentApprovals } from "@/hooks/useAgentPaymentApprovals";
 import type { AgentPaymentRecord, AgentPaymentStatus } from "@/lib/agent-payments/types";
 import { APP_CHAINS } from "@/lib/config/chains";
@@ -237,8 +239,22 @@ function RecentPaymentsTable({ rows, executingPaymentId, onRetry }: { rows: Agen
 }
 
 export function AgentPaymentApprovals() {
+  const { address, isConnected } = useAccount();
+  const { isAdmin } = useAdminMode();
   const { pendingApprovals, recentPayments, loading, error, executingPaymentId, approvePayment, rejectPayment, retryPayment } = useAgentPaymentApprovals();
-  const activeExecutions = useMemo(() => recentPayments.filter((payment) => payment.status === "executing").length, [recentPayments]);
+  const visiblePendingApprovals = useMemo(() => {
+    if (!isConnected || !address) return [];
+    if (isAdmin) return pendingApprovals;
+    const wallet = address.toLowerCase();
+    return pendingApprovals.filter((payment) => payment.walletAddress?.toLowerCase() === wallet);
+  }, [address, isAdmin, isConnected, pendingApprovals]);
+  const visibleRecentPayments = useMemo(() => {
+    if (!isConnected || !address) return [];
+    if (isAdmin) return recentPayments;
+    const wallet = address.toLowerCase();
+    return recentPayments.filter((payment) => payment.walletAddress?.toLowerCase() === wallet);
+  }, [address, isAdmin, isConnected, recentPayments]);
+  const activeExecutions = useMemo(() => visibleRecentPayments.filter((payment) => payment.status === "executing").length, [visibleRecentPayments]);
 
   if (loading) return <LoadingState />;
 
@@ -252,10 +268,11 @@ export function AgentPaymentApprovals() {
       ) : null}
 
       <Panel title="Pending Approvals" eyebrow="Manual approval is required before every payment">
-        <PendingApprovalsTable rows={pendingApprovals} executingPaymentId={executingPaymentId} onApprove={(paymentId) => void approvePayment(paymentId)} onReject={rejectPayment} />
+        <PendingApprovalsTable rows={visiblePendingApprovals} executingPaymentId={executingPaymentId} onApprove={(paymentId) => void approvePayment(paymentId)} onReject={rejectPayment} />
       </Panel>
 
-      <Panel title="Execution Monitor" eyebrow={`${activeExecutions} active executions`}>
+      {isAdmin ? (
+        <Panel title="Execution Monitor" eyebrow={`${activeExecutions} active executions`}>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
             <Clock3 className="h-5 w-5 text-cyan" />
@@ -273,12 +290,13 @@ export function AgentPaymentApprovals() {
             <p className="mt-1 font-semibold text-white">Failed payments can be retried after reviewing logs.</p>
           </div>
         </div>
-      </Panel>
+        </Panel>
+      ) : null}
 
-      <PaymentSafetyControls payments={recentPayments} />
+      {isAdmin ? <PaymentSafetyControls payments={visibleRecentPayments} /> : null}
 
       <Panel title="Recent Agent Payments" eyebrow="Approved payment lifecycle and transaction records">
-        <RecentPaymentsTable rows={recentPayments} executingPaymentId={executingPaymentId} onRetry={(paymentId) => void retryPayment(paymentId)} />
+        <RecentPaymentsTable rows={visibleRecentPayments} executingPaymentId={executingPaymentId} onRetry={(paymentId) => void retryPayment(paymentId)} />
       </Panel>
     </div>
   );

@@ -8,6 +8,7 @@ import { ReactNode, useState } from "react";
 import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { Logo } from "./brand";
 import { navItems } from "./data";
 import { cx } from "./utils";
@@ -36,8 +37,10 @@ export function AmbientBackground() {
 function Sidebar() {
   const pathname = usePathname();
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
-  const primaryNavItems = navItems.filter((item) => !item.secondary);
-  const secondaryNavItems = navItems.filter((item) => item.secondary);
+  const { isAdmin } = useAdminMode();
+  const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || isAdmin);
+  const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
+  const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-[#06101d]/78 px-5 py-6 backdrop-blur-2xl lg:block">
@@ -101,8 +104,10 @@ function Sidebar() {
 export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const primaryNavItems = navItems.filter((item) => !item.secondary);
-  const secondaryNavItems = navItems.filter((item) => item.secondary);
+  const { isAdmin, modeLabel } = useAdminMode();
+  const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || isAdmin);
+  const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
+  const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -123,6 +128,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <NetworkBadge />
+                <span className={cx("rounded-full border px-3 py-2 text-xs font-bold", isAdmin ? "border-mint/30 bg-mint/10 text-mint" : "border-cyan/30 bg-cyan/10 text-cyan")}>{modeLabel}</span>
                 <button className="rounded-lg border border-white/10 p-3 text-slate-300 hover:text-white" aria-label="Notifications">
                   <Bell className="h-4 w-4" />
                 </button>

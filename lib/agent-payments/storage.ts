@@ -51,6 +51,7 @@ export function saveAgentPaymentRequest(input: AgentPaymentRequestInput): AgentP
   const record: AgentPaymentRecord = {
     id: paymentId,
     paymentId,
+    walletAddress: input.walletAddress?.toLowerCase(),
     agentName: input.agentName,
     serviceName: input.serviceName,
     recipientName: input.recipientName,

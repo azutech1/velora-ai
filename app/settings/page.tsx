@@ -5,6 +5,7 @@ import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { getChainById } from "@/lib/config/chains";
 import { hasSupabaseConfig } from "@/lib/supabase/client";
 import { shortAddress } from "@/lib/utils/format";
@@ -38,6 +39,7 @@ function SettingRow({ label, value, status, tone = "neutral" }: { label: string;
 
 export default function SettingsPage() {
   const { address, isConnected } = useAccount();
+  const { isAdmin } = useAdminMode();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const chain = getChainById(chainId);
@@ -53,6 +55,17 @@ export default function SettingsPage() {
   return (
     <AppShell title="Settings" eyebrow="Workspace, wallet, security, and integrations">
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        {!isConnected ? (
+          <Panel title="Settings" eyebrow="Wallet access required">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
+              <Wallet className="mx-auto h-8 w-8 text-cyan" />
+              <p className="mt-4 text-sm font-semibold text-white">Connect wallet to access this section.</p>
+            </div>
+          </Panel>
+        ) : null}
+
+        {isConnected ? (
+          <>
         <div className="space-y-6">
           <Panel title="Workspace Profile" eyebrow="Arc Testnet dApp configuration">
             <div className="space-y-4">
@@ -64,12 +77,6 @@ export default function SettingsPage() {
           </Panel>
 
           <Panel title="Wallet Settings" eyebrow="Connected wallet controls">
-            {!isConnected ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
-                <Wallet className="mx-auto h-8 w-8 text-cyan" />
-                <p className="mt-4 text-sm font-semibold text-white">Connect wallet to manage settings</p>
-              </div>
-            ) : (
               <div className="space-y-4">
                 <SettingRow label="Connected wallet" value={shortAddress(address)} status="Connected" tone="ready" />
                 <SettingRow label="Network" value={walletNetwork} status={chain ? "Ready" : "Requires setup"} tone={chain ? "ready" : "warning"} />
@@ -82,12 +89,11 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-            )}
           </Panel>
         </div>
 
         <div className="space-y-6">
-          <Panel title="Security & Approval Settings" eyebrow="User-controlled execution policy">
+          <Panel title={isAdmin ? "Security & Approval Settings" : "Approval Preferences"} eyebrow="User-controlled execution policy">
             <div className="grid gap-4 sm:grid-cols-2">
               {[
                 { label: "Manual approval required", value: "Enabled", tone: "ready" as StatusTone, icon: ShieldCheck },
@@ -106,7 +112,8 @@ export default function SettingsPage() {
             </div>
           </Panel>
 
-          <Panel title="Integration Status" eyebrow="Production readiness signals">
+          {isAdmin ? (
+            <Panel title="Integration Status" eyebrow="Production readiness signals">
             <div className="grid gap-4 sm:grid-cols-2">
               {[
                 { name: "WalletConnect", status: "Ready", tone: "ready" as StatusTone, detail: "Wallet connection is available." },
@@ -125,8 +132,20 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
-          </Panel>
+            </Panel>
+          ) : (
+            <Panel title="Notification Settings" eyebrow="User preferences">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SettingRow label="Payment approvals" value="Requires setup" status="Requires setup" tone="warning" />
+                <SettingRow label="Activity notifications" value="Not configured" status="Not configured" tone="neutral" />
+                <SettingRow label="Agent payment alerts" value="Not configured" status="Not configured" tone="neutral" />
+                <SettingRow label="Security notices" value="Ready" status="Ready" tone="ready" />
+              </div>
+            </Panel>
+          )}
         </div>
+          </>
+        ) : null}
       </div>
     </AppShell>
   );

@@ -22,6 +22,7 @@ export type AgentPaymentRail = "x402 Payments" | "Circle Gateway" | "Arc Nanopay
 export type AgentPaymentRecord = {
   id: string;
   paymentId: string;
+  walletAddress?: string;
   agentName: string;
   serviceName: string;
   recipientName?: string;
@@ -94,6 +95,7 @@ export type AgentPaymentRequestInput = {
   paymentType?: AgentPaymentType;
   description?: string;
   scheduleDate?: string;
+  walletAddress?: string;
 };
 
 export type AgentPaymentExecutionRequest = Pick<

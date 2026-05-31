@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Download, ShieldCheck } from "lucide-react";
+import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { ActivityFeature, ActivityStatus } from "@/lib/activity/types";
 
@@ -12,16 +14,24 @@ const featureOptions: Array<"all" | ActivityFeature> = ["all", "wallet", "networ
 const statusOptions: Array<"all" | ActivityStatus> = ["all", "pending", "success", "failed", "info"];
 
 export default function ActivityPage() {
+  const { address, isConnected } = useAccount();
+  const { isAdmin } = useAdminMode();
   const { activities, exportCsv } = useActivityRecorder();
   const [feature, setFeature] = useState<(typeof featureOptions)[number]>("all");
   const [status, setStatus] = useState<(typeof statusOptions)[number]>("all");
   const [token, setToken] = useState("all");
   const [query, setQuery] = useState("");
 
-  const tokens = useMemo(() => ["all", ...Array.from(new Set(activities.map((activity) => activity.token).filter(Boolean)))], [activities]);
+  const visibleActivities = useMemo(() => {
+    if (!isConnected || !address) return [];
+    if (isAdmin) return activities;
+    const connectedWallet = address.toLowerCase();
+    return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet);
+  }, [activities, address, isAdmin, isConnected]);
+  const tokens = useMemo(() => ["all", ...Array.from(new Set(visibleActivities.map((activity) => activity.token).filter(Boolean)))], [visibleActivities]);
   const filteredActivities = useMemo(
     () =>
-      activities.filter((activity) => {
+      visibleActivities.filter((activity) => {
         const haystack = `${activity.walletAddress} ${activity.txHash ?? ""} ${activity.actionType} ${activity.title} ${activity.description}`.toLowerCase();
         return (
           (feature === "all" || activity.feature === feature) &&
@@ -30,10 +40,11 @@ export default function ActivityPage() {
           haystack.includes(query.toLowerCase())
         );
       }),
-    [activities, feature, query, status, token]
+    [feature, query, status, token, visibleActivities]
   );
 
   function downloadCsv() {
+    if (!isConnected || !filteredActivities.length) return;
     const blob = new Blob([exportCsv(filteredActivities)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -46,10 +57,18 @@ export default function ActivityPage() {
   return (
     <AppShell title="Activity" eyebrow="Unified Velora AI action recorder">
       <div className="space-y-6">
+        {!isConnected ? (
+          <Panel title="Activity" eyebrow="Wallet access required">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to access this section.</div>
+          </Panel>
+        ) : null}
+
+        {isConnected ? (
+          <>
         <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard title="Total records" value={String(activities.length)} detail="Stored locally" icon={ShieldCheck} />
-          <MetricCard title="Successful actions" value={String(activities.filter((activity) => activity.status === "success").length)} detail="Across wallets" icon={ShieldCheck} />
-          <MetricCard title="Failed actions" value={String(activities.filter((activity) => activity.status === "failed").length)} detail="Review required" icon={ShieldCheck} />
+          <MetricCard title="Total records" value={String(visibleActivities.length)} detail={isAdmin ? "Platform-visible records" : "Your wallet records"} icon={ShieldCheck} />
+          <MetricCard title="Successful actions" value={String(visibleActivities.filter((activity) => activity.status === "success").length)} detail={isAdmin ? "Platform-visible actions" : "Your successful actions"} icon={ShieldCheck} />
+          <MetricCard title="Failed actions" value={String(visibleActivities.filter((activity) => activity.status === "failed").length)} detail="Review required" icon={ShieldCheck} />
         </div>
 
         <Panel
@@ -57,7 +76,7 @@ export default function ActivityPage() {
           eyebrow="Wallet transaction recorder"
           action={
             <div className="flex flex-wrap gap-2">
-              <button onClick={downloadCsv} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint">
+              <button onClick={downloadCsv} disabled={!filteredActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint disabled:cursor-not-allowed disabled:opacity-50">
                 <Download className="h-4 w-4" /> Export CSV
               </button>
             </div>
@@ -83,9 +102,11 @@ export default function ActivityPage() {
           </div>
         </Panel>
 
-        <Panel title="Activity timeline" eyebrow={`${filteredActivities.length} matching records`}>
-          <ActivityTimeline records={filteredActivities} emptyText="No transactions yet." />
+        <Panel title={isAdmin ? "Platform Activity Timeline" : "My Activity Timeline"} eyebrow={`${filteredActivities.length} matching records`}>
+          <ActivityTimeline records={filteredActivities} emptyText="No activity yet." />
         </Panel>
+          </>
+        ) : null}
       </div>
     </AppShell>
   );

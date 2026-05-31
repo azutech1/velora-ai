@@ -73,6 +73,7 @@ function fromDatabaseAgentPayment(record: DatabaseAgentPayment): AgentPaymentRec
   return {
     id: record.payment_id,
     paymentId: record.payment_id,
+    walletAddress: record.wallet_address,
     agentName: record.agent_name,
     serviceName: record.service_name,
     recipientName: record.recipient_name ?? undefined,

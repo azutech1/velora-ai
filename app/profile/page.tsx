@@ -9,6 +9,7 @@ import { MetricCard, Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
 import { APP_CHAINS, getChainById } from "@/lib/config/chains";
@@ -143,6 +144,7 @@ function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
 
 export default function ProfilePage() {
   const { address, isConnected } = useAccount();
+  const { isAdmin } = useAdminMode();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const chain = getChainById(chainId);
@@ -177,6 +179,14 @@ export default function ProfilePage() {
   return (
     <AppShell title="Profile" eyebrow="Wallet portfolio and Velora AI activity center">
       <div className="space-y-6">
+        {isConnected && isAdmin ? (
+          <Panel title="Admin Tools" eyebrow="Creator wallet access">
+            <div className="rounded-lg border border-mint/20 bg-mint/10 p-4 text-sm text-slate-300">
+              Admin Mode is enabled for this wallet. Platform setup and integration controls are available from the Admin page.
+            </div>
+          </Panel>
+        ) : null}
+
         <Panel
           title="Wallet Profile"
           eyebrow="Personal control center"

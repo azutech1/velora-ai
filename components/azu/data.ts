@@ -1,5 +1,6 @@
 import {
   Activity,
+  Shield,
   Bot,
   CircleDollarSign,
   Coins,
@@ -36,6 +37,7 @@ export const navItems: NavItem[] = [
   { label: "AI Agents", href: "/agents", icon: Bot },
   { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
   { label: "Profile", href: "/profile", icon: UserCircle },
+  { label: "Admin", href: "/admin", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }
 ];
 

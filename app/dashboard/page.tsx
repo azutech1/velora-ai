@@ -11,6 +11,7 @@ import { MetricCard, Panel } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import type { ActivityRecord } from "@/lib/activity/types";
 import { erc20UsdcAbi, USDC_CONTRACT_ADDRESS } from "@/lib/contracts/usdc";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
@@ -57,6 +58,7 @@ function EmptyState({ message }: { message: string }) {
 
 export default function DashboardPage() {
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const { isAdmin } = useAdminMode();
   const { chainId, expectedChain, isArc } = useArcNetwork();
   const [lastTx, setLastTx] = useState<StoredTx | null>(null);
   const { activities, recordActivity } = useActivityRecorder();
@@ -154,12 +156,13 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!isConnected) return;
     recordActivity({
       actionType: "dashboard_viewed",
       title: "Dashboard viewed",
       description: "The Velora AI dashboard was opened.",
       feature: "dashboard",
-      network: isConnected ? expectedChain.name : undefined,
+      network: expectedChain.name,
       status: "info"
     });
   }, [expectedChain.name, isConnected, recordActivity]);
@@ -167,6 +170,36 @@ export default function DashboardPage() {
   return (
     <AppShell title="Dashboard">
       <div className="space-y-6">
+        {!isConnected ? (
+          <Panel title="Welcome to Velora AI" eyebrow="Wallet access required">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
+              <Wallet className="mx-auto h-10 w-10 text-cyan" />
+              <p className="mt-4 text-sm font-semibold text-white">Connect wallet to continue</p>
+            </div>
+          </Panel>
+        ) : null}
+
+        {isConnected && isAdmin ? (
+          <Panel title="Admin Panel" eyebrow="Platform overview">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-mint/20 bg-mint/10 p-4">
+                <p className="text-sm text-slate-300">Platform health</p>
+                <p className="mt-2 font-bold text-white">Testnet Alpha</p>
+              </div>
+              <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4">
+                <p className="text-sm text-slate-300">Gateway setup</p>
+                <p className="mt-2 font-bold text-white">Admin configuration required</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-sm text-slate-400">Integration readiness</p>
+                <p className="mt-2 font-bold text-white">WalletConnect ready</p>
+              </div>
+            </div>
+          </Panel>
+        ) : null}
+
+        {isConnected ? (
+          <>
         <Panel title="Wallet Status" eyebrow="Live Web3 status">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
@@ -330,6 +363,8 @@ export default function DashboardPage() {
             ))}
           </div>
         </Panel>
+          </>
+        ) : null}
       </div>
     </AppShell>
   );
