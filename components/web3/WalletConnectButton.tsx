@@ -103,7 +103,7 @@ export function WalletConnectButton({ compact = false }: { compact?: boolean }) 
           return (
             <>
               <WalletActivityTracker ready={ready} connected={false} />
-              <button onClick={openConnectModal} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-4 py-3 text-sm font-bold text-[#031018] shadow-neon transition hover:scale-[1.02]">
+              <button onClick={openConnectModal} className="flex items-center gap-2 rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white shadow-neon transition hover:scale-[1.02]">
                 <Wallet className="h-4 w-4" /> Connect Wallet
               </button>
             </>
@@ -126,7 +126,7 @@ export function WalletConnectButton({ compact = false }: { compact?: boolean }) 
             <WalletActivityTracker ready={ready} connected={Boolean(connected)} address={account.address} chainId={chain.id} chainName={chain.name} />
             <button
               onClick={() => setMenuOpen((value) => !value)}
-              className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-mint/40 hover:bg-mint/10"
+              className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-cyan/45 hover:bg-cyan/10"
             >
               <Wallet className="h-4 w-4 text-cyan" />
               {compact ? shortAddress(account.address) : account.displayName || shortAddress(account.address)}

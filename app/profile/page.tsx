@@ -133,7 +133,7 @@ function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
                 <td className="px-4 py-4">{new Date(record.timestamp).toLocaleString()}</td>
                 <td className="rounded-r-lg px-4 py-4">
                   {explorerUrl || routeUrl ? (
-                    <a href={explorerUrl ?? routeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-cyan hover:text-mint">
+                    <a href={explorerUrl ?? routeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-cyan hover:text-cyan">
                       View Transaction <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   ) : (
@@ -288,7 +288,7 @@ export default function ProfilePage() {
           action={
             <div className="flex rounded-lg border border-white/10 bg-black/20 p-1">
               {(["positions", "activities"] as ProfileTab[]).map((item) => (
-                <button key={item} onClick={() => setTab(item)} className={cx("rounded-md px-4 py-2 text-sm font-semibold capitalize transition", tab === item ? "bg-mint text-[#031018]" : "text-slate-400 hover:text-white")}>
+                <button key={item} onClick={() => setTab(item)} className={cx("rounded-md px-4 py-2 text-sm font-semibold capitalize transition", tab === item ? "bg-cyan text-white" : "text-slate-400 hover:text-white")}>
                   {item}
                 </button>
               ))}
@@ -309,7 +309,7 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-4">
               <div className="flex justify-end">
-                <button onClick={downloadCsv} disabled={!isConnected || !profileActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan hover:border-mint/40 hover:text-mint disabled:cursor-not-allowed disabled:opacity-50">
+                <button onClick={downloadCsv} disabled={!isConnected || !profileActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan hover:border-cyan/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
                   <Download className="h-4 w-4" /> Export Activity CSV
                 </button>
               </div>

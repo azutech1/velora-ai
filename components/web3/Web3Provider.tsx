@@ -18,8 +18,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme({
-            accentColor: "#00F5C4",
-            accentColorForeground: "#031018",
+            accentColor: "#3B82F6",
+            accentColorForeground: "#F8FAFC",
             borderRadius: "small",
             fontStack: "system"
           })}

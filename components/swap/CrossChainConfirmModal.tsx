@@ -51,7 +51,7 @@ export function CrossChainConfirmModal({
             <div className="mt-4 rounded-lg border border-cyan/30 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
               Preview only. Real execution requires a live route with wallet transaction data.
             </div>
-            <button onClick={onConfirm} disabled={busy} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={onConfirm} disabled={busy} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon disabled:cursor-not-allowed disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               {busy ? state : "Confirm Bridge Preview"}
             </button>

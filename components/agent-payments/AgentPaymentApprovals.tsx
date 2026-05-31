@@ -191,7 +191,7 @@ function RecentPaymentsTable({ rows, executingPaymentId, onRetry }: { rows: Agen
                 <td className="px-4 py-4">{new Date(payment.completedAt ?? payment.approvalTime ?? payment.timestamp).toLocaleString()}</td>
                 <td className="px-4 py-4">
                   {explorerUrl ? (
-                    <a className="inline-flex items-center gap-1 text-cyan hover:text-mint" href={explorerUrl} target="_blank" rel="noreferrer">
+                    <a className="inline-flex items-center gap-1 text-cyan hover:text-cyan" href={explorerUrl} target="_blank" rel="noreferrer">
                       {shortAddress(payment.txHash)} <ChevronRight className="h-3.5 w-3.5" />
                     </a>
                   ) : payment.transferId ? (

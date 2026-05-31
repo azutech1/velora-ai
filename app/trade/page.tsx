@@ -198,7 +198,7 @@ function TokenPicker({
                         onSelect(token);
                         setOpen(false);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-mint/40 hover:bg-mint/10"
+                      className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-cyan/45 hover:bg-cyan/10"
                     >
                       <span className="flex items-center gap-3">
                         <TokenLogo symbol={token.symbol} size={30} />
@@ -269,7 +269,7 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
                       onSelect(network);
                       setOpen(false);
                     }}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-mint/40 hover:bg-mint/10"
+                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-cyan/45 hover:bg-cyan/10"
                   >
                     <span className="flex items-center gap-3">
                       <NetworkLogo id={network.iconId} size={30} />
@@ -1144,7 +1144,7 @@ export default function TradePage() {
                   onClick={() => setTab(item)}
                   className={cx(
                     "rounded-lg px-4 py-3 text-sm font-semibold transition",
-                    tab === item ? "bg-gradient-to-r from-mint to-cyan text-[#031018] shadow-neon" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
+                    tab === item ? "bg-cyan text-white shadow-neon" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
                   )}
                 >
                   {item === "swap" ? "Swap" : "Bridge"}
@@ -1242,7 +1242,7 @@ export default function TradePage() {
                         "flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 font-bold shadow-neon transition",
                         swapExecutionUnavailable
                           ? "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none"
-                          : "bg-gradient-to-r from-mint to-cyan text-[#031018] hover:scale-[1.01]",
+                          : "bg-cyan text-white hover:scale-[1.01]",
                         swapPrimaryBusy && "cursor-wait opacity-70"
                       )}
                     >
@@ -1331,7 +1331,7 @@ export default function TradePage() {
                   </p>
                 ) : null}
 
-                <button onClick={handleBridgeQuote} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon">
+                <button onClick={handleBridgeQuote} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon">
                   <Repeat2 className="h-4 w-4" /> Get Bridge Quote
                 </button>
                 {bridgeQuoteReady ? (
@@ -1372,7 +1372,7 @@ export default function TradePage() {
                   </div>
                 </div>
                 <p className="mt-4 text-sm leading-6 text-slate-400">This will open your wallet for confirmation. Velora AI will track the transaction hash after submission.</p>
-                <button onClick={executeConfirmedSwap} disabled={swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon disabled:cursor-wait disabled:opacity-70">
+                <button onClick={executeConfirmedSwap} disabled={swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon disabled:cursor-wait disabled:opacity-70">
                   {swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   {transactions.isPending ? "Transaction pending..." : swapSubmitting || appKitSwap.state === "swapping" ? "Confirm in wallet..." : "Confirm Swap"}
                 </button>

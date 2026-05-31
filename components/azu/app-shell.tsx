@@ -44,7 +44,7 @@ function Sidebar() {
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-[#06101d]/78 px-5 py-6 backdrop-blur-2xl lg:block">
+    <aside className="hidden w-72 shrink-0 border-r border-line bg-[#0B1220]/88 px-5 py-6 backdrop-blur-2xl lg:block">
       <Logo />
       <nav className="mt-9 space-y-1.5">
         {primaryNavItems.map((item) => {
@@ -55,7 +55,7 @@ function Sidebar() {
               href={item.href}
               className={cx(
                 "group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition",
-                active ? "border border-mint/30 bg-mint/10 text-white shadow-neon" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                active ? "border border-cyan/35 bg-cyan/10 text-white shadow-neon" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -85,7 +85,7 @@ function Sidebar() {
         ) : null}
       </nav>
       <div className="glass mt-10 rounded-lg p-4">
-        <p className="text-sm font-semibold text-mint">Arc Policy Guard</p>
+        <p className="text-sm font-semibold text-cyan">Arc Policy Guard</p>
         <p className="mt-3 text-sm leading-6 text-slate-400">Spend limits, transaction approvals, and agent permissions are staged for wallet integration.</p>
       </div>
       <div className="glass mt-4 rounded-lg p-4">
@@ -129,7 +129,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <NetworkBadge />
-                {adminLabel ? <span className="rounded-full border border-mint/30 bg-mint/10 px-3 py-2 text-xs font-bold text-mint">{adminLabel}</span> : null}
+                {adminLabel ? <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan">{adminLabel}</span> : null}
                 <button className="rounded-lg border border-white/10 p-3 text-slate-300 hover:text-white" aria-label="Notifications">
                   <Bell className="h-4 w-4" />
                 </button>
@@ -153,7 +153,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
       <AnimatePresence>
         {mobileOpen && (
           <motion.div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="flex h-full w-80 max-w-[88vw] flex-col border-r border-white/10 bg-[#06101d] p-5">
+            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="flex h-full w-80 max-w-[88vw] flex-col border-r border-line bg-[#0B1220] p-5">
               <div className="flex items-center justify-between">
                 <Logo />
                 <button className="rounded-lg border border-white/10 p-2 text-slate-300" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
@@ -170,7 +170,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
                       onClick={() => setMobileOpen(false)}
                       className={cx(
                         "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition",
-                        active ? "border border-mint/30 bg-mint/10 text-white" : "text-slate-200 hover:bg-white/[0.06]"
+                        active ? "border border-cyan/35 bg-cyan/10 text-white" : "text-slate-200 hover:bg-white/[0.06]"
                       )}
                     >
                       <item.icon className="h-4 w-4" />

@@ -68,7 +68,7 @@ export default function AutomationPage() {
           title="Automation control center"
           eyebrow="Approval-first financial rules"
           action={
-            <button onClick={() => setBuilderOpen((value) => !value)} className="flex items-center gap-2 rounded-lg bg-mint px-4 py-2 text-sm font-bold text-[#031018] shadow-neon">
+            <button onClick={() => setBuilderOpen((value) => !value)} className="flex items-center gap-2 rounded-lg bg-cyan px-4 py-2 text-sm font-bold text-white shadow-neon">
               <Plus className="h-4 w-4" /> Create rule
             </button>
           }
@@ -91,7 +91,7 @@ export default function AutomationPage() {
               <div className="grid gap-4 lg:grid-cols-3">
                 <label className="space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">IF condition</span>
-                  <select value={conditionId} onChange={(event) => setConditionId(event.target.value as typeof conditionId)} className="w-full rounded-lg border border-white/10 bg-[#080d18] px-4 py-3 text-sm text-white outline-none focus:border-mint/60">
+                  <select value={conditionId} onChange={(event) => setConditionId(event.target.value as typeof conditionId)} className="w-full rounded-lg border border-white/10 bg-[#080d18] px-4 py-3 text-sm text-white outline-none focus:border-cyan/60">
                     {ruleBuilderConditions.map((condition) => (
                       <option key={condition.id} value={condition.id}>{condition.label}</option>
                     ))}
@@ -118,7 +118,7 @@ export default function AutomationPage() {
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">Execution: user review only</div>
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
-                <button onClick={handleCreateRule} className="rounded-lg bg-mint px-5 py-3 text-sm font-bold text-[#031018] shadow-neon">Create approval-first rule</button>
+                <button onClick={handleCreateRule} className="rounded-lg bg-cyan px-5 py-3 text-sm font-bold text-white shadow-neon">Create approval-first rule</button>
                 <button onClick={() => setBuilderOpen(false)} className="rounded-lg border border-white/10 px-5 py-3 text-sm font-semibold text-slate-300 hover:border-cyan/40 hover:text-cyan">Cancel</button>
               </div>
             </Panel>

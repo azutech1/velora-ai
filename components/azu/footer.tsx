@@ -70,7 +70,7 @@ function FooterColumn({ title, links }: { title: string; links: { label: string;
       <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-white">{title}</h2>
       <nav className="mt-4 grid gap-3">
         {links.map((link) => (
-          <SmartLink key={`${title}-${link.label}`} href={link.href} className="text-sm text-slate-400 transition duration-200 hover:translate-x-1 hover:text-mint">
+          <SmartLink key={`${title}-${link.label}`} href={link.href} className="text-sm text-slate-400 transition duration-200 hover:translate-x-1 hover:text-cyan">
             {link.label}
           </SmartLink>
         ))}
@@ -94,14 +94,14 @@ export function SiteFooter() {
                   key={link.label}
                   href={link.href}
                   label={link.label}
-                  className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition duration-200 hover:-translate-y-0.5 hover:border-mint/40 hover:bg-mint/10 hover:text-mint hover:shadow-neon"
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition duration-200 hover:-translate-y-0.5 hover:border-cyan/40 hover:bg-cyan/10 hover:text-cyan hover:shadow-neon"
                 >
                   <link.icon className="h-4 w-4" />
                 </SmartLink>
               ))}
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-mint/20 bg-mint/10 px-3 py-1.5 text-xs font-semibold text-mint">
+              <span className="inline-flex items-center gap-2 rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan">
                 <Shield className="h-3.5 w-3.5" /> Testnet Alpha
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan">

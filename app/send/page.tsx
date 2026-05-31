@@ -226,7 +226,7 @@ export default function SendPage() {
                   setRecipient(event.target.value);
                   resetPreview();
                 }}
-                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-mint/60"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan/60"
                 placeholder="0x..."
               />
               <span className={validRecipient ? "mt-2 block text-xs text-mint" : "mt-2 block text-xs text-red-300"}>
@@ -241,7 +241,7 @@ export default function SendPage() {
                   setAmount(event.target.value);
                   resetPreview();
                 }}
-                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-mint/60"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan/60"
                 inputMode="decimal"
                 placeholder="0.00"
               />
@@ -278,7 +278,7 @@ export default function SendPage() {
                 type="button"
                 onClick={() => switchToArc()}
                 disabled={isSwitching}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-5 py-3 font-bold text-cyan transition hover:border-mint/40 hover:text-mint disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-5 py-3 font-bold text-cyan transition hover:border-cyan/50 hover:text-white disabled:opacity-60"
               >
                 {isSwitching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Switch to Arc Testnet
@@ -287,7 +287,7 @@ export default function SendPage() {
 
             <button
               disabled={state === "previewing" || state === "sending" || state === "confirming"}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {state === "previewing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Preview Transaction
@@ -304,7 +304,7 @@ export default function SendPage() {
             <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
               <p className="font-semibold text-white">Transaction hash</p>
               <p className="mt-2 break-all">{txHash}</p>
-              <a className="mt-3 inline-flex items-center gap-2 text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, txHash)} target="_blank" rel="noreferrer">
+              <a className="mt-3 inline-flex items-center gap-2 text-cyan hover:text-cyan" href={explorerTxUrl(ARC_EXPLORER_URL, txHash)} target="_blank" rel="noreferrer">
                 View on ArcScan <ExternalLink className="h-4 w-4" />
               </a>
             </div>
@@ -362,7 +362,7 @@ export default function SendPage() {
                 <div className="flex justify-between gap-4">
                   <span>Explorer</span>
                   {txHash ? (
-                    <a className="text-right text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, txHash)} target="_blank" rel="noreferrer">
+                    <a className="text-right text-cyan hover:text-cyan" href={explorerTxUrl(ARC_EXPLORER_URL, txHash)} target="_blank" rel="noreferrer">
                       Open transaction
                     </a>
                   ) : (
@@ -415,7 +415,7 @@ export default function SendPage() {
               <button
                 onClick={confirmPreparedTransaction}
                 disabled={state === "sending" || state === "confirming" || !preview?.valid}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {state === "sending" || state === "confirming" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Confirm Transaction

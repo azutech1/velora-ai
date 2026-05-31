@@ -47,7 +47,7 @@ export default function DocsPage() {
               href="https://github.com/azutech1/velora-ai"
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint"
+              className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-cyan/50 hover:text-white"
             >
               GitHub
             </a>
@@ -64,7 +64,7 @@ export default function DocsPage() {
               <h2 className="text-lg font-bold text-white">{section.title}</h2>
               <p className="mt-3 text-sm leading-7 text-slate-400">{section.body}</p>
               {section.id === "community" ? (
-                <Link href="https://x.com/UseVeloraAI" className="mt-4 inline-flex text-sm font-semibold text-cyan transition hover:text-mint">
+                <Link href="https://x.com/UseVeloraAI" className="mt-4 inline-flex text-sm font-semibold text-cyan transition hover:text-cyan">
                   Follow Velora AI on X
                 </Link>
               ) : null}

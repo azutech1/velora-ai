@@ -83,7 +83,7 @@ export default function TokenPage() {
                 <p className="mt-3 text-2xl font-black text-white">{item.value}</p>
                 {item.value.endsWith("%") ? (
                   <div className="mt-4 h-2 rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-gradient-to-r from-mint to-cyan" style={{ width: item.value }} />
+                    <div className="h-2 rounded-full bg-cyan" style={{ width: item.value }} />
                   </div>
                 ) : null}
                 <p className="mt-4 text-sm leading-6 text-slate-400">{item.detail}</p>

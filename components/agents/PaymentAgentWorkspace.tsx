@@ -171,15 +171,15 @@ export function PaymentAgentWorkspace() {
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="text-sm">
             <span className="text-slate-400">Recipient Name</span>
-            <input value={form.recipientName} onChange={(event) => updateForm("recipientName", event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" />
+            <input value={form.recipientName} onChange={(event) => updateForm("recipientName", event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" />
           </label>
           <label className="text-sm">
             <span className="text-slate-400">Wallet Address</span>
-            <input value={form.walletAddress} onChange={(event) => updateForm("walletAddress", event.target.value)} placeholder="0x..." className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" />
+            <input value={form.walletAddress} onChange={(event) => updateForm("walletAddress", event.target.value)} placeholder="0x..." className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" />
           </label>
           <label className="text-sm">
             <span className="text-slate-400">Amount (USDC)</span>
-            <input value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} inputMode="decimal" placeholder="0.00" className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" />
+            <input value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} inputMode="decimal" placeholder="0.00" className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" />
           </label>
           <label className="text-sm">
             <span className="text-slate-400">Payment Type</span>
@@ -188,12 +188,12 @@ export function PaymentAgentWorkspace() {
           {form.paymentType === "scheduled" ? (
             <label className="text-sm md:col-span-2">
               <span className="text-slate-400">Schedule Date</span>
-              <input value={form.scheduleDate} onChange={(event) => updateForm("scheduleDate", event.target.value)} type="datetime-local" className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" />
+              <input value={form.scheduleDate} onChange={(event) => updateForm("scheduleDate", event.target.value)} type="datetime-local" className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" />
             </label>
           ) : null}
           <label className="text-sm md:col-span-2">
             <span className="text-slate-400">Description</span>
-            <textarea value={form.description} onChange={(event) => updateForm("description", event.target.value)} rows={3} className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" />
+            <textarea value={form.description} onChange={(event) => updateForm("description", event.target.value)} rows={3} className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" />
           </label>
         </div>
 
@@ -211,7 +211,7 @@ export function PaymentAgentWorkspace() {
           </div>
         ) : null}
 
-        <button onClick={createRequest} disabled={creating} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mint px-5 py-3 text-sm font-bold text-[#031018] shadow-neon disabled:cursor-not-allowed disabled:opacity-60">
+        <button onClick={createRequest} disabled={creating} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 text-sm font-bold text-white shadow-neon disabled:cursor-not-allowed disabled:opacity-60">
           {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Create Payment Request
         </button>

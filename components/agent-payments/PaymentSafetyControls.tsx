@@ -41,7 +41,7 @@ export function PaymentSafetyControls({ payments }: { payments: AgentPaymentReco
               value={policy.perPaymentLimit}
               onChange={(event) => updatePolicy({ ...policy, perPaymentLimit: event.target.value })}
               inputMode="decimal"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60"
             />
           </label>
           <label className="text-sm">
@@ -50,7 +50,7 @@ export function PaymentSafetyControls({ payments }: { payments: AgentPaymentReco
               value={policy.dailySpendLimit}
               onChange={(event) => updatePolicy({ ...policy, dailySpendLimit: event.target.value })}
               inputMode="decimal"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60"
             />
           </label>
           <label className="text-sm">
@@ -59,7 +59,7 @@ export function PaymentSafetyControls({ payments }: { payments: AgentPaymentReco
               value={policy.monthlySpendLimit}
               onChange={(event) => updatePolicy({ ...policy, monthlySpendLimit: event.target.value })}
               inputMode="decimal"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60"
             />
           </label>
         </div>
@@ -90,9 +90,9 @@ export function PaymentSafetyControls({ payments }: { payments: AgentPaymentReco
         <div className="rounded-lg border border-cyan/20 bg-cyan/[0.05] p-4">
           <p className="font-semibold text-white">Recipient allowlist</p>
           <div className="mt-4 grid gap-3 md:grid-cols-[0.8fr_1fr_auto]">
-            <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient name" className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-mint/60" />
-            <input value={recipientAddress} onChange={(event) => setRecipientAddress(event.target.value)} placeholder="0x wallet address" className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-mint/60" />
-            <button onClick={handleAddRecipient} className="inline-flex items-center justify-center gap-2 rounded-lg bg-mint px-4 py-3 text-sm font-bold text-[#031018]">
+            <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient name" className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-cyan/60" />
+            <input value={recipientAddress} onChange={(event) => setRecipientAddress(event.target.value)} placeholder="0x wallet address" className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-cyan/60" />
+            <button onClick={handleAddRecipient} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white">
               <UserPlus className="h-4 w-4" /> Add
             </button>
           </div>

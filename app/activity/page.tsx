@@ -76,14 +76,14 @@ export default function ActivityPage() {
           eyebrow="Wallet transaction recorder"
           action={
             <div className="flex flex-wrap gap-2">
-              <button onClick={downloadCsv} disabled={!filteredActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint disabled:cursor-not-allowed disabled:opacity-50">
+              <button onClick={downloadCsv} disabled={!filteredActivities.length} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-cyan/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
                 <Download className="h-4 w-4" /> Export CSV
               </button>
             </div>
           }
         >
           <div className="grid gap-3 lg:grid-cols-4">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, tx hash, action..." className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-mint/60 lg:col-span-2" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, tx hash, action..." className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-cyan/60 lg:col-span-2" />
             <select value={feature} onChange={(event) => setFeature(event.target.value as typeof feature)} className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-cyan/60">
               {featureOptions.map((option) => (
                 <option key={option} value={option}>{option === "all" ? "All features" : option}</option>

@@ -131,13 +131,13 @@ export function GatewayFunding() {
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               inputMode="decimal"
-              className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-mint/60"
+              className="rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-cyan/60"
               placeholder="Amount in USDC"
             />
             <button
               onClick={() => void runAction("deposit")}
               disabled={Boolean(submitting) || loading}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-mint px-4 py-3 text-sm font-bold text-[#031018] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting === "deposit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
               Deposit

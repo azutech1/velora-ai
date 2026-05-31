@@ -5,15 +5,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        void: "#050816",
-        ink: "#0A0F1C",
+        void: "#0B1220",
+        ink: "#0F172A",
         panel: "#111827",
-        mint: "#00F5C4",
-        cyan: "#00C2FF"
+        mint: "#10B981",
+        cyan: "#3B82F6",
+        line: "#1F2937",
+        warning: "#F59E0B",
+        danger: "#EF4444"
       },
       boxShadow: {
-        neon: "0 0 32px rgba(0, 245, 196, 0.28)",
-        cyan: "0 0 42px rgba(0, 194, 255, 0.24)"
+        neon: "0 18px 48px rgba(59, 130, 246, 0.18)",
+        cyan: "0 18px 56px rgba(59, 130, 246, 0.22)"
       },
       fontFamily: {
         sans: ["var(--font-geist-sans)", "Inter", "ui-sans-serif", "system-ui"]

@@ -94,7 +94,7 @@ export default function AgentsPage() {
                       <span className="text-mint">{agent.confidenceScore}%</span>
                     </div>
                     <div className="mt-2 h-2 rounded-full bg-white/10">
-                      <div className="h-2 rounded-full bg-gradient-to-r from-mint to-cyan" style={{ width: `${agent.confidenceScore}%` }} />
+                      <div className="h-2 rounded-full bg-cyan" style={{ width: `${agent.confidenceScore}%` }} />
                     </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -102,7 +102,7 @@ export default function AgentsPage() {
                       <span key={action} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">{action}</span>
                     ))}
                   </div>
-                  <button onClick={() => openAgent(agent.id)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-semibold text-mint transition hover:bg-mint hover:text-[#031018]">
+                  <button onClick={() => openAgent(agent.id)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-semibold text-mint transition hover:bg-cyan hover:text-white">
                     <Eye className="h-4 w-4" /> Open agent
                   </button>
                 </motion.section>
@@ -115,7 +115,7 @@ export default function AgentsPage() {
               title={selectedAgent.name}
               eyebrow="Agent detail panel"
               action={
-                <button onClick={() => createRecommendation(selectedAgent.id)} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan hover:text-[#031018]">
+                <button onClick={() => createRecommendation(selectedAgent.id)} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan hover:text-white">
                   <Sparkles className="h-4 w-4" /> New recommendation
                 </button>
               }
@@ -198,7 +198,7 @@ export default function AgentsPage() {
                     <button
                       onClick={() => updateRecommendation(recommendation.id, "prepared")}
                       disabled={recommendation.status !== "approved"}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 disabled:cursor-not-allowed disabled:opacity-50 enabled:hover:border-mint/30 enabled:hover:text-mint"
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 disabled:cursor-not-allowed disabled:opacity-50 enabled:hover:border-cyan/35 enabled:hover:text-cyan"
                     >
                       <Workflow className="h-4 w-4" /> Prepare action
                     </button>

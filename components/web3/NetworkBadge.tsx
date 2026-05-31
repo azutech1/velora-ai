@@ -7,7 +7,7 @@ function ArcLogo() {
   return (
     <span
       aria-hidden="true"
-      className="h-6 w-6 shrink-0 rounded-full border border-mint/30 bg-[#06111d] bg-cover bg-center shadow-[0_0_14px_rgba(0,245,196,0.22)]"
+      className="h-6 w-6 shrink-0 rounded-full border border-cyan/30 bg-[#0B1220] bg-cover bg-center shadow-[0_0_14px_rgba(59,130,246,0.22)]"
       style={{ backgroundImage: "url('/networks/arc-official.jpg')" }}
     />
   );
@@ -26,7 +26,7 @@ export function NetworkBadge() {
 
   if (!isArc) {
     return (
-      <button onClick={() => switchToArc()} disabled={isSwitching} className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan transition hover:-translate-y-0.5 hover:border-mint/40 hover:bg-mint/10 hover:text-mint disabled:translate-y-0 disabled:opacity-60 sm:text-sm">
+      <button onClick={() => switchToArc()} disabled={isSwitching} className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan transition hover:-translate-y-0.5 hover:border-cyan/50 hover:bg-cyan/15 hover:text-white disabled:translate-y-0 disabled:opacity-60 sm:text-sm">
         {isSwitching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArcLogo />}
         Switch to Arc
       </button>
@@ -34,7 +34,7 @@ export function NetworkBadge() {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-mint/20 bg-mint/10 px-3 py-2 text-xs font-semibold text-mint transition hover:-translate-y-0.5 hover:border-mint/40 hover:bg-mint/[0.14] hover:shadow-[0_0_18px_rgba(0,245,196,0.16)] sm:text-sm">
+    <div className="flex items-center gap-2 rounded-lg border border-mint/25 bg-mint/10 px-3 py-2 text-xs font-semibold text-mint transition hover:-translate-y-0.5 hover:border-mint/40 hover:bg-mint/[0.14] hover:shadow-[0_0_18px_rgba(16,185,129,0.16)] sm:text-sm">
       <ArcLogo />
       <span className="whitespace-nowrap">{expectedChain.name}</span>
     </div>

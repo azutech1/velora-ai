@@ -64,7 +64,7 @@ export function FaucetCard({
         <div className="mt-2 flex justify-between text-slate-300"><span>Default amount</span><span>{token.faucetAmount}</span></div>
       </div>
 
-      <button onClick={() => onRequest(token)} disabled={!eligibility.eligible || loading} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55">
+      <button onClick={() => onRequest(token)} disabled={!eligibility.eligible || loading} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
         Request {token.symbol}
       </button>

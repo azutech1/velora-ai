@@ -34,7 +34,7 @@ export function FaucetEligibility({ isConnected, isArc }: { isConnected: boolean
         </div>
       </div>
       {!isArc && isConnected ? (
-        <button onClick={() => switchToArc()} disabled={isSwitching} className="mt-5 flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan transition hover:border-mint/40 hover:text-mint disabled:opacity-60">
+        <button onClick={() => switchToArc()} disabled={isSwitching} className="mt-5 flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan transition hover:border-cyan/50 hover:text-white disabled:opacity-60">
           {isSwitching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Switch to Arc
         </button>
@@ -43,7 +43,7 @@ export function FaucetEligibility({ isConnected, isArc }: { isConnected: boolean
         href={CIRCLE_FAUCET_URL}
         target="_blank"
         rel="noreferrer"
-        className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-4 py-3 text-sm font-bold text-[#031018] shadow-neon transition hover:scale-[1.02]"
+        className="mt-5 inline-flex items-center gap-2 rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white shadow-neon transition hover:scale-[1.02]"
       >
         Open Circle Faucet <ExternalLink className="h-4 w-4" />
       </a>

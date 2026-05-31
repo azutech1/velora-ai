@@ -73,7 +73,7 @@ export default function FaucetPage() {
               <h2 className="text-xl font-bold text-white">Circle Testnet Faucet</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Use Circle&apos;s public faucet directly for supported testnet assets when available. This opens Circle in a new tab and does not run through Velora AI.</p>
             </div>
-            <a href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer" className="rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-bold text-mint transition hover:bg-mint hover:text-[#031018]">
+            <a href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer" className="rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-bold text-mint transition hover:bg-mint hover:text-white">
               Open Circle Faucet
             </a>
           </div>
@@ -138,7 +138,7 @@ export default function FaucetPage() {
               <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-xs text-slate-500">Transaction hash</p>
                 <p className="mt-2 break-all text-sm font-semibold text-white">{successClaim.hash}</p>
-                <a className="mt-3 inline-flex text-sm text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, successClaim.hash)} target="_blank" rel="noreferrer">
+                <a className="mt-3 inline-flex text-sm text-cyan hover:text-cyan" href={explorerTxUrl(ARC_EXPLORER_URL, successClaim.hash)} target="_blank" rel="noreferrer">
                   Open transaction: {shortAddress(successClaim.hash)}
                 </a>
               </div>

@@ -156,7 +156,7 @@ function ActivityRow({ record, index }: { record: ActivityRecord; index: number 
               {record.network ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.network}</span> : null}
               {record.txHash && record.txHash !== "N/A" ? (
                 explorerUrl ? (
-                  <a className="rounded-full bg-white/[0.05] px-3 py-1 text-cyan hover:text-mint" href={explorerUrl} target="_blank" rel="noreferrer">
+                  <a className="rounded-full bg-white/[0.05] px-3 py-1 text-cyan hover:text-cyan" href={explorerUrl} target="_blank" rel="noreferrer">
                     Tx: {shortAddress(record.txHash)}
                   </a>
                 ) : (

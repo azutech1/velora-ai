@@ -238,15 +238,15 @@ export default function DashboardPage() {
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#00F5C4" stopOpacity={0.32} />
-                        <stop offset="100%" stopColor="#00C2FF" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.32} />
+                        <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
                     <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} width={32} />
                     <Tooltip contentStyle={{ background: "#07111f", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#e2e8f0" }} />
-                    <Area type="monotone" dataKey="activity" stroke="#00F5C4" strokeWidth={2} fill="url(#activityFill)" />
+                    <Area type="monotone" dataKey="activity" stroke="#3B82F6" strokeWidth={2} fill="url(#activityFill)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -274,7 +274,7 @@ export default function DashboardPage() {
             title="Recent Activity"
             eyebrow="Latest recorded actions"
             action={
-              <Link href="/activity" className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-mint/40 hover:text-mint">
+              <Link href="/activity" className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-cyan/50 hover:text-white">
                 View Activity
               </Link>
             }
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                     <p className="mt-2 font-semibold text-white">{shortAddress(lastTx.recipient)}</p>
                   </div>
                 </div>
-                <a className="inline-flex items-center text-sm font-semibold text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, lastTx.hash)} target="_blank" rel="noreferrer">
+                <a className="inline-flex items-center text-sm font-semibold text-cyan hover:text-cyan" href={explorerTxUrl(ARC_EXPLORER_URL, lastTx.hash)} target="_blank" rel="noreferrer">
                   Open in ArcScan
                 </a>
               </div>

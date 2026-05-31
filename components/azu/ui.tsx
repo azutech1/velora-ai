@@ -11,10 +11,10 @@ export function MetricCard({ title, value, detail, icon: Icon, badge }: { title:
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-slate-400">{title}</p>
-            {badge ? <span className="rounded-full border border-mint/20 bg-mint/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-mint">{badge}</span> : null}
+            {badge ? <span className="rounded-full border border-cyan/25 bg-cyan/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cyan">{badge}</span> : null}
           </div>
           <p className="mt-2 text-2xl font-bold text-white">{value}</p>
-          <p className="mt-2 text-xs text-mint">{detail}</p>
+          <p className="mt-2 text-xs text-slate-400">{detail}</p>
         </div>
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-cyan/20 bg-cyan/10">
           <Icon className="h-5 w-5 text-cyan" />
@@ -93,7 +93,7 @@ export function TransactionsTable({ rows }: { rows: TransactionTableRow[] }) {
               <td className="px-4 py-4"><StatusBadge status={tx.status} /></td>
               <td className="px-4 py-4">{tx.time}</td>
               <td className="rounded-r-lg px-4 py-4">
-                <a className="inline-flex items-center gap-1 text-cyan hover:text-mint" href={tx.explorerUrl} target="_blank" rel="noreferrer" aria-label={`Open ${tx.id} in explorer`}>
+                <a className="inline-flex items-center gap-1 text-cyan hover:text-cyan" href={tx.explorerUrl} target="_blank" rel="noreferrer" aria-label={`Open ${tx.id} in explorer`}>
                   {tx.explorer} <ChevronRight className="h-3 w-3" />
                 </a>
               </td>

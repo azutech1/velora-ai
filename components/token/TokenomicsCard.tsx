@@ -8,7 +8,7 @@ export function TokenomicsCard({ label, value, detail }: { label: string; value:
       <p className="text-sm text-slate-400">{label}</p>
       <p className="mt-3 text-3xl font-black text-white">{value}</p>
       <div className="mt-4 h-2 rounded-full bg-white/10">
-        <div className="h-2 rounded-full bg-gradient-to-r from-mint to-cyan" style={{ width: value }} />
+        <div className="h-2 rounded-full bg-cyan" style={{ width: value }} />
       </div>
       <p className="mt-4 text-sm leading-6 text-slate-400">{detail}</p>
     </motion.div>

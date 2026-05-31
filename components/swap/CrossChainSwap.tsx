@@ -92,14 +92,14 @@ export function CrossChainSwap() {
 
           <label className="block text-sm text-slate-300">
             Amount
-            <input value={bridge.amount} onChange={(event) => bridge.setAmount(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-mint/60" inputMode="decimal" />
+            <input value={bridge.amount} onChange={(event) => bridge.setAmount(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" inputMode="decimal" />
           </label>
 
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
             <p className="text-sm font-semibold text-white">Slippage setting</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {["0.10", "0.50", "1.00"].map((value) => (
-                <button key={value} type="button" onClick={() => bridge.setSlippage(value)} className={bridge.slippage === value ? "rounded-full bg-mint px-3 py-2 text-xs font-bold text-[#031018]" : "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300"}>
+                <button key={value} type="button" onClick={() => bridge.setSlippage(value)} className={bridge.slippage === value ? "rounded-full bg-cyan px-3 py-2 text-xs font-bold text-white" : "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300"}>
                   {value}%
                 </button>
               ))}
@@ -110,7 +110,7 @@ export function CrossChainSwap() {
             Estimated preview only. Real execution requires a live route with wallet transaction data.
           </div>
 
-          <button onClick={review} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
+          <button onClick={review} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat2 className="h-4 w-4" />}
             Preview Bridge
           </button>

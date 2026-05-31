@@ -189,7 +189,7 @@ export function SwapCard() {
             <label className="text-sm text-slate-300">
               From
               <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
-                <input value={amount} onChange={(event) => setAmount(event.target.value)} className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-mint/60" inputMode="decimal" />
+                <input value={amount} onChange={(event) => setAmount(event.target.value)} className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-cyan/60" inputMode="decimal" />
                 <TokenSelector label="From token" token={fromToken} onSelect={setFromToken} />
               </div>
             </label>
@@ -219,7 +219,7 @@ export function SwapCard() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {["0.10", "0.50", "1.00"].map((value) => (
-                <button key={value} type="button" onClick={() => setSlippage(value)} className={slippage === value ? "rounded-full bg-mint px-3 py-2 text-xs font-bold text-[#031018]" : "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300"}>
+                <button key={value} type="button" onClick={() => setSlippage(value)} className={slippage === value ? "rounded-full bg-cyan px-3 py-2 text-xs font-bold text-white" : "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300"}>
                   {value}%
                 </button>
               ))}
@@ -236,12 +236,12 @@ export function SwapCard() {
                 : "Preview pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps."}
           </div>
 
-          <button disabled={appKitSwap.state === "estimating" || appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
+          <button disabled={appKitSwap.state === "estimating" || appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
             {appKitSwap.state === "estimating" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat2 className="h-4 w-4" />}
             {realSwapAvailable ? "Get Real Quote" : "Preview Demo Swap"}
           </button>
           {realSwapAvailable && appKitSwap.estimate ? (
-            <button type="button" onClick={executeRealSwap} disabled={appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-bold text-mint transition hover:bg-mint hover:text-[#031018] disabled:opacity-60">
+            <button type="button" onClick={executeRealSwap} disabled={appKitSwap.state === "swapping"} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-bold text-mint transition hover:bg-mint hover:text-white disabled:opacity-60">
               {appKitSwap.state === "swapping" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Execute Swap
             </button>

@@ -61,7 +61,7 @@ export function NetworkSelector({ label, network, onSelect }: { label: string; n
                         onSelect(item);
                         setOpen(false);
                       }}
-                      className="flex w-full items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-mint/30 hover:bg-mint/10"
+                      className="flex w-full items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-cyan/35 hover:bg-cyan/10"
                     >
                       <NetworkPill network={item} />
                       <span className={item.status === "supported" ? "rounded-full bg-mint/10 px-3 py-1 text-xs text-mint" : "rounded-full bg-cyan/10 px-3 py-1 text-xs text-cyan"}>

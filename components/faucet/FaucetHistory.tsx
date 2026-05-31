@@ -16,7 +16,7 @@ export function FaucetHistory({ claims }: { claims: FaucetClaim[] }) {
                   <p className="font-semibold text-white">{claim.amount}</p>
                   <p className="mt-1 text-xs text-slate-400">{new Date(claim.claimedAt).toLocaleString()}</p>
                 </div>
-                <a className="inline-flex items-center gap-2 text-sm text-cyan hover:text-mint" href={explorerTxUrl(ARC_EXPLORER_URL, claim.hash)} target="_blank" rel="noreferrer">
+                <a className="inline-flex items-center gap-2 text-sm text-cyan hover:text-cyan" href={explorerTxUrl(ARC_EXPLORER_URL, claim.hash)} target="_blank" rel="noreferrer">
                   {shortAddress(claim.hash)} <ExternalLink className="h-4 w-4" />
                 </a>
               </div>
