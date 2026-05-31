@@ -35,7 +35,7 @@ export function CrossChainConfirmModal({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-400">Cross-chain USDC review</p>
-                <h2 className="mt-1 text-xl font-bold text-white">Confirm Bridge Demo</h2>
+                <h2 className="mt-1 text-xl font-bold text-white">Confirm Bridge Preview</h2>
               </div>
               <button onClick={onClose} className="rounded-lg border border-white/10 p-2 text-slate-400 hover:text-white" aria-label="Close bridge confirmation">
                 <X className="h-4 w-4" />
@@ -49,11 +49,11 @@ export function CrossChainConfirmModal({
               <div className="flex justify-between text-slate-300"><span>Bridge fee</span><span>{quote.bridgeFee.toFixed(4)} USDC</span></div>
             </div>
             <div className="mt-4 rounded-lg border border-cyan/30 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-              Demo Mode: real bridge not connected yet. No cross-chain transaction will be executed.
+              Preview only. Real execution requires a live route with wallet transaction data.
             </div>
             <button onClick={onConfirm} disabled={busy} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon disabled:cursor-not-allowed disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {busy ? state : "Confirm Bridge Demo"}
+              {busy ? state : "Confirm Bridge Preview"}
             </button>
           </motion.div>
         </motion.div>

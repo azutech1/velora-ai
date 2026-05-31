@@ -12,7 +12,7 @@ export type BridgeQuote = {
 };
 
 export function createBridgeHashPlaceholder(from: BridgeNetwork, to: BridgeNetwork) {
-  return `0xbridge${from.id.slice(0, 3)}${to.id.slice(0, 3)}${Date.now().toString(16)}000000000000`;
+  return `${from.id}-to-${to.id}-preview-only`;
 }
 
 export function estimateBridgeQuote(fromId: string, toId: string, amount: string, tokenSymbol = "USDC"): BridgeQuote {
@@ -68,7 +68,7 @@ export function estimateBridgeQuote(fromId: string, toId: string, amount: string
     bridgeFee,
     gasEstimate: "$0.012 demo gas",
     estimatedTime: to.id === "ethereum-sepolia" ? "6-8 min" : "2-4 min",
-    route: `${from.name} ${tokenSymbol} -> Bridge Router Demo -> ${to.name} ${tokenSymbol}`,
+    route: `${from.name} ${tokenSymbol} -> Estimated preview -> ${to.name} ${tokenSymbol}`,
     hashPlaceholder: createBridgeHashPlaceholder(from, to)
   };
 }

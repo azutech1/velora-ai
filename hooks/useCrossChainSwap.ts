@@ -13,7 +13,7 @@ export function useCrossChainSwap() {
   const { chainId, isArc } = useArcNetwork();
   const [fromNetworkId, setFromNetworkId] = useState("arc-testnet");
   const [toNetworkId, setToNetworkId] = useState("base-sepolia");
-  const [amount, setAmount] = useState("250");
+  const [amount, setAmount] = useState("");
   const [tokenSymbol, setTokenSymbol] = useState("USDC");
   const [slippage, setSlippage] = useState("0.50");
   const [state, setState] = useState<BridgeFlowState>("idle");

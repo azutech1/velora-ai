@@ -37,7 +37,7 @@ export function BridgeRoutePreview({ fromNetwork, toNetwork, quote }: { fromNetw
       </div>
       <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
         <p className="text-xs text-slate-500">Transaction hash placeholder</p>
-        <p className="mt-2 break-all text-sm font-semibold text-white">{quote.hashPlaceholder}</p>
+        <p className="mt-2 text-sm font-semibold text-white">Execution requires a live route with wallet transaction data.</p>
       </div>
     </section>
   );

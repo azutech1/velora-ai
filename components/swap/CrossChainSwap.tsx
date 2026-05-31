@@ -19,9 +19,9 @@ export function CrossChainSwap() {
 
   function review() {
     recordActivity({
-      actionType: "bridge_started",
-      title: "Bridge review started",
-      description: `Reviewing ${bridge.amount} USDC from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
+      actionType: "bridge_preview_shown",
+      title: "Bridge preview shown",
+      description: `Previewed ${bridge.amount || "0"} USDC from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
       feature: "bridge",
       token: "USDC",
       amount: bridge.amount,
@@ -33,9 +33,9 @@ export function CrossChainSwap() {
       setModalOpen(true);
     } else {
       recordActivity({
-        actionType: "bridge_failed",
-        title: "Bridge review failed",
-        description: "The demo bridge route could not be reviewed.",
+        actionType: "bridge_quote_failed",
+        title: "Bridge preview failed",
+        description: "The bridge preview could not be prepared.",
         feature: "bridge",
         token: "USDC",
         amount: bridge.amount,
@@ -45,19 +45,8 @@ export function CrossChainSwap() {
     }
   }
 
-  async function confirm() {
-    await bridge.confirmBridge();
+  function confirm() {
     setModalOpen(false);
-    recordActivity({
-      actionType: "bridge_reviewed",
-      title: "Bridge reviewed",
-      description: `Bridge quote reviewed from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
-      feature: "bridge",
-      token: "USDC",
-      amount: bridge.amount,
-      network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "info"
-    });
   }
 
   return (
@@ -68,7 +57,7 @@ export function CrossChainSwap() {
             <p className="text-sm text-slate-400">Bridge-style USDC movement</p>
             <h2 className="text-xl font-bold text-white">Cross-Chain Swap</h2>
           </div>
-          <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Demo Mode</span>
+          <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Preview Mode</span>
         </div>
 
         <div className="space-y-4">
@@ -118,12 +107,12 @@ export function CrossChainSwap() {
           </div>
 
           <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-            Demo Mode: real bridge not connected yet. Configure an Arc bridge provider/router before executing real cross-chain swaps.
+            Estimated preview only. Real execution requires a live route with wallet transaction data.
           </div>
 
           <button onClick={review} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat2 className="h-4 w-4" />}
-            Review Bridge
+            Preview Bridge
           </button>
         </div>
 
@@ -136,7 +125,7 @@ export function CrossChainSwap() {
         {bridge.state === "completed" ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-lg border border-mint/30 bg-mint/10 p-4 text-sm text-mint">
             <Check className="mb-2 h-5 w-5" />
-            Demo bridge completed. Hash placeholder: {bridge.completedHash}
+            Bridge preview completed. No transaction was submitted.
           </motion.div>
         ) : null}
       </section>

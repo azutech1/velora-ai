@@ -7,7 +7,7 @@ export function TradingModeBadge({ mode }: { mode: TradingMode }) {
     mode === "live"
       ? "Live Quote Mode - LI.FI route enabled on Arc Testnet."
       : mode === "live-unavailable"
-        ? "Live quote unavailable - showing estimated quote."
+        ? "Live bridge route unavailable. Showing estimated preview only."
         : "Estimated Quote Mode - live route unavailable.";
 
   const className =

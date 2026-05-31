@@ -101,6 +101,10 @@ function formatLifiAmount(value: string | null | undefined, decimals = 6) {
   return formatDisplayAmount(numeric);
 }
 
+function hasExecutableTransactionRequest(quote: LifiEstimate | null) {
+  return Boolean(quote?.transactionRequest?.to && quote.transactionRequest.data);
+}
+
 function PriceTicker() {
   const prices = useStablecoinPrices();
   const rows = (["USDC", "EURC", "USDT"] as const).map((symbol) => prices.prices[symbol]);
@@ -305,8 +309,14 @@ export default function TradePage() {
   const activeTokens = useMemo(() => ACTIVE_STABLECOINS.map((symbol) => getSwapToken(symbol)).filter(Boolean), []);
   const sellTokenBalance = useSwapTokenBalance(sellToken);
   const buyTokenBalance = useSwapTokenBalance(buyToken);
+  const bridgeToken = getSwapToken(bridge.tokenSymbol);
+  const bridgeTokenBalance = useSwapTokenBalance(bridgeToken);
   const hasSellBalance = typeof sellTokenBalance.numericBalance === "number" && sellTokenBalance.numericBalance > 0;
   const balanceActionDisabled = !hasSellBalance || sellTokenBalance.isLoading;
+  const hasBridgeBalance = typeof bridgeTokenBalance.numericBalance === "number" && bridgeTokenBalance.numericBalance > 0;
+  const bridgeMaxDisabled = !hasBridgeBalance || bridgeTokenBalance.isLoading;
+  const bridgeHasExecutableQuote = hasExecutableTransactionRequest(lifiQuote);
+  const bridgePreviewOnly = bridgeQuoteReady && !bridgeHasExecutableQuote;
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
     const fromExisting = SWAP_TOKENS.filter((token) => !ACTIVE_STABLECOINS.includes(token.symbol as (typeof ACTIVE_STABLECOINS)[number])).map((token) => ({ symbol: token.symbol, name: token.name }));
     const merged = [...fromExisting, ...EXTRA_COMING_SOON_TOKENS];
@@ -356,7 +366,8 @@ export default function TradePage() {
       body: JSON.stringify(params)
     });
     if (!response.ok) {
-      throw new Error("Live quote unavailable.");
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Live quote unavailable.");
     }
     const payload = (await response.json()) as { estimate?: LifiEstimate };
     if (!payload.estimate) {
@@ -390,13 +401,15 @@ export default function TradePage() {
     }
 
     recordActivity({
-      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      actionType: feature === "swap" ? "swap_started" : "bridge_execution_started",
       title: feature === "swap" ? "Token approval required" : "Bridge token approval required",
       description: "Wallet approval is required before LI.FI can move the selected ERC20 token.",
       feature,
       token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
       amount: feature === "swap" ? swapAmount : bridge.amount,
-      status: "pending"
+      network: feature === "bridge" ? `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}` : undefined,
+      status: "pending",
+      metadata: feature === "bridge" ? getBridgeActivityMetadata("approval_required", quote) : undefined
     });
 
     const approvalHash = await walletClient.writeContract({
@@ -408,14 +421,16 @@ export default function TradePage() {
     });
 
     recordActivity({
-      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      actionType: feature === "swap" ? "swap_started" : "bridge_transaction_submitted",
       title: feature === "swap" ? "Token approval submitted" : "Bridge token approval submitted",
       description: "Approval transaction submitted. Velora AI will execute the route after confirmation.",
       feature,
       token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
       amount: feature === "swap" ? swapAmount : bridge.amount,
+      network: feature === "bridge" ? `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}` : undefined,
       status: "pending",
-      txHash: approvalHash
+      txHash: approvalHash,
+      metadata: feature === "bridge" ? getBridgeActivityMetadata("approval_submitted", quote) : undefined
     });
 
     await transactions.trackTransaction(approvalHash);
@@ -474,7 +489,7 @@ export default function TradePage() {
       fromChainIconId: bridge.fromNetwork.iconId,
       toChainIconId: bridge.toNetwork.iconId,
       routeProvider: quote?.provider ?? bridge.quote.route,
-      quoteMode: quote?.transactionRequest ? "live" : liveQuoteUnavailable ? "fallback" : "preview",
+      quoteMode: quote?.transactionRequest ? "live" : "preview",
       trackingStatus,
       bridgeFee: quote?.feeEstimateUsd ? `$${quote.feeEstimateUsd}` : `${formatDisplayAmount(bridge.quote.bridgeFee)} ${bridge.tokenSymbol}`,
       eta: bridge.quote.estimatedTime
@@ -505,7 +520,7 @@ export default function TradePage() {
     });
 
     recordActivity({
-      actionType: feature === "swap" ? "swap_started" : "bridge_started",
+      actionType: feature === "swap" ? "swap_started" : "bridge_transaction_submitted",
       title: feature === "swap" ? "Swap transaction submitted" : "Bridge transaction submitted",
       description: "Wallet submitted a LI.FI transaction for the live route.",
       feature,
@@ -516,7 +531,10 @@ export default function TradePage() {
       metadata: feature === "swap" ? getSwapActivityMetadata("transaction_submitted", quote) : getBridgeActivityMetadata("transaction_submitted", quote)
     });
 
-    await transactions.trackTransaction(hash);
+    const receipt = await transactions.trackTransaction(hash);
+    if (receipt?.status === "reverted") {
+      throw new Error("Wallet transaction reverted.");
+    }
     return hash;
   }
 
@@ -536,6 +554,31 @@ export default function TradePage() {
       fromToken: fromTokenAddress,
       toToken: toTokenAddress,
       fromAmount: parseUnits(swapAmount, sellToken.decimals).toString(),
+      fromAddress: address,
+      slippage: 0.5
+    });
+  }
+
+  async function requestCurrentBridgeLifiQuote() {
+    if (!address) {
+      throw new Error("Connect wallet before requesting a live bridge route.");
+    }
+
+    const fromChain = getChainById(bridge.fromNetwork.chainId);
+    const toChain = getChainById(bridge.toNetwork.chainId);
+    const fromTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.fromNetwork.chainId);
+    const toTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.toNetwork.chainId);
+
+    if (!fromChain || !toChain || !fromTokenAddress || !toTokenAddress) {
+      throw new Error("Route currently unavailable for live execution.");
+    }
+
+    return requestLifiQuote({
+      fromChain: fromChain.lifiChainId,
+      toChain: toChain.lifiChainId,
+      fromToken: fromTokenAddress,
+      toToken: toTokenAddress,
+      fromAmount: parseUnits(bridge.amount, 6).toString(),
       fromAddress: address,
       slippage: 0.5
     });
@@ -562,6 +605,14 @@ export default function TradePage() {
     const precision = sellToken.decimals > 6 ? 6 : 2;
     const formatted = value.toFixed(precision).replace(/\.?0+$/, "");
     setSwapAmount(formatted || "0");
+  }
+
+  function setBridgeMaxAmount() {
+    const available = bridgeTokenBalance.numericBalance ?? 0;
+    if (available <= 0) return;
+    const precision = bridgeToken.decimals > 6 ? 6 : 2;
+    const formatted = available.toFixed(precision).replace(/\.?0+$/, "");
+    bridge.setAmount(formatted || "0");
   }
 
   async function handleSwapQuote() {
@@ -789,7 +840,7 @@ export default function TradePage() {
     setBridgeMessage("");
     setLifiQuote(null);
     recordActivity({
-      actionType: "quote_requested",
+      actionType: "bridge_quote_requested",
       title: "Bridge quote requested",
       description: `Requested bridge quote for ${bridge.amount} ${bridge.tokenSymbol}.`,
       feature: "bridge",
@@ -804,9 +855,25 @@ export default function TradePage() {
       return;
     }
 
+    const bridgeAmountValue = Number(bridge.amount);
+    if (!bridge.amount || !Number.isFinite(bridgeAmountValue) || bridgeAmountValue <= 0) {
+      recordActivity({
+        actionType: "bridge_quote_failed",
+        title: "Bridge quote failed",
+        description: "Enter a valid bridge amount.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "failed",
+        metadata: getBridgeActivityMetadata("quote_failed")
+      });
+      setBridgeMessage("Enter a valid bridge amount.");
+      return;
+    }
+
     if (!bridge.quote.valid) {
       recordActivity({
-        actionType: "quote_failed",
+        actionType: "bridge_quote_failed",
         title: "Bridge quote failed",
         description: bridge.quote.reason ?? "Bridge quote was invalid.",
         feature: "bridge",
@@ -829,9 +896,9 @@ export default function TradePage() {
     if (!fromTokenAddress || !toTokenAddress) {
       setLiveQuoteUnavailable(true);
       recordActivity({
-        actionType: "live_quote_failed",
+        actionType: "bridge_quote_failed",
         title: "Live bridge quote failed",
-        description: "Token is not available for live bridge quote on selected networks.",
+        description: "Route currently unavailable for live execution.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
@@ -839,17 +906,17 @@ export default function TradePage() {
         metadata: getBridgeActivityMetadata("live_quote_failed")
       });
       recordActivity({
-        actionType: "fallback_quote_used",
-        title: "Fallback bridge quote used",
-        description: "Estimated bridge quote shown due to missing live token mapping.",
+        actionType: "bridge_preview_shown",
+        title: "Bridge preview shown",
+        description: "Estimated preview shown because this route is unavailable for live execution.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
         status: "info",
-        metadata: getBridgeActivityMetadata("fallback_quote_used")
+        metadata: getBridgeActivityMetadata("preview_shown")
       });
       setBridgeQuoteReady(true);
-      setBridgeMessage("Live quote unavailable — showing estimated quote.");
+      setBridgeMessage("Route currently unavailable for live execution. Estimated preview only. Real execution requires a live route with wallet transaction data.");
       return;
     }
 
@@ -870,24 +937,42 @@ export default function TradePage() {
           slippage: 0.5
         });
         setLifiQuote(quote);
-        setLiveQuoteUnavailable(false);
-        recordActivity({
-          actionType: "live_quote_success",
-          title: "Live bridge quote success",
-          description: "LI.FI bridge quote returned successfully.",
-          feature: "bridge",
-          token: bridge.tokenSymbol,
-          amount: bridge.amount,
-          status: "success",
-          metadata: getBridgeActivityMetadata("live_quote_success", quote)
-        });
-      } catch {
+        if (hasExecutableTransactionRequest(quote)) {
+          setLiveQuoteUnavailable(false);
+          recordActivity({
+            actionType: "bridge_preview_shown",
+            title: "Live bridge quote ready",
+            description: "LI.FI bridge quote returned executable wallet transaction data.",
+            feature: "bridge",
+            token: bridge.tokenSymbol,
+            amount: bridge.amount,
+            status: "success",
+            metadata: getBridgeActivityMetadata("live_quote_success", quote)
+          });
+          setBridgeMessage("Live Quote Mode. Review bridge to open wallet confirmation.");
+        } else {
+          setLiveQuoteUnavailable(true);
+          recordActivity({
+            actionType: "bridge_preview_shown",
+            title: "Bridge preview shown",
+            description: "LI.FI returned a quote without executable wallet transaction data.",
+            feature: "bridge",
+            token: bridge.tokenSymbol,
+            amount: bridge.amount,
+            status: "info",
+            metadata: getBridgeActivityMetadata("preview_shown", quote)
+          });
+          setBridgeMessage("Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.");
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "";
+        const reason = errorMessage === "Route currently unavailable." || errorMessage === "Live quote unavailable." ? "Route currently unavailable for live execution." : "LI.FI bridge quote failed.";
         setLiveQuoteUnavailable(true);
         setLifiQuote(null);
         recordActivity({
-          actionType: "live_quote_failed",
+          actionType: "bridge_quote_failed",
           title: "Live bridge quote failed",
-          description: "LI.FI bridge quote failed.",
+          description: reason,
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
@@ -895,99 +980,105 @@ export default function TradePage() {
           metadata: getBridgeActivityMetadata("live_quote_failed")
         });
         recordActivity({
-          actionType: "fallback_quote_used",
-          title: "Fallback bridge quote used",
-          description: "Estimated bridge quote shown after live quote failure.",
+          actionType: "bridge_preview_shown",
+          title: "Bridge preview shown",
+          description: "Estimated preview shown after live bridge quote failure.",
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
           status: "info",
-          metadata: getBridgeActivityMetadata("fallback_quote_used")
+          metadata: getBridgeActivityMetadata("preview_shown")
         });
-        setBridgeMessage("Live quote unavailable — showing estimated quote.");
+        setBridgeMessage(`${reason} Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.`);
       }
+    } else {
+      setLiveQuoteUnavailable(true);
+      recordActivity({
+        actionType: "bridge_preview_shown",
+        title: "Bridge preview shown",
+        description: "Estimated preview shown because LI.FI live routing is disabled.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "info",
+        metadata: getBridgeActivityMetadata("preview_shown")
+      });
+      setBridgeMessage("Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.");
     }
 
     setBridgeQuoteReady(true);
-    setBridgeMessage("Bridge quote ready. Review bridge.");
   }
 
   async function handleReviewBridge() {
-    recordActivity({
-      actionType: "bridge_reviewed",
-      title: "Bridge reviewed",
-      description: `Reviewed bridge quote from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
-      feature: "bridge",
-      token: bridge.tokenSymbol,
-      amount: bridge.amount,
-      network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "info",
-      metadata: getBridgeActivityMetadata("reviewed")
-    });
+    if (!bridgeHasExecutableQuote) {
+      setBridgeMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      return;
+    }
+
     const ok = bridge.reviewBridge();
     if (!ok) {
       recordActivity({
-        actionType: "quote_failed",
-        title: "Bridge review failed",
-        description: bridge.error ?? "Bridge review failed.",
+        actionType: "bridge_quote_failed",
+        title: "Bridge execution blocked",
+        description: bridge.error ?? "Bridge execution prerequisites failed.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
         status: "failed",
         metadata: getBridgeActivityMetadata("failed")
       });
-      setBridgeMessage(bridge.error ?? "Bridge review failed.");
+      setBridgeMessage(bridge.error ?? "Bridge execution prerequisites failed.");
       return;
     }
 
-    if (lifiQuote?.transactionRequest) {
-      try {
-        const hash = await executeLifiTransaction(lifiQuote, "bridge");
-        recordActivity({
-          actionType: "bridge_completed",
-          title: "Bridge confirmed",
-          description: "Live LI.FI bridge transaction confirmed.",
-          feature: "bridge",
-          token: bridge.tokenSymbol,
-          amount: bridge.amount,
-          network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-          status: "success",
-          txHash: hash,
-          metadata: getBridgeActivityMetadata("confirmed")
-        });
-        setBridgeMessage(`Live bridge confirmed: ${hash}`);
-        return;
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : "Live bridge execution failed.";
-        recordActivity({
-          actionType: "bridge_failed",
-          title: "Bridge failed",
-          description: reason,
-          feature: "bridge",
-          token: bridge.tokenSymbol,
-          amount: bridge.amount,
-          network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-          status: "failed",
-          metadata: getBridgeActivityMetadata("failed")
-        });
-        setBridgeMessage(reason);
-        return;
-      }
-    }
-
-    await bridge.confirmBridge();
     recordActivity({
-      actionType: "bridge_reviewed",
-      title: "Bridge reviewed",
-      description: "Bridge quote confirmed in quote mode.",
+      actionType: "bridge_execution_started",
+      title: "Bridge execution started",
+      description: `Starting live bridge from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
       feature: "bridge",
       token: bridge.tokenSymbol,
       amount: bridge.amount,
       network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-      status: "info",
-      metadata: getBridgeActivityMetadata("reviewed")
+      status: "pending",
+      metadata: getBridgeActivityMetadata("execution_started")
     });
-    setBridgeMessage(`Bridge reviewed in quote mode: ${bridge.quote.hashPlaceholder}`);
+
+    try {
+      setBridgeMessage("Refreshing live bridge route before wallet confirmation...");
+      const freshQuote = await requestCurrentBridgeLifiQuote();
+      if (!hasExecutableTransactionRequest(freshQuote)) {
+        throw new Error("Live bridge route unavailable. Showing estimated preview only.");
+      }
+      setLifiQuote(freshQuote);
+      const hash = await executeLifiTransaction(freshQuote, "bridge");
+      recordActivity({
+        actionType: "bridge_completed",
+        title: "Bridge completed",
+        description: "Live LI.FI bridge transaction confirmed.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
+        status: "success",
+        txHash: hash,
+        metadata: getBridgeActivityMetadata("confirmed", freshQuote)
+      });
+      setBridgeMessage(`Live bridge confirmed: ${hash}`);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Live bridge execution failed.";
+      recordActivity({
+        actionType: "bridge_failed",
+        title: "Bridge failed",
+        description: reason,
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
+        status: "failed",
+        metadata: getBridgeActivityMetadata("failed")
+      });
+      setBridgeMessage(reason);
+    }
   }
 
   return (
@@ -1137,7 +1228,7 @@ export default function TradePage() {
                   <div className="mt-2">
                     <TokenPicker
                       label="Bridge token"
-                      selected={getSwapToken(bridge.tokenSymbol)}
+                      selected={bridgeToken}
                       activeTokens={activeTokens}
                       comingSoon={comingSoonTokens}
                       onSelect={(token) => bridge.setTokenSymbol(token.symbol)}
@@ -1147,7 +1238,25 @@ export default function TradePage() {
 
                 <label className="block text-sm text-slate-300">
                   Amount
-                  <input value={bridge.amount} onChange={(event) => bridge.setAmount(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-cyan/60" inputMode="decimal" />
+                  <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-2">
+                    <input value={bridge.amount} onChange={(event) => bridge.setAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none" inputMode="decimal" placeholder="0.00" />
+                    <div className="mt-2 flex items-center justify-between gap-3 px-2 pb-1">
+                      <span className="text-xs text-slate-500">
+                        {bridgeTokenBalance.formattedBalance ? `Balance: ${bridgeTokenBalance.formattedBalance} ${bridge.tokenSymbol}` : bridgeTokenBalance.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={setBridgeMaxAmount}
+                        disabled={bridgeMaxDisabled}
+                        className={cx(
+                          "rounded-full border border-mint/30 bg-mint/10 px-3 py-1 text-xs font-semibold text-mint",
+                          bridgeMaxDisabled && "cursor-not-allowed opacity-50"
+                        )}
+                      >
+                        Max
+                      </button>
+                    </div>
+                  </div>
                 </label>
 
                 <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
@@ -1155,15 +1264,21 @@ export default function TradePage() {
                   <p className="text-slate-300">Bridge fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `${bridge.quote.bridgeFee.toFixed(4)} ${bridge.tokenSymbol}`}</span></p>
                   <p className="text-slate-300">ETA: <span className="font-semibold text-white">{bridge.quote.estimatedTime}</span></p>
                   <p className="text-slate-300">Route preview: <span className="font-semibold text-white">{lifiQuote?.provider ?? bridge.quote.route}</span></p>
+                  <p className="text-slate-300">Quote mode: <span className={bridgeHasExecutableQuote ? "font-semibold text-mint" : "font-semibold text-amber-300"}>{bridgeHasExecutableQuote ? "Live Quote Mode" : "Estimated preview only"}</span></p>
                   {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}
                 </div>
+                {bridgePreviewOnly ? (
+                  <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+                    Estimated preview only. Real execution requires a live route with wallet transaction data.
+                  </p>
+                ) : null}
 
                 <button onClick={handleBridgeQuote} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-mint to-cyan px-5 py-3 font-bold text-[#031018] shadow-neon">
                   <Repeat2 className="h-4 w-4" /> Get Bridge Quote
                 </button>
                 {bridgeQuoteReady ? (
-                  <button onClick={handleReviewBridge} disabled={transactions.isPending} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:opacity-60">
-                    {transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {lifiQuote?.transactionRequest ? "Execute Bridge" : "Review Bridge"}
+                  <button onClick={handleReviewBridge} disabled={transactions.isPending || !bridgeHasExecutableQuote} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-slate-500">
+                    {transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {bridgeHasExecutableQuote ? "Review Bridge" : "Execution unavailable"}
                   </button>
                 ) : null}
                 {bridgeMessage ? <p className="text-sm text-cyan">{bridgeMessage}</p> : null}
