@@ -22,7 +22,6 @@ export const SWAP_TOKENS: SwapToken[] = [
   { symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8, mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
   { symbol: "ETH", name: "Ether", decimals: 18, mockPrice: 3850, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
   { symbol: "BTC", name: "Bitcoin", decimals: 8, mockPrice: 103500, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "wrapped asset" },
-  { symbol: "ARC", name: "Arc Testnet Token", decimals: 18, mockPrice: 0, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" },
   { symbol: "AVL", name: "Velora AI Token", decimals: 18, mockPrice: 0.08, contractAddress: UNCONFIGURED_TOKEN_ADDRESS, category: "native ecosystem token" }
 ];
 

@@ -20,7 +20,7 @@ export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   return (
     <div className="mb-4">
       <p className={`rounded-lg border p-3 text-sm ${className}`}>{text}</p>
-      <p className="mt-2 text-xs text-slate-400">Velora AI only enables execution when the current route includes wallet transaction data. Preview estimates are informational and cannot open MetaMask.</p>
+      <p className="mt-2 text-xs text-slate-400">Preview estimates are informational. Swapping becomes available when the current pair and amount can be confirmed in your wallet.</p>
     </div>
   );
 }

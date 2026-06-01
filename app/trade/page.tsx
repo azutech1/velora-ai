@@ -10,7 +10,6 @@ import { AppShell } from "@/components/azu/app-shell";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
 import { TokenLogo } from "@/components/token/TokenLogo";
-import { TradingModeBadge } from "@/components/swap/TradingModeBadge";
 import { WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
@@ -35,13 +34,7 @@ type ComingSoonToken = {
 
 const ACTIVE_STABLECOINS = ["USDC", "EURC", "USDT"] as const;
 
-const EXTRA_COMING_SOON_TOKENS: ComingSoonToken[] = [
-  { symbol: "DAI", name: "Dai Stablecoin" },
-  { symbol: "PYUSD", name: "PayPal USD" },
-  { symbol: "cirBTC", name: "Circle BTC" }
-];
-
-type TradingMode = "live" | "demo" | "live-unavailable";
+const COMING_SOON_SYMBOLS = new Set(["WETH", "WBTC", "ETH", "BTC"]);
 
 type LifiEstimate = {
   toAmount: string | null;
@@ -136,7 +129,7 @@ function PriceTicker() {
         <div className="mt-3 inline-flex rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">Fallback pricing</div>
       ) : null}
       {prices.stale ? (
-        <p className="mt-2 text-xs text-amber-300">Stale price warning: live API unavailable, displaying safe fallback values.</p>
+        <p className="mt-2 text-xs text-amber-300">Latest market prices may be delayed.</p>
       ) : null}
     </section>
   );
@@ -303,7 +296,7 @@ export default function TradePage() {
   const [tab, setTab] = useState<TradeTab>("swap");
   const [sellToken, setSellToken] = useState(getSwapToken("USDC"));
   const [buyToken, setBuyToken] = useState(getSwapToken("EURC"));
-  const [swapAmount, setSwapAmount] = useState("0");
+  const [swapAmount, setSwapAmount] = useState("");
   const [swapQuoteReady, setSwapQuoteReady] = useState(false);
   const [swapMessage, setSwapMessage] = useState("");
   const [swapQuoteLoading, setSwapQuoteLoading] = useState(false);
@@ -327,8 +320,7 @@ export default function TradePage() {
   const bridgeHasExecutableQuote = hasExecutableTransactionRequest(lifiQuote);
   const bridgePreviewOnly = bridgeQuoteReady && !bridgeHasExecutableQuote;
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
-    const fromExisting = SWAP_TOKENS.filter((token) => !ACTIVE_STABLECOINS.includes(token.symbol as (typeof ACTIVE_STABLECOINS)[number])).map((token) => ({ symbol: token.symbol, name: token.name }));
-    const merged = [...fromExisting, ...EXTRA_COMING_SOON_TOKENS];
+    const merged = SWAP_TOKENS.filter((token) => COMING_SOON_SYMBOLS.has(token.symbol)).map((token) => ({ symbol: token.symbol, name: token.name }));
     return merged.filter((item, index) => merged.findIndex((candidate) => candidate.symbol.toLowerCase() === item.symbol.toLowerCase()) === index);
   }, []);
 
@@ -361,18 +353,7 @@ export default function TradePage() {
   });
   const swapHasExecutableQuote = Boolean(lifiQuote?.transactionRequest || (realSwapEnabled && appKitSwap.estimate?.estimatedOutput));
   const swapExecutionUnavailable = hasValidSwapAmount && swapQuoteReady && !swapHasExecutableQuote;
-  const tradingMode: TradingMode =
-    tab === "swap"
-      ? swapExecutionUnavailable
-        ? "live-unavailable"
-        : swapHasExecutableQuote
-          ? "live"
-          : "demo"
-      : tab === "bridge" && liveQuoteUnavailable
-        ? "live-unavailable"
-        : bridgeHasExecutableQuote
-          ? "live"
-          : "demo";
+  const showSwapQuoteDetails = hasValidSwapAmount && swapQuoteReady;
   const swapQuoteUpdating = swapQuoteLoading || appKitSwap.state === "estimating";
   const swapPrimaryBusy = swapQuoteUpdating || swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
   const swapPrimaryLabel = swapWalletWaiting
@@ -439,7 +420,7 @@ export default function TradePage() {
     recordActivity({
       actionType: feature === "swap" ? "swap_started" : "bridge_execution_started",
       title: feature === "swap" ? "Token approval required" : "Bridge token approval required",
-      description: "Wallet approval is required before LI.FI can move the selected ERC20 token.",
+      description: "Wallet approval is required before the selected token can be swapped.",
       feature,
       token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
       amount: feature === "swap" ? swapAmount : bridge.amount,
@@ -486,14 +467,14 @@ export default function TradePage() {
         value: parseOptionalBigInt(request.value)
       });
     } catch (error) {
-      console.warn("[Velora AI] LI.FI route preflight reverted", {
+      console.warn("[Velora AI] Swap route preflight reverted", {
         routeProvider: quote.provider,
         to: request.to,
         fromToken: quote.fromTokenAddress,
         approvalAddress: quote.approvalAddress,
         error
       });
-      throw new Error("Live route is not executable right now. Try a smaller amount or wait for the quote to refresh. No gas was spent.");
+      throw new Error("Swap is unavailable right now. Try a smaller amount or wait for the estimate to refresh. No gas was spent.");
     }
   }
 
@@ -539,7 +520,7 @@ export default function TradePage() {
 
     const request = quote.transactionRequest;
     if (!request?.to || !request.data) {
-      throw new Error("This live quote does not include executable transaction data.");
+      throw new Error("This estimate cannot be swapped right now.");
     }
 
     await ensureLifiAllowance(quote, feature);
@@ -559,7 +540,7 @@ export default function TradePage() {
     recordActivity({
       actionType: feature === "swap" ? "swap_started" : "bridge_transaction_submitted",
       title: feature === "swap" ? "Swap transaction submitted" : "Bridge transaction submitted",
-      description: "Wallet submitted a LI.FI transaction for the live route.",
+      description: "Wallet submitted the transaction.",
       feature,
       token: feature === "swap" ? `${sellToken.symbol}/${buyToken.symbol}` : bridge.tokenSymbol,
       amount: feature === "swap" ? swapAmount : bridge.amount,
@@ -641,7 +622,7 @@ export default function TradePage() {
   function setPercent(percent: 0.5 | 1) {
     const available = sellTokenBalance.numericBalance ?? 0;
     if (available <= 0) {
-      setSwapAmount("0");
+      setSwapAmount("");
       return;
     }
 
@@ -697,7 +678,7 @@ export default function TradePage() {
             metadata: getSwapActivityMetadata("quote_failed")
           });
         }
-        setSwapMessage("Enter an amount to see a live quote.");
+        setSwapMessage("Enter an amount to get a quote.");
         return;
       }
 
@@ -705,8 +686,8 @@ export default function TradePage() {
       if (arcNativePreferred && !silent) {
         recordActivity({
           actionType: "arc_native_route_checked",
-          title: "Arc-native route checked",
-          description: "Velora AI checked the preferred Arc-native USDC/EURC route before using fallback liquidity.",
+          title: "Swap estimate checked",
+          description: "Velora AI checked the best available estimate for this pair.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
@@ -764,7 +745,7 @@ export default function TradePage() {
           recordActivity({
             actionType: "live_quote_success",
             title: "Live quote success",
-            description: arcNativePreferred ? "Arc-native adapter is reserved; LI.FI returned executable transaction data." : "LI.FI live quote returned executable transaction data.",
+            description: "A swap estimate is ready.",
             feature: "swap",
             token: `${sellToken.symbol}/${buyToken.symbol}`,
             amount: swapAmount,
@@ -782,7 +763,7 @@ export default function TradePage() {
         recordActivity({
           actionType: "fallback_quote_used",
           title: "Swap preview shown",
-          description: "Live quote did not include executable transaction data.",
+          description: "This estimate cannot be swapped right now.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
@@ -790,7 +771,7 @@ export default function TradePage() {
           metadata: getSwapActivityMetadata("preview_shown", quote)
         });
       }
-      setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setSwapMessage("This estimate is preview only. Try another amount or token pair to swap.");
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Live quote unavailable.";
       setLiveQuoteUnavailable(true);
@@ -818,7 +799,7 @@ export default function TradePage() {
           metadata: getSwapActivityMetadata("preview_shown")
         });
       }
-      setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setSwapMessage("This estimate is preview only. Try another amount or token pair to swap.");
     } finally {
       setSwapQuoteLoading(false);
     }
@@ -842,7 +823,7 @@ export default function TradePage() {
       setSwapQuoteReady(false);
       setLifiQuote(null);
       setLiveQuoteUnavailable(false);
-      setSwapMessage(swapAmount && Number(swapAmount) > 0 && sellToken.symbol === buyToken.symbol ? "Choose different tokens." : "Enter an amount to see a live quote.");
+      setSwapMessage(swapAmount && Number(swapAmount) > 0 && sellToken.symbol === buyToken.symbol ? "Choose different tokens." : "Enter an amount to get a quote.");
       return;
     }
 
@@ -864,7 +845,7 @@ export default function TradePage() {
     }
 
     if (!swapHasExecutableQuote) {
-      setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setSwapMessage("This estimate is preview only. Try another amount or token pair to swap.");
       return;
     }
 
@@ -922,7 +903,7 @@ export default function TradePage() {
         recordActivity({
           actionType: "swap_completed",
           title: "Swap confirmed",
-          description: "Live LI.FI swap transaction confirmed.",
+          description: "Swap transaction confirmed.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
@@ -942,7 +923,7 @@ export default function TradePage() {
         return;
       }
 
-      throw new Error("Execution unavailable. Request a live executable quote first.");
+      throw new Error("Swap is unavailable for this estimate. Try another amount or token pair.");
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Live swap execution failed.";
       recordActivity({
@@ -1042,7 +1023,7 @@ export default function TradePage() {
         metadata: getBridgeActivityMetadata("preview_shown")
       });
       setBridgeQuoteReady(true);
-      setBridgeMessage("Route currently unavailable for live execution. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
       return;
     }
 
@@ -1068,31 +1049,31 @@ export default function TradePage() {
           recordActivity({
             actionType: "bridge_preview_shown",
             title: "Live bridge quote ready",
-            description: "LI.FI bridge quote returned executable wallet transaction data.",
+            description: "Bridge estimate ready.",
             feature: "bridge",
             token: bridge.tokenSymbol,
             amount: bridge.amount,
             status: "success",
             metadata: getBridgeActivityMetadata("live_quote_success", quote)
           });
-          setBridgeMessage("Live Quote Mode. Review bridge to open wallet confirmation.");
+          setBridgeMessage("Bridge estimate ready. Review to continue.");
         } else {
           setLiveQuoteUnavailable(true);
           recordActivity({
             actionType: "bridge_preview_shown",
             title: "Bridge preview shown",
-            description: "LI.FI returned a quote without executable wallet transaction data.",
+            description: "This bridge estimate cannot be used right now.",
             feature: "bridge",
             token: bridge.tokenSymbol,
             amount: bridge.amount,
             status: "info",
             metadata: getBridgeActivityMetadata("preview_shown", quote)
           });
-          setBridgeMessage("Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.");
+          setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "";
-        const reason = errorMessage === "Route currently unavailable." || errorMessage === "Live quote unavailable." ? "Route currently unavailable for live execution." : "LI.FI bridge quote failed.";
+        const reason = errorMessage === "Route currently unavailable." || errorMessage === "Live quote unavailable." ? "Bridge is unavailable for this route." : "Bridge estimate unavailable.";
         setLiveQuoteUnavailable(true);
         setLifiQuote(null);
         recordActivity({
@@ -1115,21 +1096,21 @@ export default function TradePage() {
           status: "info",
           metadata: getBridgeActivityMetadata("preview_shown")
         });
-        setBridgeMessage(`${reason} Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.`);
+        setBridgeMessage(`${reason} Try another amount or route.`);
       }
     } else {
       setLiveQuoteUnavailable(true);
       recordActivity({
         actionType: "bridge_preview_shown",
         title: "Bridge preview shown",
-        description: "Estimated preview shown because LI.FI live routing is disabled.",
+        description: "Estimated preview shown because live routing is unavailable.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
         status: "info",
         metadata: getBridgeActivityMetadata("preview_shown")
       });
-      setBridgeMessage("Live bridge route unavailable. Showing estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
     }
 
     setBridgeQuoteReady(true);
@@ -1137,7 +1118,7 @@ export default function TradePage() {
 
   async function handleReviewBridge() {
     if (!bridgeHasExecutableQuote) {
-      setBridgeMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
+      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
       return;
     }
 
@@ -1180,7 +1161,7 @@ export default function TradePage() {
       recordActivity({
         actionType: "bridge_completed",
         title: "Bridge completed",
-        description: "Live LI.FI bridge transaction confirmed.",
+        description: "Bridge transaction confirmed.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
@@ -1229,15 +1210,13 @@ export default function TradePage() {
               ))}
             </div>
 
-            <TradingModeBadge mode={tradingMode} />
-
             {tab === "swap" ? (
               <div className="space-y-4">
                 <label className="block text-sm text-slate-300">
                   Sell
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
                     <div className="rounded-lg border border-white/10 bg-black/30 p-2">
-                      <input value={swapAmount} onChange={(event) => setSwapAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none" inputMode="decimal" />
+                      <input value={swapAmount} onChange={(event) => setSwapAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none placeholder:text-slate-600" inputMode="decimal" placeholder="Enter amount" />
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
@@ -1288,23 +1267,25 @@ export default function TradePage() {
                   Receive
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
                     <div>
-                      <input value={estimatedReceive ? estimatedReceive.toFixed(4) : "0"} readOnly className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                      <input value={showSwapQuoteDetails && estimatedReceive ? estimatedReceive.toFixed(4) : ""} readOnly className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-600" placeholder="Estimated amount" />
                       <p className={cx("mt-2 text-xs", buyTokenBalance.isReal && !buyTokenBalance.error ? "text-mint" : "text-slate-400")}>{buyTokenBalance.label}</p>
                     </div>
                     <TokenPicker label="Receive token" selected={buyToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setBuyToken} />
                   </div>
                 </label>
 
-                <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
-                  <p className="text-slate-300">Live token price: <span className="font-semibold text-white">{formatPrice(liveSellPrice)}</span></p>
-                  <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
-                  <p className="text-slate-300">{swapHasExecutableQuote ? "Executable route" : "Preview route"}: <span className="font-semibold text-white">{swapHasExecutableQuote ? (appKitSwap.estimate ? "StableFX" : lifiQuote?.provider ?? preferredProvider.label) : "Estimated preview"}</span></p>
-                  {lifiQuote?.provider ? <p className="text-slate-300">Route provider: <span className="font-semibold text-white">{lifiQuote.provider}</span></p> : null}
-                  <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ~ {rate.toFixed(6)} {buyToken.symbol}</span></p>
-                  <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
-                  <p className="text-slate-300">Network fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `$${swapQuote.networkFee.toFixed(4)}`}</span></p>
-                  {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}
-                </div>
+                {showSwapQuoteDetails ? (
+                  <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
+                    <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
+                    <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ~ {rate.toFixed(6)} {buyToken.symbol}</span></p>
+                    <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
+                    <p className="text-slate-300">Estimated network cost: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `$${swapQuote.networkFee.toFixed(4)}`}</span></p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-slate-400">
+                    Enter an amount to get a quote.
+                  </div>
+                )}
 
                 {!isConnected ? (
                   <div className="pt-1">
@@ -1328,18 +1309,13 @@ export default function TradePage() {
                     </button>
                     {swapExecutionUnavailable ? (
                       <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-                        Estimated preview only. Real execution requires a live route with wallet transaction data.
+                        This estimate is preview only. Try another amount or token pair to swap.
                       </p>
                     ) : null}
                   </>
                 )}
                 {swapMessage ? <p className="text-sm text-cyan">{swapMessage}</p> : null}
-                {arcNativePreferred ? (
-                  <p className="text-xs text-slate-400">
-                    Arc-native USDC/EURC is checked first. Until the official StableFX/App Kit execution adapter is enabled, executable quotes can fall back to LI.FI.
-                  </p>
-                ) : null}
-                <p className="text-xs text-slate-500">Arc Testnet only. These tokens have no real monetary value.</p>
+                <p className="text-xs text-slate-500">Get a real-time estimate before swapping.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1398,13 +1374,11 @@ export default function TradePage() {
                   <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{lifiQuote?.toAmount ? (Number(lifiQuote.toAmount) / 1_000_000).toFixed(4) : bridge.quote.estimatedReceive.toFixed(4)} {bridge.tokenSymbol}</span></p>
                   <p className="text-slate-300">Bridge fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `${bridge.quote.bridgeFee.toFixed(4)} ${bridge.tokenSymbol}`}</span></p>
                   <p className="text-slate-300">ETA: <span className="font-semibold text-white">{bridge.quote.estimatedTime}</span></p>
-                  <p className="text-slate-300">Route preview: <span className="font-semibold text-white">{lifiQuote?.provider ?? bridge.quote.route}</span></p>
-                  <p className="text-slate-300">Quote mode: <span className={bridgeHasExecutableQuote ? "font-semibold text-mint" : "font-semibold text-amber-300"}>{bridgeHasExecutableQuote ? "Live Quote Mode" : "Estimated preview only"}</span></p>
-                  {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}
+                  <p className="text-slate-300">Path: <span className="font-semibold text-white">{bridge.fromNetwork.name} to {bridge.toNetwork.name}</span></p>
                 </div>
                 {bridgePreviewOnly ? (
                   <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-                    Estimated preview only. Real execution requires a live route with wallet transaction data.
+                    This bridge estimate is preview only. Try another amount or route.
                   </p>
                 ) : null}
 
