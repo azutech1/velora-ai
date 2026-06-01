@@ -32,6 +32,8 @@ type ComingSoonToken = {
   name: string;
 };
 
+type SwapInputMode = "exactIn" | "exactOut";
+
 const ACTIVE_STABLECOINS = ["USDC", "EURC", "USDT"] as const;
 
 const COMING_SOON_SYMBOLS = new Set(["WETH", "WBTC", "ETH", "BTC"]);
@@ -95,6 +97,13 @@ function formatLifiAmount(value: string | null | undefined, decimals = 6) {
   if (!value) return "";
   const numeric = Number(value) / 10 ** decimals;
   return formatDisplayAmount(numeric);
+}
+
+function calculateRequiredSellAmount(receiveAmount: string, sellPrice: number, buyPrice: number) {
+  const desiredReceive = Number(receiveAmount);
+  if (!Number.isFinite(desiredReceive) || desiredReceive <= 0 || sellPrice <= 0) return "";
+  const required = (desiredReceive * buyPrice) / sellPrice;
+  return formatDisplayAmount(required * 1.0004);
 }
 
 function hasExecutableTransactionRequest(quote: LifiEstimate | null) {
@@ -297,6 +306,8 @@ export default function TradePage() {
   const [sellToken, setSellToken] = useState(getSwapToken("USDC"));
   const [buyToken, setBuyToken] = useState(getSwapToken("EURC"));
   const [swapAmount, setSwapAmount] = useState("");
+  const [receiveAmount, setReceiveAmount] = useState("");
+  const [swapInputMode, setSwapInputMode] = useState<SwapInputMode>("exactIn");
   const [swapQuoteReady, setSwapQuoteReady] = useState(false);
   const [swapMessage, setSwapMessage] = useState("");
   const [swapQuoteLoading, setSwapQuoteLoading] = useState(false);
@@ -329,8 +340,14 @@ export default function TradePage() {
   const liveBuyPrice = prices.prices[buyToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? buyToken.mockPrice;
   const estimatedReceive = lifiQuote?.toAmount ? Number(lifiQuote.toAmount) / 1_000_000 : appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : swapQuote.output;
   const rate = liveSellPrice / Math.max(liveBuyPrice, 0.0001);
+  const requiredSellAmount = calculateRequiredSellAmount(receiveAmount, liveSellPrice, liveBuyPrice);
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
-  const hasValidSwapAmount = Number.isFinite(Number(swapAmount)) && Number(swapAmount) > 0 && sellToken.symbol !== buyToken.symbol;
+  const hasDifferentSwapTokens = sellToken.symbol !== buyToken.symbol;
+  const hasValidSwapAmount =
+    hasDifferentSwapTokens &&
+    (swapInputMode === "exactIn"
+      ? Number.isFinite(Number(swapAmount)) && Number(swapAmount) > 0
+      : Number.isFinite(Number(receiveAmount)) && Number(receiveAmount) > 0 && Number.isFinite(Number(requiredSellAmount)) && Number(requiredSellAmount) > 0);
   const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
   const providerPriority = useMemo(
     () =>
@@ -352,7 +369,7 @@ export default function TradePage() {
     lifiEnabled: isLifiEnabled
   });
   const swapHasExecutableQuote = Boolean(lifiQuote?.transactionRequest || (realSwapEnabled && appKitSwap.estimate?.estimatedOutput));
-  const swapExecutionUnavailable = hasValidSwapAmount && swapQuoteReady && !swapHasExecutableQuote;
+  const swapExecutionUnavailable = hasValidSwapAmount && swapQuoteReady && (swapInputMode === "exactOut" || !swapHasExecutableQuote);
   const showSwapQuoteDetails = hasValidSwapAmount && swapQuoteReady;
   const swapQuoteUpdating = swapQuoteLoading || appKitSwap.state === "estimating";
   const swapPrimaryBusy = swapQuoteUpdating || swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
@@ -364,6 +381,12 @@ export default function TradePage() {
         ? "Enter Amount"
         : swapQuoteUpdating
           ? "Updating quote..."
+          : !swapQuoteReady
+            ? swapInputMode === "exactOut"
+              ? "Get Exact Quote"
+              : "Get Quote"
+          : swapInputMode === "exactOut" && swapExecutionUnavailable
+            ? "Exact quote unavailable"
           : swapExecutionUnavailable
             ? "Execution unavailable"
             : "Swap";
@@ -481,9 +504,11 @@ export default function TradePage() {
   function getSwapActivityMetadata(trackingStatus: string, quote: LifiEstimate | null = lifiQuote) {
     return {
       tradeType: "swap",
+      quoteDirection: swapInputMode,
       fromToken: sellToken.symbol,
       toToken: buyToken.symbol,
       fromAmount: swapAmount,
+      requestedReceiveAmount: receiveAmount || null,
       estimatedReceiveAmount: quote?.toAmount ? formatLifiAmount(quote.toAmount, buyToken.decimals) : formatDisplayAmount(estimatedReceive),
       fromChain: bridge.fromNetwork.name,
       toChain: bridge.fromNetwork.name,
@@ -617,12 +642,20 @@ export default function TradePage() {
     setSwapSuccess(null);
     setLifiQuote(null);
     setSwapMessage("");
-  }, [buyToken.symbol, sellToken.symbol, swapAmount]);
+  }, [buyToken.symbol, sellToken.symbol, swapAmount, swapInputMode]);
+
+  useEffect(() => {
+    if (swapInputMode !== "exactOut") return;
+    const nextRequiredSell = calculateRequiredSellAmount(receiveAmount, liveSellPrice, liveBuyPrice);
+    setSwapAmount((current) => (current === nextRequiredSell ? current : nextRequiredSell));
+  }, [liveBuyPrice, liveSellPrice, receiveAmount, swapInputMode]);
 
   function setPercent(percent: 0.5 | 1) {
     const available = sellTokenBalance.numericBalance ?? 0;
+    setSwapInputMode("exactIn");
     if (available <= 0) {
       setSwapAmount("");
+      setReceiveAmount("");
       return;
     }
 
@@ -630,6 +663,25 @@ export default function TradePage() {
     const precision = sellToken.decimals > 6 ? 6 : 2;
     const formatted = value.toFixed(precision).replace(/\.?0+$/, "");
     setSwapAmount(formatted || "0");
+    setReceiveAmount("");
+  }
+
+  function handleSellAmountChange(value: string) {
+    setSwapInputMode("exactIn");
+    setSwapAmount(value);
+    setReceiveAmount("");
+    setSwapQuoteReady(false);
+    setLifiQuote(null);
+    setSwapMessage("");
+  }
+
+  function handleReceiveAmountChange(value: string) {
+    setSwapInputMode("exactOut");
+    setReceiveAmount(value);
+    setSwapAmount(calculateRequiredSellAmount(value, liveSellPrice, liveBuyPrice));
+    setSwapQuoteReady(false);
+    setLifiQuote(null);
+    setSwapMessage("");
   }
 
   function setBridgeMaxAmount() {
@@ -665,7 +717,14 @@ export default function TradePage() {
         return;
       }
 
-      if (!swapAmount || Number(swapAmount) <= 0 || sellToken.symbol === buyToken.symbol) {
+      if (sellToken.symbol === buyToken.symbol) {
+        setSwapQuoteReady(true);
+        setLiveQuoteUnavailable(true);
+        setSwapMessage("Select different tokens.");
+        return;
+      }
+
+      if (!hasValidSwapAmount) {
         if (!silent) {
           recordActivity({
             actionType: "quote_failed",
@@ -679,6 +738,26 @@ export default function TradePage() {
           });
         }
         setSwapMessage("Enter an amount to get a quote.");
+        return;
+      }
+
+      if (swapInputMode === "exactOut") {
+        setLiveQuoteUnavailable(true);
+        setLifiQuote(null);
+        setSwapQuoteReady(true);
+        if (!silent) {
+          recordActivity({
+            actionType: "quote_failed",
+            title: "Exact receive quote unavailable",
+            description: "Exact receive quote is not available for this route.",
+            feature: "swap",
+            token: `${sellToken.symbol}/${buyToken.symbol}`,
+            amount: swapAmount,
+            status: "failed",
+            metadata: getSwapActivityMetadata("exact_out_unsupported")
+          });
+        }
+        setSwapMessage("Exact receive quote is not available for this route.");
         return;
       }
 
@@ -708,6 +787,7 @@ export default function TradePage() {
           const estimate = await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
           setLiveQuoteUnavailable(false);
           setSwapQuoteReady(true);
+          setReceiveAmount(estimate.estimatedOutput?.amount ?? "");
           if (!silent) {
             recordActivity({
               actionType: "live_quote_success",
@@ -741,6 +821,7 @@ export default function TradePage() {
       if (hasExecutableTransactionRequest(quote)) {
         setLiveQuoteUnavailable(false);
         setSwapQuoteReady(true);
+        setReceiveAmount(formatLifiAmount(quote.toAmount, buyToken.decimals));
         if (!silent) {
           recordActivity({
             actionType: "live_quote_success",
@@ -759,6 +840,7 @@ export default function TradePage() {
 
       setLiveQuoteUnavailable(true);
       setSwapQuoteReady(true);
+      setReceiveAmount(formatDisplayAmount(estimatedReceive));
       if (!silent) {
         recordActivity({
           actionType: "fallback_quote_used",
@@ -823,7 +905,7 @@ export default function TradePage() {
       setSwapQuoteReady(false);
       setLifiQuote(null);
       setLiveQuoteUnavailable(false);
-      setSwapMessage(swapAmount && Number(swapAmount) > 0 && sellToken.symbol === buyToken.symbol ? "Choose different tokens." : "Enter an amount to get a quote.");
+      setSwapMessage(sellToken.symbol === buyToken.symbol ? "Select different tokens." : "Enter an amount to get a quote.");
       return;
     }
 
@@ -832,7 +914,7 @@ export default function TradePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [address, bridge.fromNetwork.chainId, buyToken.symbol, hasValidSwapAmount, isConnected, isLifiEnabled, realSwapEnabled, sellToken.symbol, swapAmount, tab]);
+  }, [address, bridge.fromNetwork.chainId, buyToken.symbol, hasValidSwapAmount, isConnected, isLifiEnabled, realSwapEnabled, receiveAmount, sellToken.symbol, swapAmount, swapInputMode, tab]);
 
   function handleSwapPrimaryAction() {
     void executeConfirmedSwap();
@@ -1216,7 +1298,7 @@ export default function TradePage() {
                   Sell
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
                     <div className="rounded-lg border border-white/10 bg-black/30 p-2">
-                      <input value={swapAmount} onChange={(event) => setSwapAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none placeholder:text-slate-600" inputMode="decimal" placeholder="Enter amount" />
+                      <input value={swapAmount} onChange={(event) => handleSellAmountChange(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none placeholder:text-slate-600" inputMode="decimal" placeholder="Enter amount" />
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
@@ -1267,7 +1349,7 @@ export default function TradePage() {
                   Receive
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
                     <div>
-                      <input value={showSwapQuoteDetails && estimatedReceive ? estimatedReceive.toFixed(4) : ""} readOnly className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-600" placeholder="Estimated amount" />
+                      <input value={swapInputMode === "exactOut" ? receiveAmount : showSwapQuoteDetails && estimatedReceive ? estimatedReceive.toFixed(4) : ""} onChange={(event) => handleReceiveAmountChange(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-600" inputMode="decimal" placeholder="Estimated amount" />
                       <p className={cx("mt-2 text-xs", buyTokenBalance.isReal && !buyTokenBalance.error ? "text-mint" : "text-slate-400")}>{buyTokenBalance.label}</p>
                     </div>
                     <TokenPicker label="Receive token" selected={buyToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setBuyToken} />
@@ -1276,7 +1358,14 @@ export default function TradePage() {
 
                 {showSwapQuoteDetails ? (
                   <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
-                    <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
+                    {swapInputMode === "exactOut" ? (
+                      <>
+                        <p className="text-slate-300">Requested receive: <span className="font-semibold text-white">{receiveAmount} {buyToken.symbol}</span></p>
+                        <p className="text-slate-300">Required sell estimate: <span className="font-semibold text-white">{swapAmount || "--"} {sellToken.symbol}</span></p>
+                      </>
+                    ) : (
+                      <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
+                    )}
                     <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ~ {rate.toFixed(6)} {buyToken.symbol}</span></p>
                     <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
                     <p className="text-slate-300">Estimated network cost: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `$${swapQuote.networkFee.toFixed(4)}`}</span></p>
