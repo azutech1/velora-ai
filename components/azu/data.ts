@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Trophy,
   UserCircle,
   Wallet,
   Zap,
@@ -37,6 +38,7 @@ export const navItems: NavItem[] = [
   { label: "AI Agents", href: "/agents", icon: Bot },
   { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
   { label: "Velora Token", href: "/token", icon: Coins },
+  { label: "Velora Pioneers", href: "/pioneers", icon: Trophy },
   { label: "Profile", href: "/profile", icon: UserCircle },
   { label: "Admin", href: "/admin", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }

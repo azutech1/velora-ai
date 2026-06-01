@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Bot, CheckCircle2, CircleDollarSign, Coins, Network, RadioTower, Search, Wallet } from "lucide-react";
+import { Activity, Award, Bot, CheckCircle2, CircleDollarSign, Coins, Flame, Network, RadioTower, Search, Trophy, Wallet } from "lucide-react";
 import Link from "next/link";
 import { formatUnits } from "viem";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -12,6 +12,7 @@ import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
+import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import type { ActivityRecord } from "@/lib/activity/types";
 import { erc20UsdcAbi, USDC_CONTRACT_ADDRESS } from "@/lib/contracts/usdc";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
@@ -84,6 +85,9 @@ export default function DashboardPage() {
 
   const chartData = useMemo(() => buildActivityChartData(walletActivities), [walletActivities]);
   const hasChartData = chartData.some((item) => item.activity > 0);
+  const pioneers = usePioneerProfile(walletActivities);
+  const pioneerSummary = pioneers.summary;
+  const latestPioneerBadge = pioneerSummary.badges.filter((badge) => badge.earned).at(-1)?.name ?? "--";
 
   const formattedUsdcBalance = useMemo(() => {
     if (!isConnected) return "Connect wallet";
@@ -227,6 +231,44 @@ export default function DashboardPage() {
             <MetricCard key={metric.title} {...metric} />
           ))}
         </div>
+
+        <Panel
+          title="Velora Pioneers"
+          eyebrow="Community progression"
+          action={
+            <Link href="/pioneers" className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-cyan/50 hover:text-white">
+              Open Pioneers
+            </Link>
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <Trophy className="h-5 w-5 text-cyan" />
+              <p className="mt-3 text-sm text-slate-400">Current Level</p>
+              <p className="mt-2 font-bold text-white">{isConnected ? `${pioneerSummary.level.name}` : "--"}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <Coins className="h-5 w-5 text-cyan" />
+              <p className="mt-3 text-sm text-slate-400">Total Points</p>
+              <p className="mt-2 font-bold text-white">{isConnected ? `${pioneerSummary.totalPoints.toLocaleString()} Points` : "--"}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <Flame className="h-5 w-5 text-warning" />
+              <p className="mt-3 text-sm text-slate-400">Current Streak</p>
+              <p className="mt-2 font-bold text-white">{isConnected ? `${pioneers.currentStreak} Days` : "--"}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <Award className="h-5 w-5 text-cyan" />
+              <p className="mt-3 text-sm text-slate-400">Latest Badge Earned</p>
+              <p className="mt-2 font-bold text-white">{isConnected ? latestPioneerBadge : "--"}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <CheckCircle2 className="h-5 w-5 text-mint" />
+              <p className="mt-3 text-sm text-slate-400">Reputation Score</p>
+              <p className="mt-2 font-bold text-white">{isConnected ? pioneerSummary.reputation.toLocaleString() : "--"}</p>
+            </div>
+          </div>
+        </Panel>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <Panel title="Activity Overview" eyebrow="Wallet-driven activity">

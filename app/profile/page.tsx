@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Award, BadgeCheck, Copy, Crown, Download, ExternalLink, LogOut, RefreshCw, Search, Sparkles, WalletCards } from "lucide-react";
+import { Award, BadgeCheck, Copy, Crown, Download, ExternalLink, Flame, LogOut, RefreshCw, Search, Sparkles, WalletCards } from "lucide-react";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
@@ -10,10 +10,10 @@ import { cx } from "@/components/azu/utils";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
+import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
 import { APP_CHAINS, getChainById } from "@/lib/config/chains";
-import { calculateVeloraPoints } from "@/lib/tokens/velora";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
 
 type ProfileTab = "positions" | "activities";
@@ -164,8 +164,9 @@ export default function ProfilePage() {
     return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet && isVeloraProfileActivity(activity));
   }, [activities, address, isConnected]);
   const stats = useMemo(() => activityCounts(profileActivities), [profileActivities]);
-  const tokenParticipation = useMemo(() => calculateVeloraPoints(profileActivities), [profileActivities]);
-  const earnedBadges = tokenParticipation.badges.filter((badge) => badge.earned);
+  const pioneers = usePioneerProfile(profileActivities);
+  const pioneerSummary = pioneers.summary;
+  const earnedBadges = pioneerSummary.badges.filter((badge) => badge.earned);
   const hasAssets = portfolio.positions.some((position) => position.balance > 0);
   const statValue = (value: number) => (isConnected ? String(value) : "--");
 
@@ -240,26 +241,41 @@ export default function ProfilePage() {
           <MetricCard title="Total Automation Actions" value={statValue(stats.automation)} detail="Approval and automation events" icon={WalletCards} />
         </div>
 
-        <Panel title="Velora Token Participation" eyebrow="Badges, points, rank, and early adopter status">
+        <Panel title="Velora Pioneers" eyebrow="Points, level, reputation, streaks, and badges">
           {!isConnected ? (
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view token participation</div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view Pioneer status</div>
           ) : (
             <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
                   <Sparkles className="h-5 w-5 text-mint" />
-                  <p className="mt-4 text-sm text-slate-400">Points</p>
-                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.totalPoints}</p>
+                  <p className="mt-4 text-sm text-slate-400">Total Points</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneerSummary.totalPoints.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
                   <Crown className="h-5 w-5 text-cyan" />
-                  <p className="mt-4 text-sm text-slate-400">Rank</p>
-                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.rank}</p>
+                  <p className="mt-4 text-sm text-slate-400">Current Level</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneerSummary.level.name}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <BadgeCheck className="h-5 w-5 text-cyan" />
+                  <p className="mt-4 text-sm text-slate-400">Reputation Score</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneerSummary.reputation.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <Flame className="h-5 w-5 text-warning" />
+                  <p className="mt-4 text-sm text-slate-400">Current Streak</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneers.currentStreak} Days</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                  <Award className="h-5 w-5 text-warning" />
+                  <p className="mt-4 text-sm text-slate-400">Best Streak</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneers.bestStreak} Days</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
                   <Award className="h-5 w-5 text-mint" />
                   <p className="mt-4 text-sm text-slate-400">Early Adopter Status</p>
-                  <p className="mt-2 text-2xl font-black text-white">{tokenParticipation.earlyAdopterStatus}</p>
+                  <p className="mt-2 text-2xl font-black text-white">{pioneerSummary.earlyAdopterStatus}</p>
                 </div>
               </div>
               {earnedBadges.length ? (
@@ -277,7 +293,7 @@ export default function ProfilePage() {
               ) : (
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-slate-400">No badges earned yet</div>
               )}
-              <p className="text-xs leading-6 text-slate-500">Participation may be considered for future ecosystem rewards. This does not promise token distribution, profit, eligibility, or allocation.</p>
+              <p className="text-xs leading-6 text-slate-500">Early participation, activity, and contributions may be considered in future Velora ecosystem programs.</p>
             </div>
           )}
         </Panel>

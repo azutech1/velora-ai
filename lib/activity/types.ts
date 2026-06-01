@@ -12,6 +12,7 @@ export type ActivityFeature =
   | "agent_payments"
   | "settings"
   | "token"
+  | "pioneers"
   | "dashboard";
 
 export type ActivityActionType =
@@ -65,6 +66,7 @@ export type ActivityActionType =
   | "ai_action_failed"
   | "settings_updated"
   | "token_page_viewed"
+  | "pioneer_checkin_claimed"
   | "dashboard_viewed";
 
 export type ActivityRecord = {
