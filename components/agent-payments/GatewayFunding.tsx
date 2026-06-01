@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, RefreshCw, WalletCards } from "lucide-react";
 import { Panel } from "@/components/azu/ui";
+import { TokenLogo } from "@/components/token/TokenLogo";
 import { shortAddress } from "@/lib/utils/format";
 
 type GatewayBalances = {
@@ -105,8 +106,11 @@ export function GatewayFunding() {
             <p className="mt-2 text-xs text-slate-500">{balances?.chain ?? "Arc Testnet"}</p>
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-sm text-slate-400">Wallet USDC</p>
-            <p className="mt-2 text-2xl font-bold text-white">{loading ? "--" : metricLabel(balances?.wallet.formatted)}</p>
+            <p className="text-sm text-slate-400">USDC</p>
+            <p className="mt-2 flex items-center gap-2 text-2xl font-bold text-white">
+              {!loading && balances?.wallet.formatted ? <TokenLogo symbol="USDC" size={24} /> : null}
+              {loading ? "--" : metricLabel(balances?.wallet.formatted)}
+            </p>
             <p className="mt-2 text-xs text-slate-500">Available for Gateway deposit</p>
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">

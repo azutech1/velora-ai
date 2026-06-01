@@ -939,7 +939,7 @@ export default function TradePage() {
 
       if (realSwapEnabled) {
         const stableEstimate = appKitSwap.estimate ?? (await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50));
-        const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
+        const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50, stableEstimate);
         setSwapWalletWaiting(false);
         recordActivity({
           actionType: "swap_completed",
@@ -1312,7 +1312,10 @@ export default function TradePage() {
                           Max
                         </button>
                       </div>
-                      <p className={cx("mt-2 text-xs", sellTokenBalance.isReal && !sellTokenBalance.error ? "text-mint" : "text-slate-400")}>{sellTokenBalance.label}</p>
+                      <p className={cx("mt-2 flex items-center gap-1.5 text-xs", sellTokenBalance.isReal && !sellTokenBalance.error ? "text-mint" : "text-slate-400")}>
+                        {sellTokenBalance.isReal && !sellTokenBalance.error ? <TokenLogo symbol={sellToken.symbol} size={16} /> : null}
+                        {sellTokenBalance.label}
+                      </p>
                     </div>
                     <TokenPicker label="Sell token" selected={sellToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setSellToken} />
                   </div>
@@ -1339,7 +1342,10 @@ export default function TradePage() {
                   <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_220px]">
                     <div>
                       <input value={swapInputMode === "exactOut" ? receiveAmount : showSwapQuoteDetails && estimatedReceive ? estimatedReceive.toFixed(4) : ""} onChange={(event) => handleReceiveAmountChange(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-600" inputMode="decimal" placeholder="Estimated amount" />
-                      <p className={cx("mt-2 text-xs", buyTokenBalance.isReal && !buyTokenBalance.error ? "text-mint" : "text-slate-400")}>{buyTokenBalance.label}</p>
+                      <p className={cx("mt-2 flex items-center gap-1.5 text-xs", buyTokenBalance.isReal && !buyTokenBalance.error ? "text-mint" : "text-slate-400")}>
+                        {buyTokenBalance.isReal && !buyTokenBalance.error ? <TokenLogo symbol={buyToken.symbol} size={16} /> : null}
+                        {buyTokenBalance.label}
+                      </p>
                     </div>
                     <TokenPicker label="Receive token" selected={buyToken} activeTokens={activeTokens} comingSoon={comingSoonTokens} onSelect={setBuyToken} />
                   </div>
@@ -1411,8 +1417,9 @@ export default function TradePage() {
                   <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-2">
                     <input value={bridge.amount} onChange={(event) => bridge.setAmount(event.target.value)} className="w-full bg-transparent px-2 py-2 text-lg text-white outline-none" inputMode="decimal" placeholder="0.00" />
                     <div className="mt-2 flex items-center justify-between gap-3 px-2 pb-1">
-                      <span className="text-xs text-slate-500">
-                        {bridgeTokenBalance.formattedBalance ? `Balance: ${bridgeTokenBalance.formattedBalance} ${bridge.tokenSymbol}` : bridgeTokenBalance.label}
+                      <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                        {bridgeTokenBalance.isReal && !bridgeTokenBalance.error ? <TokenLogo symbol={bridge.tokenSymbol} size={16} /> : null}
+                        {bridgeTokenBalance.formattedBalance ? `${bridgeTokenBalance.formattedBalance} ${bridge.tokenSymbol}` : bridgeTokenBalance.label}
                       </span>
                       <button
                         type="button"

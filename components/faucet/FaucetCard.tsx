@@ -43,8 +43,11 @@ export function FaucetCard({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-          <p className="text-xs text-slate-500">Wallet balance</p>
-          <p className="mt-1 font-semibold text-white">{isConnected ? "Balance unavailable" : "Connect wallet to view balances"}</p>
+          <p className="text-xs text-slate-500">{token.symbol}</p>
+          <p className="mt-1 flex items-center gap-1.5 font-semibold text-white">
+            {isConnected ? <TokenLogo symbol={token.symbol} size={16} /> : null}
+            {isConnected ? "Balance unavailable" : "Connect wallet to view balances"}
+          </p>
         </div>
         <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
           <p className="text-xs text-slate-500">Daily remaining</p>

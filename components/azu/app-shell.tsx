@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Menu, Wallet, X } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { Menu, Moon, Sun, Wallet, X } from "lucide-react";
+import { ReactNode, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
@@ -32,6 +32,29 @@ export function AmbientBackground() {
         ))}
       </div>
     </>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("velora-theme") === "light" ? "light" : "dark";
+    setTheme(storedTheme);
+    document.documentElement.classList.toggle("light", storedTheme === "light");
+  }, []);
+
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    window.localStorage.setItem("velora-theme", nextTheme);
+    document.documentElement.classList.toggle("light", nextTheme === "light");
+  }
+
+  return (
+    <button type="button" onClick={toggleTheme} className="rounded-lg border border-white/10 p-3 text-slate-300 transition hover:border-cyan/30 hover:text-white" aria-label="Toggle theme">
+      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
   );
 }
 
@@ -129,10 +152,8 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <NetworkBadge />
+                <ThemeToggle />
                 {adminLabel ? <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan">{adminLabel}</span> : null}
-                <button className="rounded-lg border border-white/10 p-3 text-slate-300 hover:text-white" aria-label="Notifications">
-                  <Bell className="h-4 w-4" />
-                </button>
                 <WalletConnectButton />
               </div>
             </header>

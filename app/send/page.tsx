@@ -7,6 +7,7 @@ import { isAddress } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
+import { TokenLogo } from "@/components/token/TokenLogo";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -252,8 +253,11 @@ export default function SendPage() {
 
             <div className="rounded-lg border border-mint/20 bg-mint/10 p-4 text-sm">
               <div className="flex justify-between gap-4 text-slate-300">
-                <span>Wallet balance</span>
-                <span className={isConnected && isArc ? "text-mint" : "text-slate-300"}>{balanceLabel}</span>
+                <span>USDC</span>
+                <span className={isConnected && isArc ? "flex items-center gap-1.5 text-mint" : "text-slate-300"}>
+                  {isConnected && isArc ? <TokenLogo symbol="USDC" size={16} /> : null}
+                  {balanceLabel}
+                </span>
               </div>
               <div className="mt-2 flex justify-between text-slate-300">
                 <span>Wallet</span>

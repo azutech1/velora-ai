@@ -94,7 +94,7 @@ export function useSwapTokenBalance(token: SwapToken) {
   }
 
   return {
-    label: `Wallet balance: ${formattedBalance ?? "0"} ${token.symbol}`,
+    label: `${formattedBalance ?? "0"} ${token.symbol}`,
     isReal: true,
     isLoading: false,
     error: null,

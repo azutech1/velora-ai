@@ -6,8 +6,22 @@
   color-scheme: dark;
   --background: #0b1220;
   --foreground: #f8fafc;
+  --card: #111827;
+  --border: #1f2937;
+  --primary: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
   --font-geist-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-geist-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+html.light {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --border: #e5e7eb;
 }
 
 * {
@@ -27,6 +41,12 @@ body {
     radial-gradient(circle at 86% 0%, rgba(16, 185, 129, 0.06), transparent 28rem),
     linear-gradient(180deg, #0b1220 0%, #0b1220 58%, #090f1c 100%);
   font-family: var(--font-geist-sans), Inter, ui-sans-serif, system-ui;
+}
+
+html.light body {
+  background:
+    radial-gradient(circle at 18% -10%, rgba(59, 130, 246, 0.12), transparent 34rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 58%, #eef2ff 100%);
 }
 
 button,
@@ -65,6 +85,74 @@ select {
     scrollbar-width: thin;
     scrollbar-color: rgba(59, 130, 246, 0.45) rgba(15, 23, 42, 0.4);
   }
+}
+
+html.light .glass {
+  border-color: rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+html.light .grid-fade {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+}
+
+html.light .shadow-neon,
+html.light .shadow-cyan {
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.14);
+}
+
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-200,
+html.light .text-slate-300,
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: #475569 !important;
+}
+
+html.light .text-cyan {
+  color: #2563eb !important;
+}
+
+html.light .text-mint {
+  color: #059669 !important;
+}
+
+html.light .bg-cyan.text-white,
+html.light .bg-mint.text-white,
+html.light button.bg-cyan,
+html.light a.bg-cyan {
+  color: #ffffff !important;
+}
+
+html.light [class*="border-white/10"],
+html.light [class*="border-white/20"] {
+  border-color: #e5e7eb !important;
+}
+
+html.light [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+html.light .bg-black\/30,
+html.light .bg-black\/20 {
+  background-color: #ffffff !important;
+}
+
+html.light input,
+html.light textarea,
+html.light select {
+  color: #0f172a;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8;
 }
 
 @keyframes orbit {

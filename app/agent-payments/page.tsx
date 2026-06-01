@@ -38,7 +38,7 @@ export default function AgentPaymentsPage() {
             Agent Payments lets agents prepare USDC payment requests for your approval. Agents can draft payment requests, but they cannot spend funds automatically.
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard title="Agent Wallet Balance" value={agentPaymentPolicy.agentWalletBalance} detail={address ? shortAddress(address) : "Connect wallet"} icon={WalletCards} />
+            <MetricCard title="Agent Wallet" value={agentPaymentPolicy.agentWalletBalance} detail={address ? shortAddress(address) : "Connect wallet"} icon={WalletCards} />
             <MetricCard title="Daily Spend Limit" value={agentPaymentPolicy.dailySpendLimit} detail="User-defined approval policy" icon={ShieldCheck} />
             <MetricCard title="Monthly Spend Limit" value={agentPaymentPolicy.monthlySpendLimit} detail="User-defined approval policy" icon={CircleDollarSign} />
             <MetricCard title="Available Budget" value={agentPaymentPolicy.availableBudget} detail="Calculated after wallet setup" icon={ReceiptText} />

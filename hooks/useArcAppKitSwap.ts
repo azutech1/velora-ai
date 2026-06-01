@@ -101,26 +101,28 @@ export function useArcAppKitSwap() {
     }
   }, [address, canUseRealSwap, chainId, connector, getUnsupportedReason, isArc, isConnected]);
 
-  const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
+  const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number, preparedEstimate?: ArcAppKitSwapEstimate) => {
     setError(null);
     if (!canUseRealSwap(tokenIn, tokenOut)) {
       throw new Error(getUnsupportedReason(tokenIn, tokenOut) ?? "Real App Kit swap is available only on Arc Testnet for supported App Kit pairs with a connected wallet.");
     }
 
-    if (!estimate?.estimatedOutput) {
+    const activeEstimate = preparedEstimate ?? estimate;
+
+    if (!activeEstimate?.estimatedOutput) {
       throw new Error("Request a fresh Circle App Kit quote before executing a real swap.");
     }
 
     if (
-      estimate.diagnostics?.tokenIn !== tokenIn ||
-      estimate.diagnostics?.tokenOut !== tokenOut ||
-      estimate.diagnostics?.amountIn !== amountIn
+      activeEstimate.diagnostics?.tokenIn !== tokenIn ||
+      activeEstimate.diagnostics?.tokenOut !== tokenOut ||
+      activeEstimate.diagnostics?.amountIn !== amountIn
     ) {
       setEstimate(null);
       throw new Error("The selected swap no longer matches the latest quote. Request a fresh quote before executing.");
     }
 
-    if (estimate.diagnostics?.expiresAt && Date.now() > estimate.diagnostics.expiresAt) {
+    if (activeEstimate.diagnostics?.expiresAt && Date.now() > activeEstimate.diagnostics.expiresAt) {
       setEstimate(null);
       throw new Error("The Circle App Kit quote expired. Request a new quote before executing.");
     }

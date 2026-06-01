@@ -45,7 +45,7 @@ export const initialAIAgents: VeloraAgent[] = [
     spendingLimits: "Cannot execute funds. Draft recommendations only.",
     dataSources: ["Wallet state", "Stablecoin ticker", "Activity recorder"],
     activityHistory: ["Policy initialized", "No automatic transaction rights granted"],
-    recommendations: ["USDC/EURC diversification can be reviewed after wallet balance sync."],
+    recommendations: ["USDC/EURC diversification can be reviewed after balance sync."],
     approvalQueue: [
       {
         id: "treasury-rebalance-approval",
