@@ -159,7 +159,7 @@ export function WalletConnectButton({ compact = false }: { compact?: boolean }) 
                     disconnect();
                     setMenuOpen(false);
                   }}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
+                  className="disconnect-action flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
                 >
                   <LogOut className="h-4 w-4 text-cyan" />
                   Disconnect Wallet
