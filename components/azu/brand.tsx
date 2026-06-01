@@ -3,14 +3,13 @@ import { Bot, CircleDollarSign, KeyRound, Zap } from "lucide-react";
 export function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full border border-cyan/35 bg-cyan/10 shadow-neon">
-        <span className="absolute h-16 w-16 rounded-full border border-cyan/20" />
-        <span className="absolute h-10 w-10 animate-[orbit_6s_linear_infinite] rounded-full border-t border-cyan/70" />
-        <span className="text-sm font-black text-white">VAI</span>
+      <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-cyan/35 bg-cyan/10 shadow-neon">
+        <span className="absolute inset-1 rounded-lg border border-cyan/35" />
+        <span className="text-base font-black text-cyan">V</span>
       </div>
       <div className="min-w-0">
-        <p className="truncate text-lg font-bold text-white">Velora AI</p>
-        <p className="truncate text-xs text-cyan/80">AI stablecoin OS</p>
+        <p className="truncate text-lg font-black uppercase tracking-[0.08em] text-white">Velora</p>
+        <p className="truncate text-xs text-cyan/85">AI stablecoin OS</p>
       </div>
     </div>
   );
@@ -20,9 +19,9 @@ export function HeroOrbit() {
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[470px] animate-[float_5s_ease-in-out_infinite]">
       <div className="absolute inset-8 rounded-full border border-cyan/20 bg-cyan/5 blur-sm" />
-      <div className="absolute inset-14 rounded-full border border-cyan/30 bg-[radial-gradient(circle,rgba(59,130,246,0.18),transparent_62%)] shadow-neon" />
+      <div className="absolute inset-14 rounded-full border border-cyan/30 bg-[radial-gradient(circle,rgba(249,115,22,0.18),transparent_62%)] shadow-neon" />
       <div className="absolute inset-24 rounded-full border border-white/10 bg-black/30 backdrop-blur-xl" />
-      <div className="absolute left-1/2 top-1/2 grid h-28 w-28 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan/40 bg-[#0B1220] shadow-cyan sm:h-32 sm:w-32">
+      <div className="absolute left-1/2 top-1/2 grid h-28 w-28 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan/40 bg-[#05070D] shadow-cyan sm:h-32 sm:w-32">
         <CircleDollarSign className="h-12 w-12 text-cyan sm:h-14 sm:w-14" />
       </div>
       {[0, 1, 2].map((ring) => (
@@ -32,7 +31,7 @@ export function HeroOrbit() {
           style={{ inset: `${ring * 38}px`, animation: `orbit ${12 + ring * 5}s linear infinite` }}
         >
           <span
-            className="absolute grid h-11 w-11 place-items-center rounded-full border border-cyan/35 bg-[#111827]/95 shadow-neon"
+            className="absolute grid h-11 w-11 place-items-center rounded-full border border-cyan/35 bg-[#10141D]/95 shadow-neon"
             style={{ left: `${24 + ring * 18}%`, top: "-1.375rem" }}
           >
             {ring === 0 ? <Bot className="h-5 w-5 text-cyan" /> : ring === 1 ? <Zap className="h-5 w-5 text-cyan" /> : <KeyRound className="h-5 w-5 text-cyan" />}

@@ -7,7 +7,7 @@ function ArcLogo() {
   return (
     <span
       aria-hidden="true"
-      className="h-6 w-6 shrink-0 rounded-full border border-cyan/30 bg-[#0B1220] bg-cover bg-center shadow-[0_0_14px_rgba(59,130,246,0.22)]"
+      className="h-6 w-6 shrink-0 rounded-full border border-cyan/30 bg-[#05070D] bg-cover bg-center shadow-[0_0_14px_rgba(249,115,22,0.2)]"
       style={{ backgroundImage: "url('/networks/arc-official.jpg')" }}
     />
   );
@@ -34,7 +34,7 @@ export function NetworkBadge() {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-mint/25 bg-mint/10 px-3 py-2 text-xs font-semibold text-mint transition hover:-translate-y-0.5 hover:border-mint/40 hover:bg-mint/[0.14] hover:shadow-[0_0_18px_rgba(16,185,129,0.16)] sm:text-sm">
+    <div className="flex items-center gap-2 rounded-lg border border-cyan/25 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan transition hover:-translate-y-0.5 hover:border-cyan/40 hover:bg-cyan/[0.14] hover:shadow-[0_0_18px_rgba(249,115,22,0.14)] sm:text-sm">
       <ArcLogo />
       <span className="whitespace-nowrap">{expectedChain.name}</span>
     </div>

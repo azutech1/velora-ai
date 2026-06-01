@@ -27,8 +27,8 @@ const levelStyles = {
   bronze: "from-amber-900/30 to-amber-500/10 border-amber-500/25",
   silver: "from-slate-400/20 to-slate-200/10 border-slate-300/25",
   gold: "from-yellow-500/25 to-amber-300/10 border-yellow-400/30",
-  platinum: "from-cyan/25 to-blue-300/10 border-cyan/30",
-  diamond: "from-blue-500/25 to-cyan/10 border-cyan/40"
+  platinum: "from-orange-300/20 to-amber-100/10 border-orange-300/30",
+  diamond: "from-orange-500/25 to-red-500/10 border-orange-400/40"
 };
 
 function Leaderboard({ title, rows, selector }: { title: string; rows: ReturnType<typeof buildPioneerLeaderboards>["pioneers"]; selector: (row: (typeof rows)[number]) => number }) {
@@ -157,7 +157,7 @@ export default function PioneersPage() {
                   className={cx(
                     "rounded-lg border p-4 text-center transition",
                     completed
-                      ? "pioneer-check-complete border-cyan/40 bg-cyan/10 shadow-[0_0_28px_rgba(59,130,246,0.22)]"
+                      ? "pioneer-check-complete border-cyan/40 bg-cyan/10 shadow-[0_0_28px_rgba(249,115,22,0.2)]"
                       : current
                         ? "border-cyan/30 bg-white/[0.04]"
                         : "border-white/10 bg-white/[0.03]"

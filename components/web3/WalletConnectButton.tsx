@@ -133,7 +133,7 @@ export function WalletConnectButton({ compact = false }: { compact?: boolean }) 
               <ChevronDown className="h-4 w-4 text-slate-400" />
             </button>
             {menuOpen ? (
-              <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-[#07111f]/95 p-2 shadow-2xl shadow-cyan/10 backdrop-blur-xl">
+              <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-[#090D15]/95 p-2 shadow-2xl shadow-cyan/10 backdrop-blur-xl">
                 <button
                   onClick={() => {
                     void navigator.clipboard?.writeText(account.address);

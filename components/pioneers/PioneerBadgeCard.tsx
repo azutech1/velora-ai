@@ -15,9 +15,9 @@ const tierStyles: Record<PioneerBadgeTier, { frame: string; text: string; accent
   Operator: {
     frame: "border-cyan/30 bg-cyan/10",
     text: "text-cyan",
-    accent: "#3B82F6",
-    glow: "shadow-[0_0_32px_rgba(59,130,246,0.22)]",
-    gradient: ["#0B1220", "#1D4ED8", "#38BDF8"]
+    accent: "#F97316",
+    glow: "shadow-[0_0_32px_rgba(249,115,22,0.2)]",
+    gradient: ["#05070D", "#EA580C", "#FFB020"]
   },
   Builder: {
     frame: "border-yellow-400/35 bg-yellow-400/10",
@@ -34,11 +34,11 @@ const tierStyles: Record<PioneerBadgeTier, { frame: string; text: string; accent
     gradient: ["#1E293B", "#94A3B8", "#F8FAFC"]
   },
   "Network Elite": {
-    frame: "border-blue-300/40 bg-blue-400/10",
-    text: "text-blue-200",
-    accent: "#60A5FA",
-    glow: "shadow-[0_0_38px_rgba(96,165,250,0.28)]",
-    gradient: ["#0B1220", "#2563EB", "#A5F3FC"]
+    frame: "border-orange-300/40 bg-orange-400/10",
+    text: "text-orange-200",
+    accent: "#FB923C",
+    glow: "shadow-[0_0_38px_rgba(251,146,60,0.24)]",
+    gradient: ["#05070D", "#C2410C", "#FED7AA"]
   },
   Genesis: {
     frame: "border-amber-300/45 bg-black/30",

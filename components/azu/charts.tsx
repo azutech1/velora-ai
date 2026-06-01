@@ -31,7 +31,7 @@ function ChartShell({ children }: { children: ReactNode }) {
 }
 
 const tooltipStyle = {
-  background: "#111827",
+  background: "#10141d",
   border: "1px solid rgba(31,41,55,.95)",
   borderRadius: 8,
   color: "#f8fafc"
@@ -44,15 +44,15 @@ export function VolumeAreaChart() {
         <AreaChart data={analyticsData}>
           <defs>
             <linearGradient id="volumeGradient" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.45} />
-              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.03} />
+              <stop offset="5%" stopColor="#F97316" stopOpacity={0.45} />
+              <stop offset="95%" stopColor="#FF2D3D" stopOpacity={0.03} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
           <XAxis dataKey="day" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Area type="monotone" dataKey="volume" stroke="#3B82F6" strokeWidth={3} fill="url(#volumeGradient)" />
+          <Area type="monotone" dataKey="volume" stroke="#F97316" strokeWidth={3} fill="url(#volumeGradient)" />
           <Line type="monotone" dataKey="agents" stroke="#60A5FA" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
@@ -69,7 +69,7 @@ export function TransactionLineChart() {
           <XAxis dataKey="day" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Line type="monotone" dataKey="transactions" stroke="#3B82F6" strokeWidth={3} dot={{ fill: "#3B82F6" }} />
+          <Line type="monotone" dataKey="transactions" stroke="#F97316" strokeWidth={3} dot={{ fill: "#F97316" }} />
           <Line type="monotone" dataKey="agents" stroke="#60A5FA" strokeWidth={3} dot={{ fill: "#60A5FA" }} />
         </LineChart>
       </ResponsiveContainer>
@@ -86,7 +86,7 @@ export function FeesBarChart() {
           <XAxis dataKey="day" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey="fees" fill="#3B82F6" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="fees" fill="#F97316" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartShell>

@@ -431,7 +431,7 @@ export default function SendPage() {
 
       <AnimatePresence>
         {toast ? (
-          <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-white/10 bg-[#07111f]/95 p-4 shadow-neon backdrop-blur-xl">
+          <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-white/10 bg-[#090D15]/95 p-4 shadow-neon backdrop-blur-xl">
             <div className="flex gap-3">
               {toast.type === "error" ? <AlertTriangle className="h-5 w-5 text-red-300" /> : toast.type === "success" ? <Check className="h-5 w-5 text-mint" /> : <Loader2 className="h-5 w-5 animate-spin text-cyan" />}
               <p className="text-sm leading-6 text-slate-200">{toast.text}</p>

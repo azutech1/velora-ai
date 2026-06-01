@@ -304,15 +304,15 @@ export default function DashboardPage() {
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.32} />
-                        <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#F97316" stopOpacity={0.34} />
+                        <stop offset="100%" stopColor="#FF2D3D" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
                     <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} width={32} />
-                    <Tooltip contentStyle={{ background: "#07111f", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#e2e8f0" }} />
-                    <Area type="monotone" dataKey="activity" stroke="#3B82F6" strokeWidth={2} fill="url(#activityFill)" />
+                    <Tooltip contentStyle={{ background: "#090d15", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#e2e8f0" }} />
+                    <Area type="monotone" dataKey="activity" stroke="#F97316" strokeWidth={2} fill="url(#activityFill)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

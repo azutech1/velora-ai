@@ -22,7 +22,7 @@ export function AmbientBackground() {
         {Array.from({ length: 22 }).map((_, index) => (
           <span
             key={index}
-            className="absolute h-1 w-1 rounded-full bg-cyan/70"
+            className="absolute h-1 w-1 rounded-full bg-cyan/45"
             style={{
               left: `${(index * 41) % 100}%`,
               top: `${(index * 29) % 100}%`,
@@ -52,7 +52,7 @@ function ThemeToggle() {
   }
 
   return (
-    <button type="button" onClick={toggleTheme} className="rounded-lg border border-white/10 p-3 text-slate-300 transition hover:border-cyan/30 hover:text-white" aria-label="Toggle theme">
+    <button type="button" onClick={toggleTheme} className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-slate-300 transition hover:border-cyan/35 hover:bg-cyan/10 hover:text-white" aria-label="Toggle theme">
       {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
@@ -67,7 +67,7 @@ function Sidebar() {
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-line bg-[#0B1220]/88 px-5 py-6 backdrop-blur-2xl lg:block">
+    <aside className="hidden w-72 shrink-0 border-r border-line bg-[#05070D]/88 px-5 py-6 backdrop-blur-2xl lg:block">
       <Logo />
       <nav className="mt-9 space-y-1.5">
         {primaryNavItems.map((item) => {
@@ -137,7 +137,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
     <main className="min-h-screen overflow-hidden">
       <AmbientBackground />
       <section className="relative mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
-        <div className="glass flex min-h-[calc(100vh-2.5rem)] overflow-hidden rounded-lg">
+        <div className="glass flex min-h-[calc(100vh-2.5rem)] overflow-hidden rounded-xl">
           <Sidebar />
           <div className="min-w-0 flex-1">
             <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-4 py-4 sm:px-6 lg:px-7">
@@ -153,7 +153,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               <div className="flex flex-wrap items-center gap-3">
                 <NetworkBadge />
                 <ThemeToggle />
-                {adminLabel ? <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan">{adminLabel}</span> : null}
+                {adminLabel ? <span className="rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan">{adminLabel}</span> : null}
                 <WalletConnectButton />
               </div>
             </header>
@@ -174,7 +174,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
       <AnimatePresence>
         {mobileOpen && (
           <motion.div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="flex h-full w-80 max-w-[88vw] flex-col border-r border-line bg-[#0B1220] p-5">
+            <motion.aside initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} className="flex h-full w-80 max-w-[88vw] flex-col border-r border-line bg-[#05070D] p-5">
               <div className="flex items-center justify-between">
                 <Logo />
                 <button className="rounded-lg border border-white/10 p-2 text-slate-300" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
