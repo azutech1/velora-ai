@@ -340,7 +340,6 @@ export default function TradePage() {
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
   const hasValidSwapAmount = Number.isFinite(Number(swapAmount)) && Number(swapAmount) > 0 && sellToken.symbol !== buyToken.symbol;
   const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
-  const tradingMode: TradingMode = tab === "bridge" && liveQuoteUnavailable ? "live-unavailable" : isLifiEnabled ? "live" : "demo";
   const providerPriority = useMemo(
     () =>
       getTradeProviderPriority({
@@ -362,6 +361,18 @@ export default function TradePage() {
   });
   const swapHasExecutableQuote = Boolean(lifiQuote?.transactionRequest || (realSwapEnabled && appKitSwap.estimate?.estimatedOutput));
   const swapExecutionUnavailable = hasValidSwapAmount && swapQuoteReady && !swapHasExecutableQuote;
+  const tradingMode: TradingMode =
+    tab === "swap"
+      ? swapExecutionUnavailable
+        ? "live-unavailable"
+        : swapHasExecutableQuote
+          ? "live"
+          : "demo"
+      : tab === "bridge" && liveQuoteUnavailable
+        ? "live-unavailable"
+        : bridgeHasExecutableQuote
+          ? "live"
+          : "demo";
   const swapQuoteUpdating = swapQuoteLoading || appKitSwap.state === "estimating";
   const swapPrimaryBusy = swapQuoteUpdating || swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
   const swapPrimaryLabel = swapWalletWaiting
@@ -1287,9 +1298,9 @@ export default function TradePage() {
                 <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
                   <p className="text-slate-300">Live token price: <span className="font-semibold text-white">{formatPrice(liveSellPrice)}</span></p>
                   <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{estimatedReceive.toFixed(4)} {buyToken.symbol}</span></p>
-                  <p className="text-slate-300">Preferred route: <span className="font-semibold text-white">{preferredProvider.label}</span></p>
+                  <p className="text-slate-300">{swapHasExecutableQuote ? "Executable route" : "Preview route"}: <span className="font-semibold text-white">{swapHasExecutableQuote ? (appKitSwap.estimate ? "StableFX" : lifiQuote?.provider ?? preferredProvider.label) : "Estimated preview"}</span></p>
                   {lifiQuote?.provider ? <p className="text-slate-300">Route provider: <span className="font-semibold text-white">{lifiQuote.provider}</span></p> : null}
-                  <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ≈ {rate.toFixed(6)} {buyToken.symbol}</span></p>
+                  <p className="text-slate-300">Rate: <span className="font-semibold text-white">1 {sellToken.symbol} ~ {rate.toFixed(6)} {buyToken.symbol}</span></p>
                   <p className="text-slate-300">Price impact: <span className="font-semibold text-white">{swapQuote.priceImpact.toFixed(3)}%</span></p>
                   <p className="text-slate-300">Network fee: <span className="font-semibold text-white">{lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : `$${swapQuote.networkFee.toFixed(4)}`}</span></p>
                   {lifiQuote?.gasEstimateUsd ? <p className="text-slate-300">Gas estimate: <span className="font-semibold text-white">${lifiQuote.gasEstimateUsd}</span></p> : null}

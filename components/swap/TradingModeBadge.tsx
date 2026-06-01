@@ -5,10 +5,10 @@ type TradingMode = "live" | "demo" | "live-unavailable";
 export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   const text =
     mode === "live"
-      ? "Live Quote Mode - LI.FI route enabled on Arc Testnet."
+      ? "Executable live route ready. Swap will open wallet confirmation."
       : mode === "live-unavailable"
-        ? "Live bridge route unavailable. Showing estimated preview only."
-        : "Estimated Quote Mode - live route unavailable.";
+        ? "Route unavailable for live execution. Showing estimated preview only."
+        : "Preparing live route. Enter an amount to load an executable quote.";
 
   const className =
     mode === "live"
@@ -20,7 +20,7 @@ export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   return (
     <div className="mb-4">
       <p className={`rounded-lg border p-3 text-sm ${className}`}>{text}</p>
-      <p className="mt-2 text-xs text-slate-400">Velora AI checks Arc-native USDC/EURC routes first, then uses LI.FI while the official Arc-native execution adapter is unavailable. Execution is enabled only after a supported route returns transaction data.</p>
+      <p className="mt-2 text-xs text-slate-400">Velora AI only enables execution when the current route includes wallet transaction data. Preview estimates are informational and cannot open MetaMask.</p>
     </div>
   );
 }
