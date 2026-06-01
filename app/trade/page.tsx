@@ -18,6 +18,19 @@ import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 import { useTransactions } from "@/hooks/useTransactions";
 import { getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
+import {
+  arcNativeBridgeProvider,
+  arcNativeSwapProvider,
+  createProviderExecutionRoute,
+  createTransactionRequestProvider,
+  fallbackProvider,
+  findExecutableRoute,
+  lifiBridgeProvider,
+  lifiSwapProvider,
+  stablefxProvider,
+  type ExecutableRoute,
+  type RouteRequest
+} from "@/lib/routes/router";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
 import { SWAP_TOKENS, estimateDemoSwap, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
 import { getTradeProviderPriority, shouldPreferArcNativeRoute } from "@/lib/trade/provider-priority";
@@ -319,6 +332,8 @@ export default function TradePage() {
   const [bridgeMessage, setBridgeMessage] = useState("");
   const [liveQuoteUnavailable, setLiveQuoteUnavailable] = useState(false);
   const [lifiQuote, setLifiQuote] = useState<LifiEstimate | null>(null);
+  const [swapRoute, setSwapRoute] = useState<ExecutableRoute | null>(null);
+  const [bridgeRoute, setBridgeRoute] = useState<ExecutableRoute | null>(null);
 
   const activeTokens = useMemo(() => ACTIVE_STABLECOINS.map((symbol) => getSwapToken(symbol)).filter(Boolean), []);
   const sellTokenBalance = useSwapTokenBalance(sellToken);
@@ -329,8 +344,7 @@ export default function TradePage() {
   const balanceActionDisabled = !hasSellBalance || sellTokenBalance.isLoading;
   const hasBridgeBalance = typeof bridgeTokenBalance.numericBalance === "number" && bridgeTokenBalance.numericBalance > 0;
   const bridgeMaxDisabled = !hasBridgeBalance || bridgeTokenBalance.isLoading;
-  const bridgeHasExecutableQuote = hasExecutableTransactionRequest(lifiQuote);
-  const bridgePreviewOnly = bridgeQuoteReady && !bridgeHasExecutableQuote;
+  const bridgeHasExecutableQuote = Boolean(bridgeRoute);
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
     const merged = SWAP_TOKENS.filter((token) => COMING_SOON_SYMBOLS.has(token.symbol)).map((token) => ({ symbol: token.symbol, name: token.name }));
     return merged.filter((item, index) => merged.findIndex((candidate) => candidate.symbol.toLowerCase() === item.symbol.toLowerCase()) === index);
@@ -375,14 +389,20 @@ export default function TradePage() {
   const swapTransactionRequestChainId = swapTransactionRequest?.chainId ?? bridge.fromNetwork.chainId;
   const swapHasExecutableQuote = hasExecutableTransactionRequest(lifiQuote);
   const swapQuoteExpired = Boolean(swapQuoteTimestamp && Date.now() - swapQuoteTimestamp > 60_000);
+  const appKitQuoteMatches =
+    appKitSwap.estimate?.diagnostics?.tokenIn === sellToken.symbol &&
+    appKitSwap.estimate?.diagnostics?.tokenOut === buyToken.symbol &&
+    appKitSwap.estimate?.diagnostics?.amountIn === swapAmount;
+  const appKitQuoteExpired = Boolean(appKitSwap.estimate?.diagnostics?.expiresAt && Date.now() > appKitSwap.estimate.diagnostics.expiresAt);
+  const swapHasAppKitExecutableQuote = realSwapEnabled && Boolean(appKitSwap.estimate?.estimatedOutput) && appKitQuoteMatches && !appKitQuoteExpired;
   const swapCanExecute =
     Boolean(isConnected && address) &&
     walletChainId === bridge.fromNetwork.chainId &&
     hasValidSwapAmount &&
     swapQuoteReady &&
     !swapQuoteExpired &&
-    swapHasExecutableQuote &&
-    swapTransactionRequestChainId === walletChainId;
+    Boolean(swapRoute) &&
+    (swapHasAppKitExecutableQuote || (swapHasExecutableQuote && swapTransactionRequestChainId === walletChainId));
   const swapExecutionNotice = !isConnected
     ? "Connect wallet to swap."
     : walletChainId !== bridge.fromNetwork.chainId
@@ -393,12 +413,12 @@ export default function TradePage() {
           ? "Quote expired."
           : swapInputMode === "exactOut"
             ? "Exact receive quote is not available for this route."
-            : liveQuoteUnavailable || (swapQuoteReady && !swapHasExecutableQuote)
-              ? "Preview only. Live execution is not available."
+            : liveQuoteUnavailable || (swapQuoteReady && !swapHasExecutableQuote && !swapHasAppKitExecutableQuote)
+              ? "Route unavailable."
               : swapHasExecutableQuote && swapTransactionRequestChainId !== walletChainId
                 ? "Switch to Arc Testnet."
                 : !swapQuoteReady
-                  ? "Execution unavailable for this route."
+                  ? "Route unavailable."
                   : "";
   const swapPrimaryLabel = swapWalletWaiting
     ? "Waiting for Wallet..."
@@ -453,6 +473,11 @@ export default function TradePage() {
     });
   }
 
+  function debugRoute(label: string, details: Record<string, unknown> = {}) {
+    if (process.env.NODE_ENV === "production") return;
+    console.info(`[Velora Route Debug] ${label}`, details);
+  }
+
   function swapFailureFromError(error: unknown) {
     const raw = error instanceof Error ? error.message : String(error);
     const lower = raw.toLowerCase();
@@ -475,7 +500,7 @@ export default function TradePage() {
       return { title: "Contract call failed", message: "Contract call failed.", raw };
     }
     if (lower.includes("unavailable") || lower.includes("preview")) {
-      return { title: "Execution unavailable for this route", message: "Execution unavailable for this route.", raw };
+      return { title: "Route unavailable", message: "No live executable route is available for this pair yet.", raw };
     }
     return { title: "Swap Failed", message: process.env.NODE_ENV === "production" ? "Unknown error." : `Unknown error: ${raw}`, raw };
   }
@@ -686,31 +711,6 @@ export default function TradePage() {
     });
   }
 
-  async function requestCurrentBridgeLifiQuote() {
-    if (!address) {
-      throw new Error("Connect wallet before requesting a live bridge route.");
-    }
-
-    const fromChain = getChainById(bridge.fromNetwork.chainId);
-    const toChain = getChainById(bridge.toNetwork.chainId);
-    const fromTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.fromNetwork.chainId);
-    const toTokenAddress = getTokenAddress(bridge.tokenSymbol, bridge.toNetwork.chainId);
-
-    if (!fromChain || !toChain || !fromTokenAddress || !toTokenAddress) {
-      throw new Error("Route currently unavailable for live execution.");
-    }
-
-    return requestLifiQuote({
-      fromChain: fromChain.lifiChainId,
-      toChain: toChain.lifiChainId,
-      fromToken: fromTokenAddress,
-      toToken: toTokenAddress,
-      fromAmount: parseUnits(bridge.amount, 6).toString(),
-      fromAddress: address,
-      slippage: 0.5
-    });
-  }
-
   useEffect(() => {
     recordActivity({
       actionType: "trade_tab_opened",
@@ -726,9 +726,17 @@ export default function TradePage() {
     setSwapSuccess(null);
     setSwapFailure(null);
     setLifiQuote(null);
+    setSwapRoute(null);
     setSwapQuoteTimestamp(null);
     setSwapMessage("");
   }, [buyToken.symbol, sellToken.symbol, swapAmount, swapInputMode]);
+
+  useEffect(() => {
+    setBridgeQuoteReady(false);
+    setBridgeRoute(null);
+    setLifiQuote(null);
+    setBridgeMessage("");
+  }, [bridge.amount, bridge.fromNetwork.chainId, bridge.toNetwork.chainId, bridge.tokenSymbol]);
 
   useEffect(() => {
     if (swapInputMode !== "exactOut") return;
@@ -758,6 +766,7 @@ export default function TradePage() {
     setReceiveAmount("");
     setSwapQuoteReady(false);
     setLifiQuote(null);
+    setSwapRoute(null);
     setSwapMessage("");
   }
 
@@ -767,6 +776,7 @@ export default function TradePage() {
     setSwapAmount(calculateRequiredSellAmount(value, liveSellPrice, liveBuyPrice));
     setSwapQuoteReady(false);
     setLifiQuote(null);
+    setSwapRoute(null);
     setSwapMessage("");
   }
 
@@ -782,6 +792,7 @@ export default function TradePage() {
     setSwapQuoteReady(false);
     setSwapMessage("");
     setLifiQuote(null);
+    setSwapRoute(null);
     setSwapSuccess(null);
     setSwapQuoteLoading(true);
     if (!silent) {
@@ -868,90 +879,110 @@ export default function TradePage() {
         throw new Error("Selected tokens are not available for live execution.");
       }
 
-      if (realSwapEnabled) {
-        try {
+      setSwapMessage("Searching best available route...");
+      const swapRouteRequest: RouteRequest = {
+        routeType: "swap",
+        walletAddress: address as Address,
+        walletChainId: walletChainId ?? walletChain,
+        fromChainId: walletChain,
+        toChainId: walletChain,
+        fromToken: { symbol: sellToken.symbol, address: fromTokenAddress, decimals: sellToken.decimals },
+        toToken: { symbol: buyToken.symbol, address: toTokenAddress, decimals: buyToken.decimals },
+        amount: swapAmount,
+        slippage: 0.5,
+        balance: sellTokenBalance.numericBalance ?? null
+      };
+      const stablefxRouteProvider = createProviderExecutionRoute({
+        providerName: stablefxProvider.providerName,
+        routeType: "swap",
+        supportedChains: [walletChain],
+        supportedTokens: ["USDC", "EURC", "USDT"],
+        getQuote: async () => {
           const estimate = await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
-          debugSwap("StableFX/AppKit estimate returned without wallet transactionRequest", { estimate });
-          setLiveQuoteUnavailable(true);
-          setSwapQuoteReady(true);
-          setSwapQuoteTimestamp(Date.now());
-          setReceiveAmount(estimate.estimatedOutput?.amount ?? "");
-          if (!silent) {
-            recordActivity({
-              actionType: "live_quote_success",
-              title: "Live swap quote success",
-              description: "StableFX/App Kit estimate returned successfully, but no executable wallet transaction request was provided.",
-              feature: "swap",
-              token: `${sellToken.symbol}/${buyToken.symbol}`,
-              amount: swapAmount,
-              status: "info",
-              metadata: {
-                ...getSwapActivityMetadata("stablefx_quote_success"),
-                quoteMode: "preview",
-                routeProvider: "StableFX",
-                transactionRequestExists: false,
-                estimatedReceiveAmount: estimate.estimatedOutput?.amount ?? null
-              }
-            });
-          }
-          setSwapMessage("Preview only. Live execution is not available.");
-        } catch {
-          setLiveQuoteUnavailable(true);
+          return {
+            provider: "Circle AppKit",
+            toAmount: estimate.estimatedOutput?.amount ?? null,
+            raw: estimate
+          };
+        },
+        execute: async (quote) => {
+          const estimate = quote.raw as NonNullable<typeof appKitSwap.estimate>;
+          const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50, estimate);
+          return { txHash: result.txHash as Hex, receivedAmount: result.amountOut ?? estimate.estimatedOutput?.amount };
         }
-      }
-
-      if (!isLifiEnabled) {
-        throw new Error("Live route unavailable.");
-      }
-
-      const quote = await requestCurrentSwapLifiQuote();
-      debugSwap("LI.FI quote response", {
-        quote,
-        transactionRequestExists: hasExecutableTransactionRequest(quote),
-        transactionRequestTo: quote.transactionRequest?.to ?? null,
-        transactionRequestData: quote.transactionRequest?.data ?? null,
-        transactionRequestValue: quote.transactionRequest?.value ?? null,
-        transactionRequestChainId: quote.transactionRequest?.chainId ?? null
       });
-      setLifiQuote(quote);
-      setSwapQuoteTimestamp(Date.now());
-      if (hasExecutableTransactionRequest(quote)) {
-        setLiveQuoteUnavailable(false);
-        setSwapQuoteReady(true);
-        setReceiveAmount(formatLifiAmount(quote.toAmount, buyToken.decimals));
+      const lifiRouteProvider = createTransactionRequestProvider({
+        providerName: lifiSwapProvider.providerName,
+        routeType: "swap",
+        supportedChains: [walletChain],
+        getQuote: async () => {
+          if (!isLifiEnabled) throw new Error("LI.FI disabled.");
+          const quote = await requestCurrentSwapLifiQuote();
+          return {
+            provider: quote.provider,
+            toAmount: quote.toAmount,
+            toAmountMin: quote.toAmountMin,
+            approvalAddress: quote.approvalAddress,
+            feeEstimateUsd: quote.feeEstimateUsd,
+            gasEstimateUsd: quote.gasEstimateUsd,
+            raw: quote
+          };
+        }
+      });
+      const routeResult = await findExecutableRoute(swapRouteRequest, [arcNativeSwapProvider, stablefxRouteProvider, lifiRouteProvider, fallbackProvider]);
+      debugRoute("swap route diagnostics", routeResult.diagnostics);
+
+      if (!routeResult.route) {
+        setLiveQuoteUnavailable(true);
+        setSwapQuoteReady(false);
+        setSwapRoute(null);
+        setLifiQuote(null);
+        setReceiveAmount("");
         if (!silent) {
           recordActivity({
-            actionType: "live_quote_success",
-            title: "Live quote success",
-            description: "A swap estimate is ready.",
+            actionType: "quote_failed",
+            title: "Swap route unavailable",
+            description: "No live executable route is available for this pair yet.",
             feature: "swap",
             token: `${sellToken.symbol}/${buyToken.symbol}`,
             amount: swapAmount,
-            status: "success",
-            metadata: getSwapActivityMetadata("live_quote_success", quote)
+            status: "failed",
+            metadata: {
+              ...getSwapActivityMetadata("route_unavailable"),
+              diagnostics: JSON.stringify(routeResult.diagnostics)
+            }
           });
         }
-        setSwapMessage("Live quote ready.");
+        setSwapMessage("No live executable route is available for this pair yet.");
         return;
       }
 
-      setLiveQuoteUnavailable(true);
-      setSwapQuoteReady(true);
+      setSwapRoute(routeResult.route);
+      const quote = routeResult.route.quote.raw as LifiEstimate | null;
+      if (routeResult.route.executionMode === "transactionRequest" && quote) {
+        setLifiQuote(quote);
+      }
       setSwapQuoteTimestamp(Date.now());
-      setReceiveAmount(formatDisplayAmount(estimatedReceive));
+      setLiveQuoteUnavailable(false);
+      setSwapQuoteReady(true);
+      setReceiveAmount(routeResult.route.executionMode === "transactionRequest" ? formatLifiAmount(routeResult.route.quote.toAmount, buyToken.decimals) : routeResult.route.quote.toAmount ?? "");
       if (!silent) {
         recordActivity({
-          actionType: "fallback_quote_used",
-          title: "Swap preview shown",
-          description: "This estimate cannot be swapped right now.",
+          actionType: "live_quote_success",
+          title: "Live quote success",
+          description: "Best route ready.",
           feature: "swap",
           token: `${sellToken.symbol}/${buyToken.symbol}`,
           amount: swapAmount,
-          status: "info",
-          metadata: getSwapActivityMetadata("preview_shown", quote)
+          status: "success",
+          metadata: {
+            ...getSwapActivityMetadata("live_quote_success", quote),
+            selectedProvider: routeResult.route.providerName,
+            diagnostics: JSON.stringify(routeResult.diagnostics)
+          }
         });
       }
-      setSwapMessage("This estimate is preview only. Try another amount or token pair to swap.");
+      setSwapMessage("Best route ready");
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Live quote unavailable.";
       setLiveQuoteUnavailable(true);
@@ -969,18 +1000,8 @@ export default function TradePage() {
           status: "failed",
           metadata: getSwapActivityMetadata("live_quote_failed")
         });
-        recordActivity({
-          actionType: "fallback_quote_used",
-          title: "Swap preview shown",
-          description: "Estimated quote shown after live quote failure.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "info",
-          metadata: getSwapActivityMetadata("preview_shown")
-        });
       }
-      setSwapMessage("This estimate is preview only. Try another amount or token pair to swap.");
+      setSwapMessage("Route unavailable.");
     } finally {
       setSwapQuoteLoading(false);
     }
@@ -1022,7 +1043,7 @@ export default function TradePage() {
   async function executeConfirmedSwap() {
     setSwapFailure(null);
     if (!hasValidSwapAmount) {
-      setSwapFailure({ title: "Execution unavailable for this route", message: "Execution unavailable for this route." });
+      setSwapFailure({ title: "Route unavailable", message: "No live executable route is available for this pair yet." });
       return;
     }
 
@@ -1037,7 +1058,7 @@ export default function TradePage() {
     }
 
     if (swapInputMode === "exactOut") {
-      setSwapFailure({ title: "Execution unavailable for this route", message: "Exact receive quote is not available for this route." });
+      setSwapFailure({ title: "Route unavailable", message: "No live executable route is available for this pair yet." });
       return;
     }
 
@@ -1046,8 +1067,87 @@ export default function TradePage() {
       return;
     }
 
+    if (!swapRoute) {
+      setSwapFailure({ title: "Route unavailable", message: "No live executable route is available for this pair yet." });
+      return;
+    }
+
+    if (swapHasAppKitExecutableQuote) {
+      setSwapSubmitting(true);
+      setSwapWalletWaiting(true);
+      try {
+        debugSwap("execute Circle AppKit swap start", {
+          appKitExecutable: true,
+          estimate: appKitSwap.estimate
+        });
+        recordActivity({
+          actionType: "swap_started",
+          title: "Swap started",
+          description: `Wallet confirmation requested for ${swapAmount} ${sellToken.symbol} to ${buyToken.symbol}.`,
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "pending",
+          metadata: {
+            ...getSwapActivityMetadata("execution_started"),
+            routeProvider: "Circle AppKit",
+            appKitExecutable: true
+          }
+        });
+
+        const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50, appKitSwap.estimate ?? undefined);
+        setSwapWalletWaiting(false);
+        recordActivity({
+          actionType: "swap_completed",
+          title: "Swap confirmed",
+          description: "Swap transaction confirmed.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "success",
+          txHash: result.txHash,
+          metadata: {
+            ...getSwapActivityMetadata("confirmed"),
+            quoteMode: "live",
+            routeProvider: "Circle AppKit",
+            appKitExecutable: true
+          }
+        });
+        setSwapSuccess({
+          txHash: result.txHash,
+          sentAmount: swapAmount,
+          sentToken: sellToken,
+          receivedAmount: result.amountOut ?? appKitSwap.estimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
+          receivedToken: buyToken
+        });
+        void queryClient.invalidateQueries();
+      } catch (error) {
+        const failure = swapFailureFromError(error);
+        debugSwap("execute Circle AppKit swap failed", { error, failure });
+        recordActivity({
+          actionType: "swap_failed",
+          title: "Swap failed",
+          description: failure.message,
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "failed",
+          metadata: {
+            ...getSwapActivityMetadata("failed"),
+            routeProvider: "Circle AppKit",
+            error: failure.raw ?? failure.message
+          }
+        });
+        setSwapFailure(failure);
+      } finally {
+        setSwapWalletWaiting(false);
+        setSwapSubmitting(false);
+      }
+      return;
+    }
+
     if (!lifiQuote?.transactionRequest) {
-      setSwapFailure({ title: "Missing transaction request", message: liveQuoteUnavailable ? "Preview only. Live execution is not available." : "Execution unavailable for this route." });
+      setSwapFailure({ title: "Route unavailable", message: "No live executable route is available for this pair yet." });
       return;
     }
 
@@ -1131,6 +1231,7 @@ export default function TradePage() {
     setBridgeQuoteReady(false);
     setBridgeMessage("");
     setLifiQuote(null);
+    setBridgeRoute(null);
     recordActivity({
       actionType: "bridge_quote_requested",
       title: "Bridge quote requested",
@@ -1197,113 +1298,139 @@ export default function TradePage() {
         status: "failed",
         metadata: getBridgeActivityMetadata("live_quote_failed")
       });
-      recordActivity({
-        actionType: "bridge_preview_shown",
-        title: "Bridge preview shown",
-        description: "Estimated preview shown because this route is unavailable for live execution.",
-        feature: "bridge",
-        token: bridge.tokenSymbol,
-        amount: bridge.amount,
-        status: "info",
-        metadata: getBridgeActivityMetadata("preview_shown")
-      });
-      setBridgeQuoteReady(true);
-      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
+      setBridgeQuoteReady(false);
+      setBridgeMessage("Route unavailable.");
       return;
     }
 
-    if (isLifiEnabled) {
-      try {
-        const fromChain = getChainById(bridge.fromNetwork.chainId);
-        const toChain = getChainById(bridge.toNetwork.chainId);
-        if (!fromChain || !toChain) {
-          throw new Error("Route currently unavailable.");
-        }
-        const quote = await requestLifiQuote({
-          fromChain: fromChain.lifiChainId,
-          toChain: toChain.lifiChainId,
-          fromToken: fromTokenAddress,
-          toToken: toTokenAddress,
-          fromAmount: parseUnits(bridge.amount, 6).toString(),
-          fromAddress: address,
-          slippage: 0.5
-        });
-        setLifiQuote(quote);
-        if (hasExecutableTransactionRequest(quote)) {
-          setLiveQuoteUnavailable(false);
-          recordActivity({
-            actionType: "bridge_preview_shown",
-            title: "Live bridge quote ready",
-            description: "Bridge estimate ready.",
-            feature: "bridge",
-            token: bridge.tokenSymbol,
-            amount: bridge.amount,
-            status: "success",
-            metadata: getBridgeActivityMetadata("live_quote_success", quote)
+    if (!isLifiEnabled) {
+      setLiveQuoteUnavailable(true);
+      recordActivity({
+        actionType: "bridge_quote_failed",
+        title: "Bridge route unavailable",
+        description: "Live routing is unavailable.",
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "failed",
+        metadata: getBridgeActivityMetadata("route_unavailable")
+      });
+      setBridgeMessage("Route unavailable.");
+      setBridgeQuoteReady(false);
+      return;
+    }
+
+    try {
+      setBridgeMessage("Searching best available route...");
+      const fromChain = getChainById(bridge.fromNetwork.chainId);
+      const toChain = getChainById(bridge.toNetwork.chainId);
+      if (!fromChain || !toChain) {
+        throw new Error("Route currently unavailable.");
+      }
+      const bridgeRouteRequest: RouteRequest = {
+        routeType: "bridge",
+        walletAddress: address as Address,
+        walletChainId: walletChainId ?? bridge.fromNetwork.chainId,
+        fromChainId: bridge.fromNetwork.chainId,
+        toChainId: bridge.toNetwork.chainId,
+        fromToken: { symbol: bridge.tokenSymbol, address: fromTokenAddress, decimals: bridgeToken.decimals },
+        toToken: { symbol: bridge.tokenSymbol, address: toTokenAddress, decimals: bridgeToken.decimals },
+        amount: bridge.amount,
+        slippage: 0.5,
+        balance: bridgeTokenBalance.numericBalance ?? null
+      };
+      const lifiRouteProvider = createTransactionRequestProvider({
+        providerName: lifiBridgeProvider.providerName,
+        routeType: "bridge",
+        getQuote: async () => {
+          const quote = await requestLifiQuote({
+            fromChain: fromChain.lifiChainId,
+            toChain: toChain.lifiChainId,
+            fromToken: fromTokenAddress,
+            toToken: toTokenAddress,
+            fromAmount: parseUnits(bridge.amount, 6).toString(),
+            fromAddress: address,
+            slippage: 0.5
           });
-          setBridgeMessage("Bridge estimate ready. Review to continue.");
-        } else {
-          setLiveQuoteUnavailable(true);
-          recordActivity({
-            actionType: "bridge_preview_shown",
-            title: "Bridge preview shown",
-            description: "This bridge estimate cannot be used right now.",
-            feature: "bridge",
-            token: bridge.tokenSymbol,
-            amount: bridge.amount,
-            status: "info",
-            metadata: getBridgeActivityMetadata("preview_shown", quote)
-          });
-          setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
+          return {
+            provider: quote.provider,
+            toAmount: quote.toAmount,
+            toAmountMin: quote.toAmountMin,
+            approvalAddress: quote.approvalAddress,
+            feeEstimateUsd: quote.feeEstimateUsd,
+            gasEstimateUsd: quote.gasEstimateUsd,
+            raw: quote
+          };
         }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "";
-        const reason = errorMessage === "Route currently unavailable." || errorMessage === "Live quote unavailable." ? "Bridge is unavailable for this route." : "Bridge estimate unavailable.";
+      });
+      const routeResult = await findExecutableRoute(bridgeRouteRequest, [arcNativeBridgeProvider, lifiRouteProvider, fallbackProvider]);
+      debugRoute("bridge route diagnostics", routeResult.diagnostics);
+      if (!routeResult.route) {
         setLiveQuoteUnavailable(true);
         setLifiQuote(null);
+        setBridgeRoute(null);
         recordActivity({
           actionType: "bridge_quote_failed",
-          title: "Live bridge quote failed",
-          description: reason,
+          title: "Bridge route unavailable",
+          description: "No live executable route is available for this bridge yet.",
           feature: "bridge",
           token: bridge.tokenSymbol,
           amount: bridge.amount,
           status: "failed",
-          metadata: getBridgeActivityMetadata("live_quote_failed")
+          metadata: {
+            ...getBridgeActivityMetadata("route_unavailable"),
+            diagnostics: JSON.stringify(routeResult.diagnostics)
+          }
         });
-        recordActivity({
-          actionType: "bridge_preview_shown",
-          title: "Bridge preview shown",
-          description: "Estimated preview shown after live bridge quote failure.",
-          feature: "bridge",
-          token: bridge.tokenSymbol,
-          amount: bridge.amount,
-          status: "info",
-          metadata: getBridgeActivityMetadata("preview_shown")
-        });
-        setBridgeMessage(`${reason} Try another amount or route.`);
+        setBridgeMessage("No live executable route is available for this pair yet.");
+        setBridgeQuoteReady(false);
+        return;
       }
-    } else {
-      setLiveQuoteUnavailable(true);
+      const quote = routeResult.route.quote.raw as LifiEstimate;
+      setBridgeRoute(routeResult.route);
+      setLifiQuote(quote);
+      setLiveQuoteUnavailable(false);
       recordActivity({
         actionType: "bridge_preview_shown",
-        title: "Bridge preview shown",
-        description: "Estimated preview shown because live routing is unavailable.",
+        title: "Live bridge quote ready",
+        description: "Best route ready.",
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
-        status: "info",
-        metadata: getBridgeActivityMetadata("preview_shown")
+        status: "success",
+        metadata: {
+          ...getBridgeActivityMetadata("live_quote_success", quote),
+          selectedProvider: routeResult.route.providerName,
+          diagnostics: JSON.stringify(routeResult.diagnostics)
+        }
       });
-      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
+      setBridgeMessage("Best route ready");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Route unavailable.";
+      setLiveQuoteUnavailable(true);
+      setLifiQuote(null);
+      setBridgeRoute(null);
+      recordActivity({
+        actionType: "bridge_quote_failed",
+        title: "Bridge route unavailable",
+        description: reason,
+        feature: "bridge",
+        token: bridge.tokenSymbol,
+        amount: bridge.amount,
+        status: "failed",
+        metadata: getBridgeActivityMetadata("live_quote_failed")
+      });
+      setBridgeMessage("Route unavailable.");
+      setBridgeQuoteReady(false);
+      return;
     }
 
     setBridgeQuoteReady(true);
   }
 
   async function handleReviewBridge() {
-    if (!bridgeHasExecutableQuote) {
-      setBridgeMessage("Bridge is unavailable for this estimate. Try another amount or route.");
+    if (!bridgeRoute) {
+      setBridgeMessage("No live executable route is available for this pair yet.");
       return;
     }
 
@@ -1336,13 +1463,43 @@ export default function TradePage() {
     });
 
     try {
-      setBridgeMessage("Refreshing live bridge route before wallet confirmation...");
-      const freshQuote = await requestCurrentBridgeLifiQuote();
-      if (!hasExecutableTransactionRequest(freshQuote)) {
-        throw new Error("Live bridge route unavailable. Showing estimated preview only.");
+      setBridgeMessage("Waiting for wallet confirmation...");
+      let hash: Hex;
+      const selectedQuote = bridgeRoute.quote.raw as LifiEstimate | null;
+      if (bridgeRoute.executionMode === "transactionRequest" && selectedQuote && hasExecutableTransactionRequest(selectedQuote)) {
+        setLifiQuote(selectedQuote);
+        hash = await executeLifiTransaction(selectedQuote, "bridge");
+      } else {
+        const result = await bridgeRoute.execute({
+          sendTransaction: async (transactionRequest) => {
+            if (!walletClient || !publicClient || !address) {
+              throw new Error("Connect wallet.");
+            }
+            if (!transactionRequest.to || !transactionRequest.data) {
+              throw new Error("Route unavailable.");
+            }
+            const requestChainId = transactionRequest.chainId ?? bridge.fromNetwork.chainId;
+            if (walletChainId !== requestChainId) {
+              throw new Error("Wrong network.");
+            }
+            const submittedHash = await walletClient.sendTransaction({
+              account: address as Address,
+              to: transactionRequest.to as Address,
+              data: transactionRequest.data as Hex,
+              value: parseOptionalBigInt(transactionRequest.value),
+              gas: parseOptionalBigInt(transactionRequest.gas ?? transactionRequest.gasLimit),
+              maxFeePerGas: parseOptionalBigInt(transactionRequest.maxFeePerGas),
+              maxPriorityFeePerGas: parseOptionalBigInt(transactionRequest.maxPriorityFeePerGas)
+            });
+            const receipt = await transactions.trackTransaction(submittedHash);
+            if (receipt?.status === "reverted") {
+              throw new Error("Contract call failed.");
+            }
+            return submittedHash;
+          }
+        });
+        hash = result.txHash;
       }
-      setLifiQuote(freshQuote);
-      const hash = await executeLifiTransaction(freshQuote, "bridge");
       recordActivity({
         actionType: "bridge_completed",
         title: "Bridge completed",
@@ -1353,7 +1510,10 @@ export default function TradePage() {
         network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
         status: "success",
         txHash: hash,
-        metadata: getBridgeActivityMetadata("confirmed", freshQuote)
+        metadata: {
+          ...getBridgeActivityMetadata("confirmed", selectedQuote),
+          selectedProvider: bridgeRoute.providerName
+        }
       });
       setBridgeMessage(`Live bridge confirmed: ${hash}`);
     } catch (error) {
@@ -1561,18 +1721,12 @@ export default function TradePage() {
                   <p className="text-slate-300">ETA: <span className="font-semibold text-white">{bridge.quote.estimatedTime}</span></p>
                   <p className="text-slate-300">Path: <span className="font-semibold text-white">{bridge.fromNetwork.name} to {bridge.toNetwork.name}</span></p>
                 </div>
-                {bridgePreviewOnly ? (
-                  <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-                    This bridge estimate is preview only. Try another amount or route.
-                  </p>
-                ) : null}
-
                 <button onClick={handleBridgeQuote} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon">
                   <Repeat2 className="h-4 w-4" /> Get Bridge Quote
                 </button>
                 {bridgeQuoteReady ? (
                   <button onClick={handleReviewBridge} disabled={transactions.isPending || !bridgeHasExecutableQuote} className="flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-slate-500">
-                    {transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {bridgeHasExecutableQuote ? "Review Bridge" : "Execution unavailable"}
+                    {transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {bridgeHasExecutableQuote ? "Bridge" : "Route unavailable"}
                   </button>
                 ) : null}
                 {bridgeMessage ? <p className="text-sm text-cyan">{bridgeMessage}</p> : null}

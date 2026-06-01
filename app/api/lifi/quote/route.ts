@@ -23,6 +23,7 @@ type LifiQuoteResponse = {
     fromChainId?: number;
   };
   estimate?: {
+    toAmount?: string;
     approvalAddress?: string;
     toAmountMin?: string;
     gasCosts?: Array<{ amountUSD?: string }>;
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
     const payload = (await response.json()) as LifiQuoteResponse;
     const normalized = {
       estimate: {
-        toAmount: payload.toAmount ?? null,
+        toAmount: payload.toAmount ?? payload.estimate?.toAmount ?? null,
         toAmountMin: payload.estimate?.toAmountMin ?? null,
         provider: payload.toolDetails?.name ?? payload.tool ?? "LI.FI",
         gasEstimateUsd: payload.estimate?.gasCosts?.[0]?.amountUSD ?? null,
