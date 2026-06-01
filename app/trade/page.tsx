@@ -291,7 +291,7 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
 }
 
 export default function TradePage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chainId: walletChainId } = useAccount();
   const queryClient = useQueryClient();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -311,7 +311,8 @@ export default function TradePage() {
   const [, setSwapMessage] = useState("");
   const [, setSwapQuoteLoading] = useState(false);
   const [swapSuccess, setSwapSuccess] = useState<{ txHash: string; sentAmount: string; sentToken: SwapToken; receivedAmount: string; receivedToken: SwapToken } | null>(null);
-  const [swapFailure, setSwapFailure] = useState(false);
+  const [swapFailure, setSwapFailure] = useState<{ title: string; message: string; raw?: string } | null>(null);
+  const [swapQuoteTimestamp, setSwapQuoteTimestamp] = useState<number | null>(null);
   const [swapWalletWaiting, setSwapWalletWaiting] = useState(false);
   const [swapSubmitting, setSwapSubmitting] = useState(false);
   const [bridgeQuoteReady, setBridgeQuoteReady] = useState(false);
@@ -370,6 +371,35 @@ export default function TradePage() {
   });
   const showSwapQuoteDetails = hasValidSwapAmount && swapQuoteReady;
   const swapPrimaryBusy = swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
+  const swapTransactionRequest = lifiQuote?.transactionRequest ?? null;
+  const swapTransactionRequestChainId = swapTransactionRequest?.chainId ?? bridge.fromNetwork.chainId;
+  const swapHasExecutableQuote = hasExecutableTransactionRequest(lifiQuote);
+  const swapQuoteExpired = Boolean(swapQuoteTimestamp && Date.now() - swapQuoteTimestamp > 60_000);
+  const swapCanExecute =
+    Boolean(isConnected && address) &&
+    walletChainId === bridge.fromNetwork.chainId &&
+    hasValidSwapAmount &&
+    swapQuoteReady &&
+    !swapQuoteExpired &&
+    swapHasExecutableQuote &&
+    swapTransactionRequestChainId === walletChainId;
+  const swapExecutionNotice = !isConnected
+    ? "Connect wallet to swap."
+    : walletChainId !== bridge.fromNetwork.chainId
+      ? "Switch to Arc Testnet."
+      : !hasValidSwapAmount
+        ? ""
+        : swapQuoteExpired
+          ? "Quote expired."
+          : swapInputMode === "exactOut"
+            ? "Exact receive quote is not available for this route."
+            : liveQuoteUnavailable || (swapQuoteReady && !swapHasExecutableQuote)
+              ? "Preview only. Live execution is not available."
+              : swapHasExecutableQuote && swapTransactionRequestChainId !== walletChainId
+                ? "Switch to Arc Testnet."
+                : !swapQuoteReady
+                  ? "Execution unavailable for this route."
+                  : "";
   const swapPrimaryLabel = swapWalletWaiting
     ? "Waiting for Wallet..."
     : swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending
@@ -399,6 +429,55 @@ export default function TradePage() {
       throw new Error("Live quote unavailable.");
     }
     return payload.estimate;
+  }
+
+  function debugSwap(label: string, details: Record<string, unknown> = {}) {
+    if (process.env.NODE_ENV === "production") return;
+    console.info(`[Velora Swap Debug] ${label}`, {
+      walletAddress: address ?? null,
+      walletChainId: walletChainId ?? null,
+      expectedChainId: bridge.fromNetwork.chainId,
+      sellToken: sellToken.symbol,
+      receiveToken: buyToken.symbol,
+      sellAmount: swapAmount,
+      receiveAmount: receiveAmount || (Number.isFinite(estimatedReceive) ? formatDisplayAmount(estimatedReceive) : ""),
+      quoteReady: swapQuoteReady,
+      liveQuoteUnavailable,
+      transactionRequestExists: Boolean(lifiQuote?.transactionRequest),
+      transactionRequestTo: lifiQuote?.transactionRequest?.to ?? null,
+      transactionRequestData: lifiQuote?.transactionRequest?.data ?? null,
+      transactionRequestValue: lifiQuote?.transactionRequest?.value ?? null,
+      transactionRequestChainId: lifiQuote?.transactionRequest?.chainId ?? null,
+      quoteResponse: lifiQuote,
+      ...details
+    });
+  }
+
+  function swapFailureFromError(error: unknown) {
+    const raw = error instanceof Error ? error.message : String(error);
+    const lower = raw.toLowerCase();
+    if (lower.includes("user rejected") || lower.includes("user denied") || lower.includes("rejected") || lower.includes("4001")) {
+      return { title: "Wallet rejected transaction", message: "Wallet rejected transaction.", raw };
+    }
+    if (lower.includes("insufficient")) {
+      return { title: "Insufficient balance", message: "Insufficient balance.", raw };
+    }
+    if (lower.includes("chain") || lower.includes("network")) {
+      return { title: "Wrong network", message: "Switch to Arc Testnet.", raw };
+    }
+    if (lower.includes("missing transaction request") || lower.includes("transaction request")) {
+      return { title: "Missing transaction request", message: "Missing transaction request.", raw };
+    }
+    if (lower.includes("expired")) {
+      return { title: "Quote expired", message: "Quote expired.", raw };
+    }
+    if (lower.includes("revert") || lower.includes("contract") || lower.includes("call failed")) {
+      return { title: "Contract call failed", message: "Contract call failed.", raw };
+    }
+    if (lower.includes("unavailable") || lower.includes("preview")) {
+      return { title: "Execution unavailable for this route", message: "Execution unavailable for this route.", raw };
+    }
+    return { title: "Swap Failed", message: process.env.NODE_ENV === "production" ? "Unknown error." : `Unknown error: ${raw}`, raw };
   }
 
   async function ensureLifiAllowance(quote: LifiEstimate, feature: "swap" | "bridge") {
@@ -530,21 +609,41 @@ export default function TradePage() {
 
     const request = quote.transactionRequest;
     if (!request?.to || !request.data) {
-      throw new Error("This estimate cannot be swapped right now.");
+      throw new Error("Missing transaction request.");
+    }
+
+    const requestChainId = request.chainId ?? bridge.fromNetwork.chainId;
+    if (walletChainId !== requestChainId) {
+      throw new Error("Wrong network.");
     }
 
     await ensureLifiAllowance(quote, feature);
     await preflightLifiTransaction(quote);
 
-    const hash = await walletClient.sendTransaction({
-      account: address as Address,
-      to: request.to as Address,
-      data: request.data as Hex,
-      value: parseOptionalBigInt(request.value),
-      gas: parseOptionalBigInt(request.gas ?? request.gasLimit),
-      maxFeePerGas: parseOptionalBigInt(request.maxFeePerGas),
-      maxPriorityFeePerGas: parseOptionalBigInt(request.maxPriorityFeePerGas)
+    debugSwap("sendTransaction request", {
+      feature,
+      requestTo: request.to,
+      requestData: request.data,
+      requestValue: request.value,
+      requestChainId,
+      walletChainId
     });
+
+    let hash: Hex;
+    try {
+      hash = await walletClient.sendTransaction({
+        account: address as Address,
+        to: request.to as Address,
+        data: request.data as Hex,
+        value: parseOptionalBigInt(request.value),
+        gas: parseOptionalBigInt(request.gas ?? request.gasLimit),
+        maxFeePerGas: parseOptionalBigInt(request.maxFeePerGas),
+        maxPriorityFeePerGas: parseOptionalBigInt(request.maxPriorityFeePerGas)
+      });
+    } catch (error) {
+      debugSwap("sendTransaction error", { error });
+      throw error;
+    }
     onSubmitted?.(hash);
 
     recordActivity({
@@ -625,8 +724,9 @@ export default function TradePage() {
   useEffect(() => {
     setSwapQuoteReady(false);
     setSwapSuccess(null);
-    setSwapFailure(false);
+    setSwapFailure(null);
     setLifiQuote(null);
+    setSwapQuoteTimestamp(null);
     setSwapMessage("");
   }, [buyToken.symbol, sellToken.symbol, swapAmount, swapInputMode]);
 
@@ -771,28 +871,30 @@ export default function TradePage() {
       if (realSwapEnabled) {
         try {
           const estimate = await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
-          setLiveQuoteUnavailable(false);
+          debugSwap("StableFX/AppKit estimate returned without wallet transactionRequest", { estimate });
+          setLiveQuoteUnavailable(true);
           setSwapQuoteReady(true);
+          setSwapQuoteTimestamp(Date.now());
           setReceiveAmount(estimate.estimatedOutput?.amount ?? "");
           if (!silent) {
             recordActivity({
               actionType: "live_quote_success",
               title: "Live swap quote success",
-              description: "StableFX/App Kit quote returned successfully.",
+              description: "StableFX/App Kit estimate returned successfully, but no executable wallet transaction request was provided.",
               feature: "swap",
               token: `${sellToken.symbol}/${buyToken.symbol}`,
               amount: swapAmount,
-              status: "success",
+              status: "info",
               metadata: {
                 ...getSwapActivityMetadata("stablefx_quote_success"),
-                quoteMode: "live",
+                quoteMode: "preview",
                 routeProvider: "StableFX",
+                transactionRequestExists: false,
                 estimatedReceiveAmount: estimate.estimatedOutput?.amount ?? null
               }
             });
           }
-          setSwapMessage("Live quote ready.");
-          return;
+          setSwapMessage("Preview only. Live execution is not available.");
         } catch {
           setLiveQuoteUnavailable(true);
         }
@@ -803,7 +905,16 @@ export default function TradePage() {
       }
 
       const quote = await requestCurrentSwapLifiQuote();
+      debugSwap("LI.FI quote response", {
+        quote,
+        transactionRequestExists: hasExecutableTransactionRequest(quote),
+        transactionRequestTo: quote.transactionRequest?.to ?? null,
+        transactionRequestData: quote.transactionRequest?.data ?? null,
+        transactionRequestValue: quote.transactionRequest?.value ?? null,
+        transactionRequestChainId: quote.transactionRequest?.chainId ?? null
+      });
       setLifiQuote(quote);
+      setSwapQuoteTimestamp(Date.now());
       if (hasExecutableTransactionRequest(quote)) {
         setLiveQuoteUnavailable(false);
         setSwapQuoteReady(true);
@@ -826,6 +937,7 @@ export default function TradePage() {
 
       setLiveQuoteUnavailable(true);
       setSwapQuoteReady(true);
+      setSwapQuoteTimestamp(Date.now());
       setReceiveAmount(formatDisplayAmount(estimatedReceive));
       if (!silent) {
         recordActivity({
@@ -845,6 +957,7 @@ export default function TradePage() {
       setLiveQuoteUnavailable(true);
       setLifiQuote(null);
       setSwapQuoteReady(true);
+      setSwapQuoteTimestamp(Date.now());
       if (!silent) {
         recordActivity({
           actionType: "live_quote_failed",
@@ -907,25 +1020,58 @@ export default function TradePage() {
   }
 
   async function executeConfirmedSwap() {
-    setSwapFailure(false);
+    setSwapFailure(null);
     if (!hasValidSwapAmount) {
-      setSwapFailure(true);
+      setSwapFailure({ title: "Execution unavailable for this route", message: "Execution unavailable for this route." });
       return;
     }
 
     if (!isConnected || !address) {
-      setSwapFailure(true);
+      setSwapFailure({ title: "Connect wallet to swap", message: "Connect wallet to swap." });
+      return;
+    }
+
+    if (walletChainId !== bridge.fromNetwork.chainId) {
+      setSwapFailure({ title: "Wrong network", message: "Switch to Arc Testnet." });
       return;
     }
 
     if (swapInputMode === "exactOut") {
-      setSwapFailure(true);
+      setSwapFailure({ title: "Execution unavailable for this route", message: "Exact receive quote is not available for this route." });
+      return;
+    }
+
+    if (swapQuoteExpired) {
+      setSwapFailure({ title: "Quote expired", message: "Quote expired." });
+      return;
+    }
+
+    if (!lifiQuote?.transactionRequest) {
+      setSwapFailure({ title: "Missing transaction request", message: liveQuoteUnavailable ? "Preview only. Live execution is not available." : "Execution unavailable for this route." });
+      return;
+    }
+
+    if (!hasExecutableTransactionRequest(lifiQuote)) {
+      setSwapFailure({ title: "Missing transaction request", message: "Missing transaction request." });
+      return;
+    }
+
+    const requestChainId = lifiQuote.transactionRequest.chainId ?? bridge.fromNetwork.chainId;
+    if (requestChainId !== walletChainId) {
+      setSwapFailure({ title: "Wrong network", message: "Switch to Arc Testnet." });
       return;
     }
 
     setSwapSubmitting(true);
     setSwapWalletWaiting(true);
     try {
+      debugSwap("execute swap start", {
+        transactionRequestExists: true,
+        transactionRequestTo: lifiQuote.transactionRequest.to,
+        transactionRequestData: lifiQuote.transactionRequest.data,
+        transactionRequestValue: lifiQuote.transactionRequest.value,
+        transactionRequestChainId: requestChainId
+      });
       recordActivity({
         actionType: "swap_started",
         title: "Swap started",
@@ -937,77 +1083,45 @@ export default function TradePage() {
         metadata: getSwapActivityMetadata("execution_started")
       });
 
-      if (realSwapEnabled) {
-        const stableEstimate = appKitSwap.estimate ?? (await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50));
-        const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50, stableEstimate);
+      const hash = await executeLifiTransaction(lifiQuote, "swap", () => {
         setSwapWalletWaiting(false);
-        recordActivity({
-          actionType: "swap_completed",
-          title: "Swap completed",
-          description: "Real swap submitted through StableFX/App Kit.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "success",
-          txHash: result.txHash,
-          metadata: {
-            ...getSwapActivityMetadata("confirmed"),
-            quoteMode: "live",
-            routeProvider: "StableFX"
-          }
-        });
-        setSwapSuccess({
-          txHash: result.txHash,
-          sentAmount: swapAmount,
-          sentToken: sellToken,
-          receivedAmount: stableEstimate.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
-          receivedToken: buyToken
-        });
-        void queryClient.invalidateQueries();
-        return;
-      }
-
-      const executableQuote = hasExecutableTransactionRequest(lifiQuote) && lifiQuote ? lifiQuote : await requestCurrentSwapLifiQuote();
-      if (hasExecutableTransactionRequest(executableQuote)) {
-        const hash = await executeLifiTransaction(executableQuote, "swap", () => {
-          setSwapWalletWaiting(false);
-        });
-        recordActivity({
-          actionType: "swap_completed",
-          title: "Swap confirmed",
-          description: "Swap transaction confirmed.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "success",
-          txHash: hash,
-          metadata: getSwapActivityMetadata("confirmed", executableQuote)
-        });
-        setSwapSuccess({
-          txHash: hash,
-          sentAmount: swapAmount,
-          sentToken: sellToken,
-          receivedAmount: formatLifiAmount(executableQuote.toAmount, buyToken.decimals),
-          receivedToken: buyToken
-        });
-        void queryClient.invalidateQueries();
-        return;
-      }
-
-      throw new Error("Swap is unavailable for this estimate. Try another amount or token pair.");
+      });
+      recordActivity({
+        actionType: "swap_completed",
+        title: "Swap confirmed",
+        description: "Swap transaction confirmed.",
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        status: "success",
+        txHash: hash,
+        metadata: getSwapActivityMetadata("confirmed", lifiQuote)
+      });
+      setSwapSuccess({
+        txHash: hash,
+        sentAmount: swapAmount,
+        sentToken: sellToken,
+        receivedAmount: formatLifiAmount(lifiQuote.toAmount, buyToken.decimals),
+        receivedToken: buyToken
+      });
+      void queryClient.invalidateQueries();
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "Live swap execution failed.";
+      const failure = swapFailureFromError(error);
+      debugSwap("execute swap failed", { error, failure });
       recordActivity({
         actionType: "swap_failed",
         title: "Swap failed",
-        description: reason,
+        description: failure.message,
         feature: "swap",
         token: `${sellToken.symbol}/${buyToken.symbol}`,
         amount: swapAmount,
         status: "failed",
-        metadata: getSwapActivityMetadata("failed")
+        metadata: {
+          ...getSwapActivityMetadata("failed"),
+          error: failure.raw ?? failure.message
+        }
       });
-      setSwapFailure(true);
+      setSwapFailure(failure);
     } finally {
       setSwapWalletWaiting(false);
       setSwapSubmitting(false);
@@ -1371,16 +1485,21 @@ export default function TradePage() {
 
                 <button
                   onClick={handleSwapPrimaryAction}
-                  disabled={swapPrimaryBusy || !hasValidSwapAmount}
+                  disabled={swapPrimaryBusy || !swapCanExecute}
                   className={cx(
                     "flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 font-bold shadow-neon transition",
-                    !hasValidSwapAmount ? "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none" : "bg-cyan text-white hover:scale-[1.01]",
+                    !swapCanExecute ? "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none" : "bg-cyan text-white hover:scale-[1.01]",
                     swapPrimaryBusy && "cursor-wait opacity-70"
                   )}
                 >
                   {swapPrimaryBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownUp className="h-4 w-4" />}
                   {swapPrimaryLabel}
                 </button>
+                {swapExecutionNotice ? (
+                  <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+                    {swapExecutionNotice}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-4">
@@ -1509,9 +1628,14 @@ export default function TradePage() {
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-red-400/30 bg-red-400/10 text-red-300">
                   <X className="h-7 w-7" />
                 </div>
-                <h2 className="mt-4 text-2xl font-bold text-white">Swap Failed</h2>
-                <p className="mt-3 text-sm text-slate-300">Transaction rejected or failed.</p>
-                <button onClick={() => setSwapFailure(false)} className="mt-6 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
+                <h2 className="mt-4 text-2xl font-bold text-white">{swapFailure.title}</h2>
+                <p className="mt-3 text-sm text-slate-300">{swapFailure.message}</p>
+                {process.env.NODE_ENV !== "production" && swapFailure.raw ? (
+                  <p className="mt-3 max-h-28 overflow-auto rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-left text-xs text-red-100">
+                    {swapFailure.raw}
+                  </p>
+                ) : null}
+                <button onClick={() => setSwapFailure(null)} className="mt-6 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
                   Close
                 </button>
               </motion.div>
