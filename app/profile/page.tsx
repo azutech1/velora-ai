@@ -8,6 +8,7 @@ import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { AchievementProgressCard } from "@/components/pioneers/AchievementProgressCard";
 import { PioneerBadgeCard } from "@/components/pioneers/PioneerBadgeCard";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
@@ -287,6 +288,11 @@ export default function ProfilePage() {
                 <div className="mt-3 h-2 rounded-full bg-black/30">
                   <div className="h-full rounded-full bg-cyan" style={{ width: `${pioneerSummary.badgeCompletion}%` }} />
                 </div>
+              </div>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {pioneerSummary.achievementProgress.map((item) => (
+                  <AchievementProgressCard key={item.id} item={item} />
+                ))}
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {pioneerSummary.badges.map((badge) => (

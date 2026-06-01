@@ -268,6 +268,30 @@ export default function DashboardPage() {
               <p className="mt-2 font-bold text-white">{isConnected ? pioneerSummary.reputation.toLocaleString() : "--"}</p>
             </div>
           </div>
+          <div className="mt-4 rounded-lg border border-cyan/20 bg-cyan/10 p-4">
+            <p className="text-sm text-slate-400">Next Achievement</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-4">
+              <div>
+                <p className="text-xs text-slate-500">Next Badge</p>
+                <p className="font-bold text-white">{isConnected ? pioneerSummary.nextAchievement.nextBadge : "--"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Progress</p>
+                <p className="font-bold text-white">{isConnected ? `${pioneerSummary.nextAchievement.currentProgress} / ${pioneerSummary.nextAchievement.requirement}` : "--"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Remaining</p>
+                <p className="font-bold text-white">{isConnected ? pioneerSummary.nextAchievement.remaining : "--"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Completion</p>
+                <p className="font-bold text-white">{isConnected ? `${pioneerSummary.nextAchievement.progress}%` : "--"}</p>
+              </div>
+            </div>
+            <div className="mt-4 h-2 rounded-full bg-black/30">
+              <div className="h-full rounded-full bg-cyan" style={{ width: `${isConnected ? pioneerSummary.nextAchievement.progress : 0}%` }} />
+            </div>
+          </div>
         </Panel>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

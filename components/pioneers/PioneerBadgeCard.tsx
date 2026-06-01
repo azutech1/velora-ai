@@ -70,7 +70,7 @@ function iconPath(icon: PioneerBadgeIcon) {
 
 export function PioneerBadgeCard({ badge, compact = false }: { badge: PioneerBadge; compact?: boolean }) {
   const style = tierStyles[badge.tier];
-  const progress = badge.earned ? 100 : 0;
+  const progress = badge.completionPercentage;
 
   return (
     <motion.div
@@ -108,13 +108,18 @@ export function PioneerBadgeCard({ badge, compact = false }: { badge: PioneerBad
           <p className="mt-2 text-sm leading-6 text-slate-400">{badge.detail}</p>
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs">
-              <span className={badge.earned ? "font-semibold text-mint" : "font-semibold text-slate-500"}>{badge.earned ? "Earned" : "Locked"}</span>
+              <span className={badge.earned ? "font-semibold text-mint" : badge.status === "In Progress" ? "font-semibold text-cyan" : "font-semibold text-slate-500"}>{badge.status}</span>
               <span className="text-slate-500">{progress}%</span>
             </div>
             <div className="mt-2 h-2 rounded-full bg-black/30">
               <div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: badge.earned ? style.accent : "#334155" }} />
             </div>
-            {!compact ? <p className="mt-2 text-xs text-slate-500">Progress</p> : null}
+            {!compact ? (
+              <div className="mt-2 space-y-1 text-xs text-slate-500">
+                <p>Current Progress: {badge.currentProgress}</p>
+                <p>Next Requirement: {badge.nextRequirement}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

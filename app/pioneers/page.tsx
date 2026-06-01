@@ -7,6 +7,7 @@ import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
+import { AchievementProgressCard } from "@/components/pioneers/AchievementProgressCard";
 import { PioneerBadgeCard } from "@/components/pioneers/PioneerBadgeCard";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
@@ -133,6 +134,7 @@ export default function PioneersPage() {
             <p className="mt-4 text-sm text-slate-400">Velora Reputation</p>
             <p className="mt-2 text-3xl font-black text-white">{isConnected ? summary.reputation.toLocaleString() : "--"}</p>
             <p className="mt-2 text-xs text-cyan">{isConnected ? summary.percentile : "--"}</p>
+            <p className="mt-2 text-xs text-slate-400">{isConnected ? `${summary.reputationRemaining.toLocaleString()} Reputation Needed` : "--"}</p>
           </div>
           <div className="glass rounded-lg p-5">
             <Award className="h-5 w-5 text-cyan" />
@@ -193,7 +195,31 @@ export default function PioneersPage() {
           </Panel>
 
           <Panel title="Community Levels">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <div className="grid gap-4 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-slate-500">Current Level</p>
+                  <p className="font-bold text-white">{summary.level.name}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Current Points</p>
+                  <p className="font-bold text-white">{summary.totalPoints.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Next Level</p>
+                  <p className="font-bold text-white">{summary.nextLevel?.name ?? "Complete"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Points Needed</p>
+                  <p className="font-bold text-white">{summary.nextLevel ? `${(summary.nextLevel.minPoints - summary.totalPoints).toLocaleString()} Points Needed` : "Complete"}</p>
+                </div>
+              </div>
+              <div className="mt-4 h-2.5 rounded-full bg-black/30">
+                <div className="h-full rounded-full bg-cyan" style={{ width: `${summary.progress}%` }} />
+              </div>
+              <p className="mt-2 text-xs font-semibold text-cyan">{summary.progress}%</p>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {PIONEER_LEVELS.map((level) => (
                 <div key={level.level} className={cx("rounded-lg border bg-gradient-to-br p-4", levelStyles[level.color])}>
                   <p className="text-sm text-slate-400">Level {level.level}</p>
@@ -204,6 +230,38 @@ export default function PioneersPage() {
             </div>
           </Panel>
         </div>
+
+        <Panel title="Achievement Progress" eyebrow="Current position, next goal, and remaining requirement">
+          <div className="grid gap-4 xl:grid-cols-2">
+            {summary.achievementProgress.map((item) => (
+              <AchievementProgressCard key={item.id} item={item} />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Network Elite Tracker" eyebrow="Reputation milestone">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm text-slate-400">Current Rank</p>
+              <p className="mt-2 text-2xl font-black text-white">{summary.percentile}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm text-slate-400">Current Reputation Score</p>
+              <p className="mt-2 text-2xl font-black text-white">{summary.reputation.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm text-slate-400">Next Milestone</p>
+              <p className="mt-2 text-2xl font-black text-white">{summary.nextReputationMilestone.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm text-slate-400">Remaining</p>
+              <p className="mt-2 text-2xl font-black text-white">{summary.reputationRemaining.toLocaleString()} Needed</p>
+            </div>
+          </div>
+          <div className="mt-5 h-2.5 rounded-full bg-black/30">
+            <div className="h-full rounded-full bg-cyan" style={{ width: `${summary.reputationProgress}%` }} />
+          </div>
+        </Panel>
 
         <Panel title="Badges" eyebrow="Premium community achievements">
           <div className="mb-5 rounded-lg border border-white/10 bg-white/[0.04] p-4">
