@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDownUp, Check, ChevronDown, Loader2, RefreshCw, Repeat2, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowDownUp, Check, ChevronDown, ExternalLink, Loader2, RefreshCw, Repeat2, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, parseUnits, type Address, type Hex } from "viem";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
@@ -22,6 +23,8 @@ import { getTokenAddress } from "@/lib/config/tokens";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
 import { SWAP_TOKENS, estimateDemoSwap, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
 import { getTradeProviderPriority, shouldPreferArcNativeRoute } from "@/lib/trade/provider-priority";
+import { explorerTxUrl } from "@/lib/utils/format";
+import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
 
 type TradeTab = "swap" | "bridge";
 
@@ -288,9 +291,11 @@ function NetworkPicker({ label, value, onSelect }: { label: string; value: Bridg
 
 export default function TradePage() {
   const { isConnected, address } = useAccount();
+  const queryClient = useQueryClient();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { recordActivity } = useActivityRecorder();
+  const autoSwapQuoteRef = useRef<() => void>(() => undefined);
   const appKitSwap = useArcAppKitSwap();
   const bridge = useCrossChainSwap();
   const prices = useStablecoinPrices();
@@ -302,8 +307,8 @@ export default function TradePage() {
   const [swapQuoteReady, setSwapQuoteReady] = useState(false);
   const [swapMessage, setSwapMessage] = useState("");
   const [swapQuoteLoading, setSwapQuoteLoading] = useState(false);
-  const [swapReviewOpen, setSwapReviewOpen] = useState(false);
-  const [swapSuccess, setSwapSuccess] = useState<{ txHash: string; receivedAmount: string; token: SwapToken } | null>(null);
+  const [swapSuccess, setSwapSuccess] = useState<{ txHash: string; sentAmount: string; sentToken: SwapToken; receivedAmount: string; receivedToken: SwapToken } | null>(null);
+  const [swapWalletWaiting, setSwapWalletWaiting] = useState(false);
   const [swapSubmitting, setSwapSubmitting] = useState(false);
   const [bridgeQuoteReady, setBridgeQuoteReady] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
@@ -333,6 +338,7 @@ export default function TradePage() {
   const estimatedReceive = lifiQuote?.toAmount ? Number(lifiQuote.toAmount) / 1_000_000 : appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : swapQuote.output;
   const rate = liveSellPrice / Math.max(liveBuyPrice, 0.0001);
   const realSwapEnabled = appKitSwap.canUseRealSwap(sellToken.symbol, buyToken.symbol);
+  const hasValidSwapAmount = Number.isFinite(Number(swapAmount)) && Number(swapAmount) > 0 && sellToken.symbol !== buyToken.symbol;
   const isLifiEnabled = process.env.NEXT_PUBLIC_LIFI_ENABLED !== "false";
   const tradingMode: TradingMode = tab === "bridge" && liveQuoteUnavailable ? "live-unavailable" : isLifiEnabled ? "live" : "demo";
   const providerPriority = useMemo(
@@ -355,19 +361,20 @@ export default function TradePage() {
     lifiEnabled: isLifiEnabled
   });
   const swapHasExecutableQuote = Boolean(lifiQuote?.transactionRequest || (realSwapEnabled && appKitSwap.estimate?.estimatedOutput));
-  const swapExecutionUnavailable = swapQuoteReady && !swapHasExecutableQuote;
-  const swapPrimaryBusy = swapQuoteLoading || appKitSwap.state === "estimating" || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
-  const swapPrimaryLabel = !swapQuoteReady
-    ? swapQuoteLoading || appKitSwap.state === "estimating"
-      ? "Getting quote..."
-      : "Get Quote"
-    : swapSubmitting || appKitSwap.state === "swapping"
-      ? "Confirm in wallet..."
-      : transactions.isPending
-        ? "Transaction pending..."
-        : swapHasExecutableQuote
-          ? "Swap"
-          : "Execution unavailable";
+  const swapExecutionUnavailable = hasValidSwapAmount && swapQuoteReady && !swapHasExecutableQuote;
+  const swapQuoteUpdating = swapQuoteLoading || appKitSwap.state === "estimating";
+  const swapPrimaryBusy = swapQuoteUpdating || swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
+  const swapPrimaryLabel = swapWalletWaiting
+    ? "Waiting for Wallet..."
+    : swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending
+      ? "Swapping..."
+      : !hasValidSwapAmount
+        ? "Enter Amount"
+        : swapQuoteUpdating
+          ? "Updating quote..."
+          : swapExecutionUnavailable
+            ? "Execution unavailable"
+            : "Swap";
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -475,7 +482,7 @@ export default function TradePage() {
         approvalAddress: quote.approvalAddress,
         error
       });
-      throw new Error("Live route is not executable right now. Click Get Quote again, try a smaller amount, or wait for a fresh LI.FI route. No gas was spent.");
+      throw new Error("Live route is not executable right now. Try a smaller amount or wait for the quote to refresh. No gas was spent.");
     }
   }
 
@@ -514,7 +521,7 @@ export default function TradePage() {
     };
   }
 
-  async function executeLifiTransaction(quote: LifiEstimate, feature: "swap" | "bridge") {
+  async function executeLifiTransaction(quote: LifiEstimate, feature: "swap" | "bridge", onSubmitted?: (hash: Hex) => void) {
     if (!walletClient || !address) {
       throw new Error("Connect wallet to execute this transaction.");
     }
@@ -536,6 +543,7 @@ export default function TradePage() {
       maxFeePerGas: parseOptionalBigInt(request.maxFeePerGas),
       maxPriorityFeePerGas: parseOptionalBigInt(request.maxPriorityFeePerGas)
     });
+    onSubmitted?.(hash);
 
     recordActivity({
       actionType: feature === "swap" ? "swap_started" : "bridge_transaction_submitted",
@@ -614,7 +622,6 @@ export default function TradePage() {
 
   useEffect(() => {
     setSwapQuoteReady(false);
-    setSwapReviewOpen(false);
     setSwapSuccess(null);
     setLifiQuote(null);
     setSwapMessage("");
@@ -641,23 +648,24 @@ export default function TradePage() {
     bridge.setAmount(formatted || "0");
   }
 
-  async function handleSwapQuote() {
+  async function handleSwapQuote({ silent = false }: { silent?: boolean } = {}) {
     setSwapQuoteReady(false);
     setSwapMessage("");
     setLifiQuote(null);
     setSwapSuccess(null);
-    setSwapReviewOpen(false);
     setSwapQuoteLoading(true);
-    recordActivity({
-      actionType: "quote_requested",
-      title: "Swap quote requested",
-      description: `Requested quote for ${swapAmount} ${sellToken.symbol} to ${buyToken.symbol}.`,
-      feature: "swap",
-      token: `${sellToken.symbol}/${buyToken.symbol}`,
-      amount: swapAmount,
-      status: "pending",
-      metadata: getSwapActivityMetadata("quote_requested")
-    });
+    if (!silent) {
+      recordActivity({
+        actionType: "quote_requested",
+        title: "Swap quote requested",
+        description: `Requested quote for ${swapAmount} ${sellToken.symbol} to ${buyToken.symbol}.`,
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        status: "pending",
+        metadata: getSwapActivityMetadata("quote_requested")
+      });
+    }
 
     try {
       if (!isConnected || !address) {
@@ -666,22 +674,24 @@ export default function TradePage() {
       }
 
       if (!swapAmount || Number(swapAmount) <= 0 || sellToken.symbol === buyToken.symbol) {
-        recordActivity({
-          actionType: "quote_failed",
-          title: "Swap quote failed",
-          description: "Invalid swap amount or token pair.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "failed",
-          metadata: getSwapActivityMetadata("quote_failed")
-        });
-        setSwapMessage("Enter a valid amount and choose different tokens.");
+        if (!silent) {
+          recordActivity({
+            actionType: "quote_failed",
+            title: "Swap quote failed",
+            description: "Invalid swap amount or token pair.",
+            feature: "swap",
+            token: `${sellToken.symbol}/${buyToken.symbol}`,
+            amount: swapAmount,
+            status: "failed",
+            metadata: getSwapActivityMetadata("quote_failed")
+          });
+        }
+        setSwapMessage("Enter an amount to see a live quote.");
         return;
       }
 
       const walletChain = bridge.fromNetwork.chainId;
-      if (arcNativePreferred) {
+      if (arcNativePreferred && !silent) {
         recordActivity({
           actionType: "arc_native_route_checked",
           title: "Arc-native route checked",
@@ -706,22 +716,24 @@ export default function TradePage() {
           const estimate = await appKitSwap.estimateSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
           setLiveQuoteUnavailable(false);
           setSwapQuoteReady(true);
-          recordActivity({
-            actionType: "live_quote_success",
-            title: "Live swap quote success",
-            description: "StableFX/App Kit quote returned successfully.",
-            feature: "swap",
-            token: `${sellToken.symbol}/${buyToken.symbol}`,
-            amount: swapAmount,
-            status: "success",
-            metadata: {
-              ...getSwapActivityMetadata("stablefx_quote_success"),
-              quoteMode: "live",
-              routeProvider: "StableFX",
-              estimatedReceiveAmount: estimate.estimatedOutput?.amount ?? null
-            }
-          });
-          setSwapMessage("Live quote ready. Click Swap to review.");
+          if (!silent) {
+            recordActivity({
+              actionType: "live_quote_success",
+              title: "Live swap quote success",
+              description: "StableFX/App Kit quote returned successfully.",
+              feature: "swap",
+              token: `${sellToken.symbol}/${buyToken.symbol}`,
+              amount: swapAmount,
+              status: "success",
+              metadata: {
+                ...getSwapActivityMetadata("stablefx_quote_success"),
+                quoteMode: "live",
+                routeProvider: "StableFX",
+                estimatedReceiveAmount: estimate.estimatedOutput?.amount ?? null
+              }
+            });
+          }
+          setSwapMessage("Live quote ready.");
           return;
         } catch {
           setLiveQuoteUnavailable(true);
@@ -737,89 +749,132 @@ export default function TradePage() {
       if (hasExecutableTransactionRequest(quote)) {
         setLiveQuoteUnavailable(false);
         setSwapQuoteReady(true);
-        recordActivity({
-          actionType: "live_quote_success",
-          title: "Live quote success",
-          description: arcNativePreferred ? "Arc-native adapter is reserved; LI.FI returned executable transaction data." : "LI.FI live quote returned executable transaction data.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "success",
-          metadata: getSwapActivityMetadata("live_quote_success", quote)
-        });
-        setSwapMessage("Live quote ready. Click Swap to review.");
+        if (!silent) {
+          recordActivity({
+            actionType: "live_quote_success",
+            title: "Live quote success",
+            description: arcNativePreferred ? "Arc-native adapter is reserved; LI.FI returned executable transaction data." : "LI.FI live quote returned executable transaction data.",
+            feature: "swap",
+            token: `${sellToken.symbol}/${buyToken.symbol}`,
+            amount: swapAmount,
+            status: "success",
+            metadata: getSwapActivityMetadata("live_quote_success", quote)
+          });
+        }
+        setSwapMessage("Live quote ready.");
         return;
       }
 
       setLiveQuoteUnavailable(true);
       setSwapQuoteReady(true);
-      recordActivity({
-        actionType: "fallback_quote_used",
-        title: "Swap preview shown",
-        description: "Live quote did not include executable transaction data.",
-        feature: "swap",
-        token: `${sellToken.symbol}/${buyToken.symbol}`,
-        amount: swapAmount,
-        status: "info",
-        metadata: getSwapActivityMetadata("preview_shown", quote)
-      });
+      if (!silent) {
+        recordActivity({
+          actionType: "fallback_quote_used",
+          title: "Swap preview shown",
+          description: "Live quote did not include executable transaction data.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "info",
+          metadata: getSwapActivityMetadata("preview_shown", quote)
+        });
+      }
       setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Live quote unavailable.";
       setLiveQuoteUnavailable(true);
       setLifiQuote(null);
       setSwapQuoteReady(true);
-      recordActivity({
-        actionType: "live_quote_failed",
-        title: "Live quote failed",
-        description: reason,
-        feature: "swap",
-        token: `${sellToken.symbol}/${buyToken.symbol}`,
-        amount: swapAmount,
-        status: "failed",
-        metadata: getSwapActivityMetadata("live_quote_failed")
-      });
-      recordActivity({
-        actionType: "fallback_quote_used",
-        title: "Swap preview shown",
-        description: "Estimated quote shown after live quote failure.",
-        feature: "swap",
-        token: `${sellToken.symbol}/${buyToken.symbol}`,
-        amount: swapAmount,
-        status: "info",
-        metadata: getSwapActivityMetadata("preview_shown")
-      });
+      if (!silent) {
+        recordActivity({
+          actionType: "live_quote_failed",
+          title: "Live quote failed",
+          description: reason,
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "failed",
+          metadata: getSwapActivityMetadata("live_quote_failed")
+        });
+        recordActivity({
+          actionType: "fallback_quote_used",
+          title: "Swap preview shown",
+          description: "Estimated quote shown after live quote failure.",
+          feature: "swap",
+          token: `${sellToken.symbol}/${buyToken.symbol}`,
+          amount: swapAmount,
+          status: "info",
+          metadata: getSwapActivityMetadata("preview_shown")
+        });
+      }
       setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
     } finally {
       setSwapQuoteLoading(false);
     }
   }
 
+  autoSwapQuoteRef.current = () => {
+    void handleSwapQuote({ silent: true });
+  };
+
+  useEffect(() => {
+    if (tab !== "swap") return;
+
+    if (!isConnected || !address) {
+      setSwapQuoteReady(false);
+      setLifiQuote(null);
+      setSwapMessage("Connect wallet to prepare a live swap.");
+      return;
+    }
+
+    if (!hasValidSwapAmount) {
+      setSwapQuoteReady(false);
+      setLifiQuote(null);
+      setLiveQuoteUnavailable(false);
+      setSwapMessage(swapAmount && Number(swapAmount) > 0 && sellToken.symbol === buyToken.symbol ? "Choose different tokens." : "Enter an amount to see a live quote.");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      autoSwapQuoteRef.current();
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [address, bridge.fromNetwork.chainId, buyToken.symbol, hasValidSwapAmount, isConnected, isLifiEnabled, realSwapEnabled, sellToken.symbol, swapAmount, tab]);
+
   function handleSwapPrimaryAction() {
-    if (!swapQuoteReady) {
-      void handleSwapQuote();
-      return;
-    }
-
-    if (!swapHasExecutableQuote) {
-      setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
-      return;
-    }
-
-    setSwapReviewOpen(true);
+    void executeConfirmedSwap();
   }
 
   async function executeConfirmedSwap() {
+    if (!hasValidSwapAmount) {
+      setSwapMessage("Enter a valid amount and choose different tokens.");
+      return;
+    }
+
     if (!swapHasExecutableQuote) {
       setSwapMessage("Execution unavailable. Estimated preview only. Real execution requires a live route with wallet transaction data.");
       return;
     }
 
     setSwapSubmitting(true);
-    setSwapMessage("Confirm in wallet...");
+    setSwapWalletWaiting(true);
+    setSwapMessage("Waiting for wallet confirmation...");
     try {
+      recordActivity({
+        actionType: "swap_started",
+        title: "Swap started",
+        description: `Wallet confirmation requested for ${swapAmount} ${sellToken.symbol} to ${buyToken.symbol}.`,
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        status: "pending",
+        metadata: getSwapActivityMetadata("execution_started")
+      });
+
       if (realSwapEnabled && appKitSwap.estimate) {
         const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50);
+        setSwapWalletWaiting(false);
         recordActivity({
           actionType: "swap_completed",
           title: "Swap completed",
@@ -835,20 +890,24 @@ export default function TradePage() {
             routeProvider: "StableFX"
           }
         });
-        setSwapReviewOpen(false);
-        setSwapSuccess({ txHash: result.txHash, receivedAmount: appKitSwap.estimate.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive), token: buyToken });
-        setSwapMessage(`Swap submitted: ${result.txHash}`);
+        setSwapSuccess({
+          txHash: result.txHash,
+          sentAmount: swapAmount,
+          sentToken: sellToken,
+          receivedAmount: appKitSwap.estimate.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
+          receivedToken: buyToken
+        });
+        setSwapMessage(`Swap successful: ${result.txHash}`);
+        void queryClient.invalidateQueries();
         return;
       }
 
       if (lifiQuote?.transactionRequest) {
-        setSwapMessage("Refreshing live route before wallet confirmation...");
-        const freshQuote = await requestCurrentSwapLifiQuote();
-        if (!hasExecutableTransactionRequest(freshQuote)) {
-          throw new Error("Live route no longer includes executable transaction data.");
-        }
-        setLifiQuote(freshQuote);
-        const hash = await executeLifiTransaction(freshQuote, "swap");
+        const executableQuote = lifiQuote;
+        const hash = await executeLifiTransaction(executableQuote, "swap", () => {
+          setSwapWalletWaiting(false);
+          setSwapMessage("Swapping...");
+        });
         recordActivity({
           actionType: "swap_completed",
           title: "Swap confirmed",
@@ -858,11 +917,17 @@ export default function TradePage() {
           amount: swapAmount,
           status: "success",
           txHash: hash,
-          metadata: getSwapActivityMetadata("confirmed", freshQuote)
+          metadata: getSwapActivityMetadata("confirmed", executableQuote)
         });
-        setSwapReviewOpen(false);
-        setSwapSuccess({ txHash: hash, receivedAmount: formatLifiAmount(freshQuote.toAmount, buyToken.decimals), token: buyToken });
+        setSwapSuccess({
+          txHash: hash,
+          sentAmount: swapAmount,
+          sentToken: sellToken,
+          receivedAmount: formatLifiAmount(executableQuote.toAmount, buyToken.decimals),
+          receivedToken: buyToken
+        });
         setSwapMessage(`Live swap confirmed: ${hash}`);
+        void queryClient.invalidateQueries();
         return;
       }
 
@@ -881,6 +946,7 @@ export default function TradePage() {
       });
       setSwapMessage(reason);
     } finally {
+      setSwapWalletWaiting(false);
       setSwapSubmitting(false);
     }
   }
@@ -1237,16 +1303,16 @@ export default function TradePage() {
                   <>
                     <button
                       onClick={handleSwapPrimaryAction}
-                      disabled={swapPrimaryBusy || swapExecutionUnavailable}
+                      disabled={swapPrimaryBusy || swapExecutionUnavailable || !hasValidSwapAmount || !swapHasExecutableQuote}
                       className={cx(
                         "flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 font-bold shadow-neon transition",
-                        swapExecutionUnavailable
+                        swapExecutionUnavailable || !hasValidSwapAmount || !swapHasExecutableQuote
                           ? "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none"
                           : "bg-cyan text-white hover:scale-[1.01]",
                         swapPrimaryBusy && "cursor-wait opacity-70"
                       )}
                     >
-                      {swapPrimaryBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : swapQuoteReady && swapHasExecutableQuote ? <Check className="h-4 w-4" /> : <Repeat2 className="h-4 w-4" />}
+                      {swapPrimaryBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownUp className="h-4 w-4" />}
                       {swapPrimaryLabel}
                     </button>
                     {swapExecutionUnavailable ? (
@@ -1345,55 +1411,38 @@ export default function TradePage() {
           </div>
         </section>
         <AnimatePresence>
-          {swapReviewOpen ? (
-            <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-md" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div initial={{ y: 18, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 18, scale: 0.97 }} className="glass w-full max-w-lg rounded-lg p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-400">Review live swap</p>
-                    <h2 className="mt-1 text-xl font-bold text-white">Confirm Swap</h2>
-                  </div>
-                  <button onClick={() => setSwapReviewOpen(false)} className="rounded-lg border border-white/10 p-2 text-slate-400 hover:text-white" aria-label="Close swap review">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-5 space-y-3 rounded-lg border border-white/10 bg-black/20 p-4 text-sm">
-                  <div className="flex items-center justify-between gap-4 text-slate-300">
-                    <span>Sell</span>
-                    <span className="flex items-center gap-2 font-semibold text-white"><TokenLogo symbol={sellToken.symbol} size={22} /> {swapAmount} {sellToken.symbol}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 text-slate-300">
-                    <span>Receive</span>
-                    <span className="flex items-center gap-2 font-semibold text-white"><TokenLogo symbol={buyToken.symbol} size={22} /> {formatDisplayAmount(estimatedReceive)} {buyToken.symbol}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 text-slate-300">
-                    <span>Route</span>
-                    <span className="font-semibold text-white">{appKitSwap.estimate ? "StableFX" : lifiQuote?.provider ?? "LI.FI"}</span>
-                  </div>
-                </div>
-                <p className="mt-4 text-sm leading-6 text-slate-400">This will open your wallet for confirmation. Velora AI will track the transaction hash after submission.</p>
-                <button onClick={executeConfirmedSwap} disabled={swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon disabled:cursor-wait disabled:opacity-70">
-                  {swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {transactions.isPending ? "Transaction pending..." : swapSubmitting || appKitSwap.state === "swapping" ? "Confirm in wallet..." : "Confirm Swap"}
-                </button>
-              </motion.div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence>
           {swapSuccess ? (
             <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-md" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div initial={{ y: 18, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 18, scale: 0.97 }} className="glass w-full max-w-md rounded-lg p-6 text-center">
-                <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-mint/30 bg-mint/10 shadow-neon">
-                  <TokenLogo symbol={swapSuccess.token.symbol} size={38} />
+              <motion.div initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: 18, scale: 0.96, opacity: 0 }} transition={{ duration: 0.24 }} className="glass w-full max-w-md rounded-lg p-6 text-center">
+                <div className="relative mx-auto h-24 w-24">
+                  <motion.div initial={{ x: -18, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.08 }} className="absolute left-0 top-3 grid h-14 w-14 place-items-center rounded-full border border-cyan/30 bg-cyan/10 shadow-neon">
+                    <TokenLogo symbol={swapSuccess.sentToken.symbol} size={34} />
+                  </motion.div>
+                  <motion.div initial={{ x: 18, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.16 }} className="absolute right-0 top-3 grid h-14 w-14 place-items-center rounded-full border border-mint/30 bg-mint/10 shadow-neon">
+                    <TokenLogo symbol={swapSuccess.receivedToken.symbol} size={34} />
+                  </motion.div>
+                  <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.26, type: "spring", stiffness: 320, damping: 18 }} className="absolute bottom-0 left-1/2 grid h-10 w-10 -translate-x-1/2 place-items-center rounded-full bg-mint text-white shadow-[0_0_28px_rgba(16,185,129,0.28)]">
+                    <Check className="h-5 w-5" />
+                  </motion.div>
                 </div>
-                <h2 className="mt-5 text-2xl font-bold text-white">Swap submitted</h2>
-                <p className="mt-2 text-sm text-slate-400">Expected receive</p>
-                <p className="mt-1 text-xl font-bold text-mint">{swapSuccess.receivedAmount || "--"} {swapSuccess.token.symbol}</p>
+                <h2 className="mt-4 text-2xl font-bold text-white">Swap Successful</h2>
+                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold text-white">
+                    <TokenLogo symbol={swapSuccess.sentToken.symbol} size={26} />
+                    {swapSuccess.sentAmount} {swapSuccess.sentToken.symbol}
+                  </div>
+                  <ArrowDown className="mx-auto my-3 h-5 w-5 text-slate-400" />
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold text-mint">
+                    <TokenLogo symbol={swapSuccess.receivedToken.symbol} size={26} />
+                    {swapSuccess.receivedAmount || "--"} {swapSuccess.receivedToken.symbol}
+                  </div>
+                </div>
                 <p className="mt-4 break-all text-xs text-slate-500">{swapSuccess.txHash}</p>
-                <button onClick={() => setSwapSuccess(null)} className="mt-5 w-full rounded-lg border border-mint/30 bg-mint/10 px-5 py-3 font-semibold text-mint transition hover:bg-mint/15">
-                  Done
+                <a href={explorerTxUrl(ARC_EXPLORER_URL, swapSuccess.txHash)} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01]">
+                  <ExternalLink className="h-4 w-4" /> View on ArcScan
+                </a>
+                <button onClick={() => setSwapSuccess(null)} className="mt-3 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
+                  Close
                 </button>
               </motion.div>
             </motion.div>
