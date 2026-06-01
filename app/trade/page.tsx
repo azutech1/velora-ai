@@ -16,6 +16,7 @@ import { useCrossChainSwap } from "@/hooks/useCrossChainSwap";
 import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
 import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 import { useTransactions } from "@/hooks/useTransactions";
+import type { ArcAppKitSwapEstimate } from "@/lib/appkit/swap";
 import { getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import {
@@ -103,6 +104,41 @@ function formatChange(change: number) {
 function formatDisplayAmount(value: number) {
   if (!Number.isFinite(value)) return "";
   return value.toFixed(4).replace(/\.?0+$/, "");
+}
+
+function serializeSwapError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    };
+  }
+
+  if (error && typeof error === "object") {
+    try {
+      return JSON.parse(JSON.stringify(error)) as Record<string, unknown>;
+    } catch {
+      return { message: Object.prototype.toString.call(error) };
+    }
+  }
+
+  return { message: String(error) };
+}
+
+function extractSwapErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  const serialized = serializeSwapError(error);
+  const candidates = [
+    serialized.message,
+    serialized.shortMessage,
+    serialized.details,
+    serialized.reason,
+    serialized.code ? `Wallet error code ${serialized.code}` : undefined
+  ];
+  const message = candidates.find((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0);
+  return message ?? "Swap execution failed before wallet confirmation.";
 }
 
 function formatLifiAmount(value: string | null | undefined, decimals = 6) {
@@ -395,6 +431,14 @@ export default function TradePage() {
     appKitSwap.estimate?.diagnostics?.amountIn === swapAmount;
   const appKitQuoteExpired = Boolean(appKitSwap.estimate?.diagnostics?.expiresAt && Date.now() > appKitSwap.estimate.diagnostics.expiresAt);
   const swapHasAppKitExecutableQuote = realSwapEnabled && Boolean(appKitSwap.estimate?.estimatedOutput) && appKitQuoteMatches && !appKitQuoteExpired;
+  const swapProviderEstimate = swapRoute?.executionMode === "provider" ? (swapRoute.quote.raw as ArcAppKitSwapEstimate | null) : null;
+  const swapProviderQuoteExpired = Boolean(swapProviderEstimate?.diagnostics?.expiresAt && Date.now() > swapProviderEstimate.diagnostics.expiresAt);
+  const swapHasProviderExecutableRoute =
+    Boolean(swapRoute?.executionMode === "provider" && swapProviderEstimate?.estimatedOutput) &&
+    swapProviderEstimate?.diagnostics?.tokenIn === sellToken.symbol &&
+    swapProviderEstimate?.diagnostics?.tokenOut === buyToken.symbol &&
+    swapProviderEstimate?.diagnostics?.amountIn === swapAmount &&
+    !swapProviderQuoteExpired;
   const swapCanExecute =
     Boolean(isConnected && address) &&
     walletChainId === bridge.fromNetwork.chainId &&
@@ -402,7 +446,7 @@ export default function TradePage() {
     swapQuoteReady &&
     !swapQuoteExpired &&
     Boolean(swapRoute) &&
-    (swapHasAppKitExecutableQuote || (swapHasExecutableQuote && swapTransactionRequestChainId === walletChainId));
+    (swapHasProviderExecutableRoute || swapHasAppKitExecutableQuote || (swapHasExecutableQuote && swapTransactionRequestChainId === walletChainId));
   const swapExecutionNotice = !isConnected
     ? "Connect wallet to swap."
     : walletChainId !== bridge.fromNetwork.chainId
@@ -413,7 +457,9 @@ export default function TradePage() {
           ? "Quote expired."
           : swapInputMode === "exactOut"
             ? "Exact receive quote is not available for this route."
-            : liveQuoteUnavailable || (swapQuoteReady && !swapHasExecutableQuote && !swapHasAppKitExecutableQuote)
+          : swapProviderQuoteExpired
+            ? "Quote expired."
+          : liveQuoteUnavailable || (swapQuoteReady && !swapHasExecutableQuote && !swapHasAppKitExecutableQuote && !swapHasProviderExecutableRoute)
               ? "Route unavailable."
               : swapHasExecutableQuote && swapTransactionRequestChainId !== walletChainId
                 ? "Switch to Arc Testnet."
@@ -460,12 +506,21 @@ export default function TradePage() {
       sellToken: sellToken.symbol,
       receiveToken: buyToken.symbol,
       sellAmount: swapAmount,
+      parsedAmount: Number(swapAmount),
+      sellTokenDecimals: sellToken.decimals,
+      receiveTokenDecimals: buyToken.decimals,
+      sellTokenAddress: getTokenAddress(sellToken.symbol, bridge.fromNetwork.chainId),
+      receiveTokenAddress: getTokenAddress(buyToken.symbol, bridge.fromNetwork.chainId),
       receiveAmount: receiveAmount || (Number.isFinite(estimatedReceive) ? formatDisplayAmount(estimatedReceive) : ""),
       quoteReady: swapQuoteReady,
+      selectedProvider: swapRoute?.providerName ?? null,
+      providerExecutionMode: swapRoute?.executionMode ?? null,
+      providerQuote: swapRoute?.quote ?? null,
+      providerDiagnostics: swapRoute?.diagnostics ?? null,
       liveQuoteUnavailable,
       transactionRequestExists: Boolean(lifiQuote?.transactionRequest),
       transactionRequestTo: lifiQuote?.transactionRequest?.to ?? null,
-      transactionRequestData: lifiQuote?.transactionRequest?.data ?? null,
+      transactionRequestDataLength: lifiQuote?.transactionRequest?.data?.length ?? 0,
       transactionRequestValue: lifiQuote?.transactionRequest?.value ?? null,
       transactionRequestChainId: lifiQuote?.transactionRequest?.chainId ?? null,
       quoteResponse: lifiQuote,
@@ -479,7 +534,7 @@ export default function TradePage() {
   }
 
   function swapFailureFromError(error: unknown) {
-    const raw = error instanceof Error ? error.message : String(error);
+    const raw = extractSwapErrorMessage(error);
     const lower = raw.toLowerCase();
     if (lower.includes("user rejected") || lower.includes("user denied") || lower.includes("rejected") || lower.includes("4001")) {
       return { title: "Wallet rejected transaction", message: "Wallet rejected transaction.", raw };
@@ -502,7 +557,7 @@ export default function TradePage() {
     if (lower.includes("unavailable") || lower.includes("preview")) {
       return { title: "Route unavailable", message: "No live executable route is available for this pair yet.", raw };
     }
-    return { title: "Swap Failed", message: process.env.NODE_ENV === "production" ? "Unknown error." : `Unknown error: ${raw}`, raw };
+    return { title: "Execution failed", message: process.env.NODE_ENV === "production" ? raw : `Execution failed: ${raw}`, raw };
   }
 
   async function ensureLifiAllowance(quote: LifiEstimate, feature: "swap" | "bridge") {
@@ -892,6 +947,10 @@ export default function TradePage() {
         slippage: 0.5,
         balance: sellTokenBalance.numericBalance ?? null
       };
+      debugSwap("quote request payload", {
+        quoteRequestPayload: swapRouteRequest,
+        quoteInputMode: swapInputMode
+      });
       const stablefxRouteProvider = createProviderExecutionRoute({
         providerName: stablefxProvider.providerName,
         routeType: "swap",
@@ -931,6 +990,16 @@ export default function TradePage() {
       });
       const routeResult = await findExecutableRoute(swapRouteRequest, [arcNativeSwapProvider, stablefxRouteProvider, lifiRouteProvider, fallbackProvider]);
       debugRoute("swap route diagnostics", routeResult.diagnostics);
+      debugSwap("quote route result", {
+        routeFound: Boolean(routeResult.route),
+        selectedProvider: routeResult.diagnostics.selectedProvider,
+        providerFailureReasons: routeResult.diagnostics.failureReasons,
+        transactionRequestExists: Boolean(routeResult.route?.transactionRequest),
+        transactionRequestTo: routeResult.route?.transactionRequest?.to ?? null,
+        transactionRequestDataLength: routeResult.route?.transactionRequest?.data?.length ?? 0,
+        transactionRequestValue: routeResult.route?.transactionRequest?.value ?? null,
+        transactionRequestChainId: routeResult.route?.transactionRequest?.chainId ?? null
+      });
 
       if (!routeResult.route) {
         setLiveQuoteUnavailable(true);
@@ -1072,13 +1141,14 @@ export default function TradePage() {
       return;
     }
 
-    if (swapHasAppKitExecutableQuote) {
+    if (swapHasProviderExecutableRoute && swapRoute) {
       setSwapSubmitting(true);
       setSwapWalletWaiting(true);
       try {
-        debugSwap("execute Circle AppKit swap start", {
-          appKitExecutable: true,
-          estimate: appKitSwap.estimate
+        debugSwap("execute provider swap start", {
+          providerExecutable: true,
+          selectedProvider: swapRoute.providerName,
+          estimate: swapProviderEstimate
         });
         recordActivity({
           actionType: "swap_started",
@@ -1090,12 +1160,16 @@ export default function TradePage() {
           status: "pending",
           metadata: {
             ...getSwapActivityMetadata("execution_started"),
-            routeProvider: "Circle AppKit",
-            appKitExecutable: true
+            routeProvider: swapRoute.providerName,
+            providerExecutable: true
           }
         });
 
-        const result = await appKitSwap.executeSwap(sellToken.symbol, buyToken.symbol, swapAmount, 50, appKitSwap.estimate ?? undefined);
+        const result = await swapRoute.execute({
+          sendTransaction: async () => {
+            throw new Error("Missing transaction request for provider execution.");
+          }
+        });
         setSwapWalletWaiting(false);
         recordActivity({
           actionType: "swap_completed",
@@ -1109,21 +1183,21 @@ export default function TradePage() {
           metadata: {
             ...getSwapActivityMetadata("confirmed"),
             quoteMode: "live",
-            routeProvider: "Circle AppKit",
-            appKitExecutable: true
+            routeProvider: swapRoute.providerName,
+            providerExecutable: true
           }
         });
         setSwapSuccess({
           txHash: result.txHash,
           sentAmount: swapAmount,
           sentToken: sellToken,
-          receivedAmount: result.amountOut ?? appKitSwap.estimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
+          receivedAmount: result.receivedAmount ?? swapProviderEstimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
           receivedToken: buyToken
         });
         void queryClient.invalidateQueries();
       } catch (error) {
         const failure = swapFailureFromError(error);
-        debugSwap("execute Circle AppKit swap failed", { error, failure });
+        debugSwap("execute provider swap failed", { error: serializeSwapError(error), failure });
         recordActivity({
           actionType: "swap_failed",
           title: "Swap failed",
@@ -1134,7 +1208,7 @@ export default function TradePage() {
           status: "failed",
           metadata: {
             ...getSwapActivityMetadata("failed"),
-            routeProvider: "Circle AppKit",
+            routeProvider: swapRoute.providerName,
             error: failure.raw ?? failure.message
           }
         });

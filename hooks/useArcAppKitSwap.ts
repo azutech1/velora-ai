@@ -13,6 +13,29 @@ function isEip1193Provider(provider: unknown): provider is Eip1193Provider {
   return Boolean(provider && typeof (provider as { request?: unknown }).request === "function");
 }
 
+function serializeAppKitError(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack, cause: error.cause };
+  }
+
+  if (error && typeof error === "object") {
+    try {
+      return JSON.parse(JSON.stringify(error)) as Record<string, unknown>;
+    } catch {
+      return { message: Object.prototype.toString.call(error) };
+    }
+  }
+
+  return { message: String(error) };
+}
+
+function getAppKitErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  const serialized = serializeAppKitError(error);
+  const candidates = [serialized.message, serialized.shortMessage, serialized.details, serialized.reason, serialized.code ? `Wallet error code ${serialized.code}` : undefined];
+  return candidates.find((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0) ?? fallback;
+}
+
 export function useArcAppKitSwap() {
   const { address, chainId, connector, isConnected } = useAccount();
   const { isArc } = useArcNetwork();
@@ -87,13 +110,14 @@ export function useArcAppKitSwap() {
       setState("ready");
       return nextEstimate;
     } catch (err) {
-      const reason = err instanceof Error ? err.message : "App Kit swap estimate failed.";
+      const reason = getAppKitErrorMessage(err, "App Kit swap estimate failed.");
       console.error("[Velora AppKit Swap] Estimate flow failed", {
         tokenIn,
         tokenOut,
         amountIn,
         slippageBps,
-        reason
+        reason,
+        error: serializeAppKitError(err)
       });
       setError(reason);
       setState("error");
@@ -130,6 +154,17 @@ export function useArcAppKitSwap() {
     setState("swapping");
     try {
       const provider = await connector?.getProvider();
+      console.info("[Velora AppKit Swap] Execute flow provider state", {
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippageBps,
+        chainId,
+        connectorName: connector?.name,
+        hasProvider: Boolean(provider),
+        isEip1193Provider: isEip1193Provider(provider),
+        estimateDiagnostics: activeEstimate.diagnostics
+      });
       const nextResultRaw = await executeArcAppKitSwap({
         tokenIn: tokenIn as ArcAppKitSwapToken,
         tokenOut: tokenOut as ArcAppKitSwapToken,
@@ -148,12 +183,20 @@ export function useArcAppKitSwap() {
       setState("success");
       return nextResult;
     } catch (err) {
-      const reason = err instanceof Error ? err.message : "App Kit swap failed.";
+      const reason = getAppKitErrorMessage(err, "App Kit swap failed before wallet confirmation.");
+      console.error("[Velora AppKit Swap] Execute flow failed", {
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippageBps,
+        reason,
+        error: serializeAppKitError(err)
+      });
       setError(reason);
       setState("error");
       throw err;
     }
-  }, [canUseRealSwap, connector, estimate, getUnsupportedReason]);
+  }, [canUseRealSwap, chainId, connector, estimate, getUnsupportedReason]);
 
   return useMemo(
     () => ({
