@@ -7,10 +7,15 @@ export type PioneerLevel = {
   color: "bronze" | "silver" | "gold" | "platinum" | "diamond";
 };
 
+export type PioneerBadgeTier = "Pioneer" | "Operator" | "Builder" | "Architect" | "Network Elite" | "Genesis";
+
+export type PioneerBadgeIcon = "compass" | "rocket" | "swap" | "bridge" | "agent" | "automation" | "whale" | "shield" | "builder" | "architect" | "strategist" | "diamond" | "genesis";
+
 export type PioneerBadge = {
   id: string;
   name: string;
-  rarity: "Common" | "Rare" | "Epic" | "Legendary";
+  tier: PioneerBadgeTier;
+  icon: PioneerBadgeIcon;
   detail: string;
   earned: boolean;
 };
@@ -39,27 +44,27 @@ export const PIONEER_LEVELS: PioneerLevel[] = [
 ];
 
 export const STREAK_BADGES = [
-  { id: "flame-starter", name: "🔥 Flame Starter", days: 3 },
-  { id: "consistent-user", name: "🔥 Consistent User", days: 7 },
-  { id: "dedicated-pioneer", name: "⚡ Dedicated Pioneer", days: 30 },
-  { id: "velora-loyalist", name: "💎 Velora Loyalist", days: 90 },
-  { id: "genesis-veteran", name: "👑 Genesis Veteran", days: 180 }
+  { id: "flame-starter", name: "Flame Starter", days: 3 },
+  { id: "consistent-user", name: "Consistent User", days: 7 },
+  { id: "dedicated-pioneer", name: "Dedicated Pioneer", days: 30 },
+  { id: "velora-loyalist", name: "Velora Loyalist", days: 90 },
+  { id: "genesis-veteran", name: "Genesis Veteran", days: 180 }
 ];
 
 const BASE_BADGES = [
-  ["explorer", "🧭 Explorer", "Common", "Started using Velora Network."],
-  ["pioneer", "🚀 Pioneer", "Common", "Joined Velora Pioneers."],
-  ["trader", "💱 Trader", "Rare", "Completed swap activity."],
-  ["bridge-master", "🌉 Bridge Master", "Rare", "Completed bridge activity."],
-  ["agent-operator", "🤖 Agent Operator", "Epic", "Used AI agent workflows."],
-  ["automation-pioneer", "⚙️ Automation Pioneer", "Epic", "Used AI automation workflows."],
-  ["stablecoin-whale", "🐋 Stablecoin Whale", "Epic", "Built strong stablecoin activity."],
-  ["guardian", "🛡️ Guardian", "Rare", "Maintained approval-first security activity."],
-  ["builder", "🏗️ Builder", "Epic", "Reached Builder level."],
-  ["architect", "👑 Architect", "Legendary", "Reached Architect level."],
-  ["strategist", "🧠 Strategist", "Legendary", "Reached Strategist level."],
-  ["network-elite", "💎 Network Elite", "Legendary", "Reached Network Elite level."],
-  ["genesis-pioneer", "🌟 Genesis Pioneer", "Legendary", "Earned early adopter recognition."]
+  ["explorer", "Explorer", "Pioneer", "compass", "Started using Velora Network."],
+  ["pioneer", "Pioneer", "Pioneer", "rocket", "Joined Velora Pioneers."],
+  ["trader", "Trader", "Operator", "swap", "Completed swap activity."],
+  ["bridge-master", "Bridge Master", "Operator", "bridge", "Completed bridge activity."],
+  ["agent-operator", "Agent Operator", "Builder", "agent", "Used AI agent workflows."],
+  ["automation-pioneer", "Automation Pioneer", "Builder", "automation", "Used AI automation workflows."],
+  ["stablecoin-whale", "Stablecoin Whale", "Builder", "whale", "Built strong stablecoin activity."],
+  ["guardian", "Guardian", "Operator", "shield", "Maintained approval-first security activity."],
+  ["builder", "Builder", "Builder", "builder", "Reached Builder level."],
+  ["architect", "Architect", "Architect", "architect", "Reached Architect level."],
+  ["strategist", "Strategist", "Architect", "strategist", "Reached Strategist level."],
+  ["network-elite", "Network Elite", "Network Elite", "diamond", "Reached Network Elite level."],
+  ["genesis-pioneer", "Genesis Pioneer", "Genesis", "genesis", "Earned early adopter recognition."]
 ] as const;
 
 function completed(records: ActivityRecord[]) {
@@ -112,6 +117,15 @@ export function calculatePioneerSummary(records: ActivityRecord[], streak: { cur
   if (level.level >= 7) earned.add("network-elite");
   if (checkins > 0 || done.length > 0) earned.add("genesis-pioneer");
 
+  const badges = BASE_BADGES.map(([id, name, tier, icon, detail]) => ({
+    id,
+    name,
+    tier,
+    icon,
+    detail,
+    earned: earned.has(id)
+  })) as PioneerBadge[];
+
   return {
     totalPoints,
     level,
@@ -121,7 +135,8 @@ export function calculatePioneerSummary(records: ActivityRecord[], streak: { cur
     percentile: reputation >= 8500 ? "Top 5%" : reputation >= 4000 ? "Top 15%" : reputation > 0 ? "Rising" : "--",
     earlyAdopterStatus: done.length || checkins ? "Active Pioneer" : "Not started",
     counts: { swaps, bridges, payments, automation, agentUsage, feedback, bugs, checkins, total: done.length },
-    badges: BASE_BADGES.map(([id, name, rarity, detail]) => ({ id, name, rarity, detail, earned: earned.has(id) })) as PioneerBadge[],
+    badges,
+    badgeCompletion: Math.round((badges.filter((badge) => badge.earned).length / badges.length) * 100),
     streakBadges: STREAK_BADGES.map((badge) => ({ ...badge, earned: streak.bestStreak >= badge.days }))
   };
 }

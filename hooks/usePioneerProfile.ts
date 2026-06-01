@@ -46,6 +46,8 @@ export function usePioneerProfile(records: ActivityRecord[]) {
 
   const canCheckIn = Boolean(isConnected && address && store.lastCheckinDate !== todayKey());
   const nextPoints = nextCheckinPoints(store.currentStreak);
+  const completedDaysInCycle = store.lastCheckinDate === todayKey() ? ((Math.max(store.currentStreak, 1) - 1) % 7) + 1 : store.currentStreak % 7;
+  const currentDayInCycle = store.lastCheckinDate === todayKey() ? completedDaysInCycle : (store.currentStreak % 7) + 1;
 
   function claimCheckin() {
     if (!address || !canCheckIn) return null;
@@ -67,6 +69,8 @@ export function usePioneerProfile(records: ActivityRecord[]) {
     ...store,
     canCheckIn,
     nextPoints,
+    completedDaysInCycle,
+    currentDayInCycle,
     claimCheckin,
     summary
   };

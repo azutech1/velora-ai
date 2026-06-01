@@ -7,6 +7,7 @@ import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
+import { PioneerBadgeCard } from "@/components/pioneers/PioneerBadgeCard";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import { buildPioneerLeaderboards, CHECKIN_REWARDS, POINT_RULES, PIONEER_LEVELS } from "@/lib/pioneers/system";
@@ -28,24 +29,6 @@ const levelStyles = {
   platinum: "from-cyan/25 to-blue-300/10 border-cyan/30",
   diamond: "from-blue-500/25 to-cyan/10 border-cyan/40"
 };
-
-function BadgeSvg({ rarity, earned }: { rarity: string; earned: boolean }) {
-  const accent = rarity === "Legendary" ? "#F59E0B" : rarity === "Epic" ? "#06B6D4" : rarity === "Rare" ? "#3B82F6" : "#94A3B8";
-  return (
-    <svg viewBox="0 0 80 80" className={cx("h-14 w-14 shrink-0 transition group-hover:scale-105", !earned && "opacity-45")} role="img" aria-label={`${rarity} badge`}>
-      <defs>
-        <linearGradient id={`badge-${rarity}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#0B1220" />
-          <stop offset="55%" stopColor="#1D4ED8" />
-          <stop offset="100%" stopColor={accent} />
-        </linearGradient>
-      </defs>
-      <path d="M40 5 69 21v38L40 75 11 59V21z" fill={`url(#badge-${rarity})`} stroke={accent} strokeWidth="2.5" />
-      <circle cx="40" cy="40" r="20" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.45)" />
-      <path d="M40 24 45 35l12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1z" fill={earned ? accent : "#64748B"} />
-    </svg>
-  );
-}
 
 function Leaderboard({ title, rows, selector }: { title: string; rows: ReturnType<typeof buildPioneerLeaderboards>["pioneers"]; selector: (row: (typeof rows)[number]) => number }) {
   return (
@@ -133,16 +116,16 @@ export default function PioneersPage() {
             <button onClick={claimDailyCheckin} disabled={!pioneers.canCheckIn} className="mt-3 w-full rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-slate-500">
               Claim Daily Check-In
             </button>
-            <p className="mt-3 text-xs text-slate-400">{pioneers.canCheckIn ? `${pioneers.nextPoints} Points` : "Claimed today"}</p>
+            <p className="mt-3 text-xs text-slate-400">{pioneers.canCheckIn ? `+${pioneers.nextPoints} Points` : "Day Completed"}</p>
           </div>
           <div className="glass rounded-lg p-5">
             <Flame className="h-5 w-5 text-warning" />
-            <p className="mt-4 text-sm text-slate-400">🔥 Current Streak</p>
+            <p className="mt-4 text-sm text-slate-400">Current Streak</p>
             <p className="mt-2 text-3xl font-black text-white">{isConnected ? `${pioneers.currentStreak} Days` : "--"}</p>
           </div>
           <div className="glass rounded-lg p-5">
             <Trophy className="h-5 w-5 text-warning" />
-            <p className="mt-4 text-sm text-slate-400">🏆 Best Streak</p>
+            <p className="mt-4 text-sm text-slate-400">Best Streak</p>
             <p className="mt-2 text-3xl font-black text-white">{isConnected ? `${pioneers.bestStreak} Days` : "--"}</p>
           </div>
           <div className="glass rounded-lg p-5">
@@ -158,15 +141,42 @@ export default function PioneersPage() {
           </div>
         </div>
 
-        <Panel title="Check-In Rewards" eyebrow="Seven-day cycle">
+        <Panel title="Check-In Calendar" eyebrow="Seven-day cycle">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-            {CHECKIN_REWARDS.map((points, index) => (
-              <div key={points} className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-center">
-                <p className="text-sm text-slate-400">Day {index + 1}</p>
-                <p className="mt-2 text-2xl font-black text-white">{points}</p>
-                <p className="text-xs text-slate-500">Points</p>
-              </div>
-            ))}
+            {CHECKIN_REWARDS.map((points, index) => {
+              const day = index + 1;
+              const completed = day <= pioneers.completedDaysInCycle;
+              const current = day === pioneers.currentDayInCycle && pioneers.canCheckIn;
+              return (
+                <motion.div
+                  key={points}
+                  initial={false}
+                  animate={completed ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+                  className={cx(
+                    "rounded-lg border p-4 text-center transition",
+                    completed
+                      ? "pioneer-check-complete border-cyan/40 bg-cyan/10 shadow-[0_0_28px_rgba(59,130,246,0.22)]"
+                      : current
+                        ? "border-cyan/30 bg-white/[0.04]"
+                        : "border-white/10 bg-white/[0.03]"
+                  )}
+                >
+                  <p className="text-sm text-slate-400">Day {day}</p>
+                  <p className="mt-2 text-2xl font-black text-white">+{points}</p>
+                  <div className="mt-3 min-h-6">
+                    {completed ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/35 bg-cyan/10 px-2.5 py-1 text-xs font-bold text-cyan">
+                        <BadgeCheck className="h-3.5 w-3.5" /> Completed
+                      </span>
+                    ) : current ? (
+                      <span className="text-xs font-semibold text-cyan">Claim Available</span>
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-500">Locked</span>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </Panel>
 
@@ -196,18 +206,18 @@ export default function PioneersPage() {
         </div>
 
         <Panel title="Badges" eyebrow="Premium community achievements">
+          <div className="mb-5 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-semibold text-white">Completion</p>
+              <p className="text-sm font-bold text-cyan">{summary.badgeCompletion}%</p>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-black/30">
+              <div className="h-full rounded-full bg-cyan" style={{ width: `${summary.badgeCompletion}%` }} />
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {summary.badges.map((badge) => (
-              <motion.div key={badge.id} whileHover={{ y: -4 }} className={cx("group rounded-lg border p-4", badge.earned ? "border-cyan/25 bg-cyan/10" : "border-white/10 bg-white/[0.04]")}>
-                <div className="flex items-center gap-3">
-                  <BadgeSvg rarity={badge.rarity} earned={badge.earned} />
-                  <div>
-                    <p className="font-black text-white">{badge.name}</p>
-                    <p className="mt-1 text-xs font-semibold text-cyan">{badge.rarity}</p>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-slate-400">{badge.detail}</p>
-              </motion.div>
+              <PioneerBadgeCard key={badge.id} badge={badge} />
             ))}
           </div>
         </Panel>
@@ -225,12 +235,12 @@ export default function PioneersPage() {
 
         <Panel title="Leaderboards" eyebrow="Known Velora activity records">
           <div className="grid gap-4 xl:grid-cols-2">
-            <Leaderboard title="🏆 Top Pioneers" rows={leaderboards.pioneers} selector={(row) => row.summary.totalPoints} />
-            <Leaderboard title="🏆 Top Traders" rows={leaderboards.traders} selector={(row) => row.summary.counts.swaps} />
-            <Leaderboard title="🏆 Top Bridge Users" rows={leaderboards.bridges} selector={(row) => row.summary.counts.bridges} />
-            <Leaderboard title="🏆 Top Automation Users" rows={leaderboards.automation} selector={(row) => row.summary.counts.automation} />
-            <Leaderboard title="🏆 Top Agent Users" rows={leaderboards.agents} selector={(row) => row.summary.counts.agentUsage} />
-            <Leaderboard title="🏆 Top Reputation Scores" rows={leaderboards.reputation} selector={(row) => row.summary.reputation} />
+            <Leaderboard title="Top Pioneers" rows={leaderboards.pioneers} selector={(row) => row.summary.totalPoints} />
+            <Leaderboard title="Top Traders" rows={leaderboards.traders} selector={(row) => row.summary.counts.swaps} />
+            <Leaderboard title="Top Bridge Users" rows={leaderboards.bridges} selector={(row) => row.summary.counts.bridges} />
+            <Leaderboard title="Top Automation Users" rows={leaderboards.automation} selector={(row) => row.summary.counts.automation} />
+            <Leaderboard title="Top Agent Users" rows={leaderboards.agents} selector={(row) => row.summary.counts.agentUsage} />
+            <Leaderboard title="Top Reputation Scores" rows={leaderboards.reputation} selector={(row) => row.summary.reputation} />
           </div>
         </Panel>
       </div>

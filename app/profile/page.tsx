@@ -8,6 +8,7 @@ import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { PioneerBadgeCard } from "@/components/pioneers/PioneerBadgeCard";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
@@ -278,21 +279,21 @@ export default function ProfilePage() {
                   <p className="mt-2 text-2xl font-black text-white">{pioneerSummary.earlyAdopterStatus}</p>
                 </div>
               </div>
-              {earnedBadges.length ? (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {earnedBadges.map((badge) => (
-                    <div key={badge.id} className="rounded-lg border border-mint/30 bg-mint/10 p-4">
-                      <div className="flex items-center gap-3">
-                        <BadgeCheck className="h-5 w-5 text-mint" />
-                        <p className="font-bold text-white">{badge.name}</p>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">{badge.detail}</p>
-                    </div>
-                  ))}
+              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-semibold text-white">Badge Completion</p>
+                  <p className="text-sm font-bold text-cyan">{pioneerSummary.badgeCompletion}%</p>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-slate-400">No badges earned yet</div>
-              )}
+                <div className="mt-3 h-2 rounded-full bg-black/30">
+                  <div className="h-full rounded-full bg-cyan" style={{ width: `${pioneerSummary.badgeCompletion}%` }} />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {pioneerSummary.badges.map((badge) => (
+                  <PioneerBadgeCard key={badge.id} badge={badge} compact />
+                ))}
+              </div>
+              {!earnedBadges.length ? <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-slate-400">No badges earned yet</div> : null}
               <p className="text-xs leading-6 text-slate-500">Early participation, activity, and contributions may be considered in future Velora ecosystem programs.</p>
             </div>
           )}
