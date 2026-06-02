@@ -509,6 +509,7 @@ export default function TradePage() {
   const swapEtaLabel = swapRouteMatchesCurrentInput && swapRoute ? "On-chain confirmation" : swapHasQuoteOnlyRoute ? "Not executable" : "--";
   const bridgeAmountValue = Number(bridge.amount);
   const hasValidBridgeAmount = Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0;
+  const bridgeWrongNetwork = Boolean(isConnected && walletChainId && walletChainId !== bridge.fromNetwork.chainId);
   const bridgeRouteUnavailable = !bridgeRoute && bridgeMessage === "Bridge route is not currently available for this network pair.";
   const bridgeButtonLabel = bridgeQuoteLoading
     ? "Searching route..."
@@ -516,10 +517,12 @@ export default function TradePage() {
       ? transactions.isPending
         ? "Bridge pending..."
         : "Bridge"
+      : bridgeWrongNetwork
+        ? `Switch to ${bridge.fromNetwork.name}`
       : bridgeRouteUnavailable && hasValidBridgeAmount
         ? "Bridge unavailable"
         : "Get Bridge Quote";
-  const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || (bridgeRouteUnavailable && hasValidBridgeAmount);
+  const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || bridgeWrongNetwork || (bridgeRouteUnavailable && hasValidBridgeAmount);
   const bridgeReceiveAmount = lifiQuote?.toAmount ? formatLifiAmount(lifiQuote.toAmount, bridgeToken.decimals) : "";
   const bridgeFeeLabel = lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : "Not returned by provider";
 
@@ -1592,6 +1595,11 @@ export default function TradePage() {
     });
     if (!isConnected || !address) {
       setBridgeMessage("Connect wallet to request a quote.");
+      return;
+    }
+
+    if (walletChainId !== bridge.fromNetwork.chainId) {
+      setBridgeMessage(`Switch wallet to ${bridge.fromNetwork.name} to bridge from this network.`);
       return;
     }
 
