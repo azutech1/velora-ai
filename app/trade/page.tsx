@@ -465,7 +465,9 @@ export default function TradePage() {
     !swapQuoteExpired &&
     Boolean(swapRoute) &&
     (swapHasProviderExecutableRoute || swapHasAppKitExecutableQuote || (swapHasExecutableQuote && swapTransactionRequestChainId === walletChainId));
-  const swapExecutionNotice = !isConnected
+  const swapExecutionNotice = swapCanExecute
+    ? ""
+    : !isConnected
     ? "Connect wallet to swap."
     : walletChainId !== bridge.fromNetwork.chainId
       ? "Switch to Arc Testnet."
