@@ -41,6 +41,7 @@ export type ActivityActionType =
   | "social_reward_claimed"
   | "swap_started"
   | "swap_completed"
+  | "swap_pending_hash_missing"
   | "swap_failed"
   | "bridge_started"
   | "bridge_completed"

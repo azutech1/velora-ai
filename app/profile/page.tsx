@@ -138,8 +138,12 @@ function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
                     <a href={explorerUrl ?? routeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-cyan hover:text-cyan">
                       View Transaction <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                  ) : record.txHash && record.txHash !== "N/A" ? (
+                    <span className="text-slate-500">{shortAddress(record.txHash)}</span>
+                  ) : record.status === "pending" ? (
+                    <span className="text-slate-500">Transaction pending</span>
                   ) : (
-                    <span className="text-slate-500">No transaction</span>
+                    <span className="text-slate-500">Hash unavailable</span>
                   )}
                 </td>
               </tr>

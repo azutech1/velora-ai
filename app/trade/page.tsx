@@ -35,7 +35,7 @@ import {
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
 import { SWAP_TOKENS, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
 import { getTradeProviderPriority, shouldPreferArcNativeRoute } from "@/lib/trade/provider-priority";
-import { explorerTxUrl } from "@/lib/utils/format";
+import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
 
 type TradeTab = "swap" | "bridge";
@@ -361,7 +361,16 @@ export default function TradePage() {
   const [swapQuoteLoading, setSwapQuoteLoading] = useState(false);
   const [swapQuoteWarning, setSwapQuoteWarning] = useState("");
   const [swapQuoteKey, setSwapQuoteKey] = useState("");
-  const [swapSuccess, setSwapSuccess] = useState<{ txHash: string; sentAmount: string; sentToken: SwapToken; receivedAmount: string; receivedToken: SwapToken } | null>(null);
+  const [swapSuccess, setSwapSuccess] = useState<{
+    txHash: string;
+    approvalHash?: string | null;
+    sentAmount: string;
+    sentToken: SwapToken;
+    receivedAmount: string;
+    receivedToken: SwapToken;
+    routeProvider: string;
+    confirmationStatus: "confirmed" | "pending";
+  } | null>(null);
   const [swapFailure, setSwapFailure] = useState<{ title: string; message: string; raw?: string } | null>(null);
   const [swapQuoteTimestamp, setSwapQuoteTimestamp] = useState<number | null>(null);
   const [swapWalletWaiting, setSwapWalletWaiting] = useState(false);
@@ -722,7 +731,7 @@ export default function TradePage() {
       throw new Error("Wrong network.");
     }
 
-    await ensureLifiAllowance(quote, feature);
+    const approvalHash = await ensureLifiAllowance(quote, feature);
     await preflightLifiTransaction(quote);
 
     debugSwap("sendTransaction request", {
@@ -763,11 +772,139 @@ export default function TradePage() {
       metadata: feature === "swap" ? getSwapActivityMetadata("transaction_submitted", quote) : getBridgeActivityMetadata("transaction_submitted", quote)
     });
 
-    const receipt = await transactions.trackTransaction(hash);
-    if (receipt?.status === "reverted") {
-      throw new Error("Wallet transaction reverted.");
+    let receiptStatus: "confirmed" | "pending" = "pending";
+    let confirmationPending = false;
+    try {
+      const receipt = await transactions.trackTransaction(hash);
+      debugSwap("transaction receipt", { feature, approvalHash, swapTxHash: hash, receiptStatus: receipt?.status ?? null });
+      if (receipt?.status === "reverted") {
+        throw new Error("Wallet transaction reverted.");
+      }
+      if (receipt?.status === "success") {
+        receiptStatus = "confirmed";
+      } else {
+        confirmationPending = true;
+      }
+    } catch (error) {
+      const message = extractSwapErrorMessage(error).toLowerCase();
+      if (message.includes("reverted")) {
+        throw error;
+      }
+      confirmationPending = true;
+      debugSwap("transaction receipt pending", { feature, approvalHash, swapTxHash: hash, error });
     }
-    return hash;
+    return { txHash: hash, approvalHash, receiptStatus, confirmationPending };
+  }
+
+  function createSwapSuccessPayload({
+    txHash,
+    approvalHash,
+    receivedAmount,
+    routeProvider,
+    confirmationStatus
+  }: {
+    txHash: string;
+    approvalHash?: string | null;
+    receivedAmount: string;
+    routeProvider: string;
+    confirmationStatus: "confirmed" | "pending";
+  }) {
+    const payload = {
+      txHash,
+      approvalHash,
+      sentAmount: swapAmount,
+      sentToken: sellToken,
+      receivedAmount,
+      receivedToken: buyToken,
+      routeProvider,
+      confirmationStatus
+    };
+    debugSwap("success modal payload", {
+      ...payload,
+      explorerUrl: explorerTxUrl(ARC_EXPLORER_URL, txHash)
+    });
+    return payload;
+  }
+
+  function recordCompletedSwap({
+    txHash,
+    approvalHash,
+    receivedAmount,
+    routeProvider,
+    quote
+  }: {
+    txHash?: string | null;
+    approvalHash?: string | null;
+    receivedAmount: string;
+    routeProvider: string;
+    quote: LifiEstimate | null;
+  }) {
+    if (!txHash) {
+      const pendingPayload = {
+        ...getSwapActivityMetadata("pending_hash_missing", quote),
+        approvalHash: approvalHash ?? null,
+        routeProvider,
+        walletAddress: address ?? null,
+        chainId: walletChainId ?? null,
+        status: "pending_hash_missing"
+      };
+      console.warn("[Velora Swap] Completed swap skipped because final tx hash is missing.", pendingPayload);
+      recordActivity({
+        actionType: "swap_pending_hash_missing",
+        title: "Swap confirmation pending",
+        description: "Swap completed, but the final transaction hash was not returned by the wallet.",
+        feature: "swap",
+        token: `${sellToken.symbol}/${buyToken.symbol}`,
+        amount: swapAmount,
+        network: bridge.fromNetwork.name,
+        status: "pending",
+        metadata: pendingPayload
+      });
+      return null;
+    }
+
+    const activityPayload = {
+      ...getSwapActivityMetadata("confirmed", quote),
+      approvalHash: approvalHash ?? null,
+      sellToken: sellToken.symbol,
+      receiveToken: buyToken.symbol,
+      sellAmount: swapAmount,
+      receiveAmount: receivedAmount,
+      routeProvider,
+      walletAddress: address ?? null,
+      chainId: walletChainId ?? null,
+      confirmationStatus: "confirmed",
+      explorerUrl: explorerTxUrl(ARC_EXPLORER_URL, txHash)
+    };
+    debugSwap("activity record payload", activityPayload);
+
+    return recordActivity({
+      actionType: "swap_completed",
+      title: "Swap confirmed",
+      description: "Swap transaction confirmed.",
+      feature: "swap",
+      token: `${sellToken.symbol}/${buyToken.symbol}`,
+      amount: swapAmount,
+      network: bridge.fromNetwork.name,
+      status: "success",
+      txHash,
+      metadata: activityPayload
+    });
+  }
+
+  function handleCloseSwapSuccess() {
+    setSwapSuccess(null);
+    setSwapAmount("");
+    setReceiveAmount("");
+    setSwapRoute(null);
+    setSwapQuoteOnlyRoute(null);
+    setLifiQuote(null);
+    setSwapQuoteReady(false);
+    setSwapQuoteKey("");
+    setSwapQuoteTimestamp(null);
+    setSwapQuoteWarning("");
+    setSwapMessage("");
+    setLiveQuoteUnavailable(false);
   }
 
   async function requestCurrentSwapLifiQuote() {
@@ -871,7 +1008,6 @@ export default function TradePage() {
     swapQuoteRequestIdRef.current = requestId;
     const requestKey = currentSwapQuoteKey;
     setSwapMessage("");
-    setSwapSuccess(null);
     setSwapQuoteWarning("");
     setSwapQuoteLoading(true);
     debugSwap("quote request scheduled", { requestId, requestKey });
@@ -1185,9 +1321,6 @@ export default function TradePage() {
     setSwapQuoteTimestamp(null);
     setSwapQuoteWarning("");
     setLiveQuoteUnavailable(false);
-    window.setTimeout(() => {
-      autoSwapQuoteRef.current();
-    }, 600);
   }
 
   async function executeConfirmedSwap() {
@@ -1257,29 +1390,19 @@ export default function TradePage() {
           }
         });
         setSwapWalletWaiting(false);
-        recordActivity({
-          actionType: "swap_completed",
-          title: "Swap confirmed",
-          description: "Swap transaction confirmed.",
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
-          amount: swapAmount,
-          status: "success",
+        const providerReceivedAmount = result.receivedAmount ?? swapProviderEstimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive);
+        recordCompletedSwap({
           txHash: result.txHash,
-          metadata: {
-            ...getSwapActivityMetadata("confirmed"),
-            quoteMode: "live",
-            routeProvider: swapRoute.providerName,
-            providerExecutable: true
-          }
+          receivedAmount: providerReceivedAmount,
+          routeProvider: swapRoute.providerName,
+          quote: null
         });
-        setSwapSuccess({
+        setSwapSuccess(createSwapSuccessPayload({
           txHash: result.txHash,
-          sentAmount: swapAmount,
-          sentToken: sellToken,
-          receivedAmount: result.receivedAmount ?? swapProviderEstimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive),
-          receivedToken: buyToken
-        });
+          receivedAmount: providerReceivedAmount,
+          routeProvider: swapRoute.providerName,
+          confirmationStatus: "confirmed"
+        }));
         void queryClient.invalidateQueries();
         refreshSwapRouteAfterSuccess();
       } catch (error) {
@@ -1344,27 +1467,26 @@ export default function TradePage() {
         metadata: getSwapActivityMetadata("execution_started")
       });
 
-      const hash = await executeLifiTransaction(lifiQuote, "swap", () => {
+      const result = await executeLifiTransaction(lifiQuote, "swap", () => {
         setSwapWalletWaiting(false);
       });
-      recordActivity({
-        actionType: "swap_completed",
-        title: "Swap confirmed",
-        description: "Swap transaction confirmed.",
-        feature: "swap",
-        token: `${sellToken.symbol}/${buyToken.symbol}`,
-        amount: swapAmount,
-        status: "success",
-        txHash: hash,
-        metadata: getSwapActivityMetadata("confirmed", lifiQuote)
-      });
-      setSwapSuccess({
-        txHash: hash,
-        sentAmount: swapAmount,
-        sentToken: sellToken,
-        receivedAmount: formatLifiAmount(lifiQuote.toAmount, buyToken.decimals),
-        receivedToken: buyToken
-      });
+      const receivedAmount = formatLifiAmount(lifiQuote.toAmount, buyToken.decimals);
+      if (result.receiptStatus === "confirmed") {
+        recordCompletedSwap({
+          txHash: result.txHash,
+          approvalHash: result.approvalHash,
+          receivedAmount,
+          routeProvider: lifiQuote.provider ?? preferredProvider.label,
+          quote: lifiQuote
+        });
+      }
+      setSwapSuccess(createSwapSuccessPayload({
+        txHash: result.txHash,
+        approvalHash: result.approvalHash,
+        receivedAmount,
+        routeProvider: lifiQuote.provider ?? preferredProvider.label,
+        confirmationStatus: result.confirmationPending ? "pending" : "confirmed"
+      }));
       void queryClient.invalidateQueries();
       refreshSwapRouteAfterSuccess();
     } catch (error) {
@@ -1630,7 +1752,8 @@ export default function TradePage() {
       const selectedQuote = bridgeRoute.quote.raw as LifiEstimate | null;
       if (bridgeRoute.executionMode === "transactionRequest" && selectedQuote && hasExecutableTransactionRequest(selectedQuote)) {
         setLifiQuote(selectedQuote);
-        hash = await executeLifiTransaction(selectedQuote, "bridge");
+        const result = await executeLifiTransaction(selectedQuote, "bridge");
+        hash = result.txHash;
       } else {
         const result = await bridgeRoute.execute({
           sendTransaction: async (transactionRequest) => {
@@ -1929,12 +2052,17 @@ export default function TradePage() {
                     {swapSuccess.receivedAmount || "--"} {swapSuccess.receivedToken.symbol}
                   </div>
                 </div>
-                <p className="mt-4 text-sm font-semibold text-slate-300">Transaction confirmed.</p>
-                <p className="mt-4 break-all text-xs text-slate-500">{swapSuccess.txHash}</p>
-                <a href={explorerTxUrl(ARC_EXPLORER_URL, swapSuccess.txHash)} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01]">
+                <p className="mt-4 text-sm font-semibold text-slate-300">
+                  {swapSuccess.confirmationStatus === "confirmed" ? "Transaction confirmed." : "Swap submitted, confirmation pending."}
+                </p>
+                <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Transaction Hash</p>
+                  <p className="mt-1 break-all text-sm font-semibold text-slate-300">{shortAddress(swapSuccess.txHash)}</p>
+                </div>
+                <a href={explorerTxUrl(ARC_EXPLORER_URL, swapSuccess.txHash)} target="_blank" rel="noreferrer" onClick={handleCloseSwapSuccess} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01]">
                   <ExternalLink className="h-4 w-4" /> View Transaction
                 </a>
-                <button onClick={() => setSwapSuccess(null)} className="mt-3 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
+                <button onClick={handleCloseSwapSuccess} className="mt-3 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
                   Close
                 </button>
               </motion.div>

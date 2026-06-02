@@ -43,6 +43,12 @@ function getExplorerUrl(record: ActivityRecord) {
   return explorerTxUrl(chain.explorer, record.txHash as string);
 }
 
+function transactionFallbackLabel(record: ActivityRecord) {
+  if (record.status === "pending") return "Transaction pending";
+  if (record.actionType === "swap_completed") return "Hash unavailable";
+  return "";
+}
+
 function TradeDetails({ record }: { record: ActivityRecord }) {
   const tradeType = metadataText(record, "tradeType");
   if (tradeType !== "swap" && tradeType !== "bridge") return null;
@@ -162,6 +168,8 @@ function ActivityRow({ record, index }: { record: ActivityRecord; index: number 
                 ) : (
                   <span className="rounded-full bg-white/[0.05] px-3 py-1">Tx: {shortAddress(record.txHash)}</span>
                 )
+              ) : transactionFallbackLabel(record) ? (
+                <span className="rounded-full bg-white/[0.05] px-3 py-1">{transactionFallbackLabel(record)}</span>
               ) : null}
             </div>
           </div>
