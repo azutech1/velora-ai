@@ -434,15 +434,17 @@ export default function TradePage() {
     appKitSwap.estimate?.diagnostics?.tokenOut === buyToken.symbol &&
     appKitSwap.estimate?.diagnostics?.amountIn === swapAmount;
   const appKitQuoteExpired = Boolean(appKitSwap.estimate?.diagnostics?.expiresAt && Date.now() > appKitSwap.estimate.diagnostics.expiresAt);
-  const swapHasAppKitExecutableQuote = realSwapEnabled && Boolean(appKitSwap.estimate?.estimatedOutput) && appKitQuoteMatches && !appKitQuoteExpired;
   const swapProviderEstimate = swapRoute?.executionMode === "provider" ? (swapRoute.quote.raw as ArcAppKitSwapEstimate | null) : null;
   const swapProviderQuoteExpired = Boolean(swapProviderEstimate?.diagnostics?.expiresAt && Date.now() > swapProviderEstimate.diagnostics.expiresAt);
-  const swapHasProviderExecutableRoute =
+  const swapHasProviderQuote =
     Boolean(swapRoute?.executionMode === "provider" && swapProviderEstimate?.estimatedOutput) &&
     swapProviderEstimate?.diagnostics?.tokenIn === sellToken.symbol &&
     swapProviderEstimate?.diagnostics?.tokenOut === buyToken.symbol &&
     swapProviderEstimate?.diagnostics?.amountIn === swapAmount &&
     !swapProviderQuoteExpired;
+  const swapHasAppKitQuote = realSwapEnabled && Boolean(appKitSwap.estimate?.estimatedOutput) && appKitQuoteMatches && !appKitQuoteExpired;
+  const swapHasProviderExecutableRoute = false;
+  const swapHasAppKitExecutableQuote = false;
   const swapCanExecute =
     Boolean(isConnected && address) &&
     walletChainId === bridge.fromNetwork.chainId &&
@@ -464,6 +466,8 @@ export default function TradePage() {
             ? "Exact receive quote is not available for this route."
           : swapProviderQuoteExpired
             ? "Quote expired."
+          : swapHasProviderQuote || swapHasAppKitQuote
+            ? "No executable wallet transaction is available for this route yet."
           : liveQuoteUnavailable || (swapQuoteReady && swapRouteMatchesCurrentInput && !swapHasExecutableQuote && !swapHasAppKitExecutableQuote && !swapHasProviderExecutableRoute)
               ? "No executable route available for this token pair."
               : swapHasExecutableQuote && swapTransactionRequestChainId !== walletChainId
@@ -560,6 +564,13 @@ export default function TradePage() {
     }
     if (lower.includes("expired")) {
       return { title: "Quote expired", message: "Quote expired.", raw };
+    }
+    if (lower.includes("createswap") || lower.includes("stablecoin service") || lower.includes("failed to fetch") || lower.includes("maximum retry attempts")) {
+      return {
+        title: "Swap service unavailable",
+        message: "The swap service could not create a wallet transaction for this route. Try again later or use another pair.",
+        raw
+      };
     }
     if (lower.includes("revert") || lower.includes("contract") || lower.includes("call failed")) {
       return { title: "Contract call failed", message: "Contract call failed.", raw };
