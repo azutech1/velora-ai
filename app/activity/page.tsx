@@ -8,6 +8,7 @@ import { MetricCard, Panel } from "@/components/azu/ui";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { getMainActivityRecords } from "@/lib/activity/display";
 import { ActivityFeature, ActivityStatus } from "@/lib/activity/types";
 
 const featureOptions: Array<"all" | ActivityFeature> = ["all", "wallet", "network", "faucet", "social", "swap", "bridge", "send", "automation", "agent_payments", "settings", "token", "dashboard"];
@@ -24,9 +25,10 @@ export default function ActivityPage() {
 
   const visibleActivities = useMemo(() => {
     if (!isConnected || !address) return [];
-    if (isAdmin) return activities;
+    const mainActivities = getMainActivityRecords(activities);
+    if (isAdmin) return mainActivities;
     const connectedWallet = address.toLowerCase();
-    return activities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet);
+    return mainActivities.filter((activity) => activity.walletAddress.toLowerCase() === connectedWallet);
   }, [activities, address, isAdmin, isConnected]);
   const tokens = useMemo(() => ["all", ...Array.from(new Set(visibleActivities.map((activity) => activity.token).filter(Boolean)))], [visibleActivities]);
   const filteredActivities = useMemo(

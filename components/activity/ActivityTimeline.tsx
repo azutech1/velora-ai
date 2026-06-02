@@ -56,7 +56,7 @@ function TradeDetails({ record }: { record: ActivityRecord }) {
   const fromToken = tradeType === "swap" ? metadataText(record, "fromToken") : metadataText(record, "token");
   const toToken = tradeType === "swap" ? metadataText(record, "toToken") : metadataText(record, "token");
   const fromAmount = metadataText(record, "fromAmount") || record.amount || "";
-  const estimatedReceive = metadataText(record, "estimatedReceiveAmount");
+  const estimatedReceive = metadataText(record, "toAmount") || metadataText(record, "receiveAmount") || metadataText(record, "estimatedReceiveAmount");
   const fromChain = metadataText(record, "fromChain");
   const toChain = metadataText(record, "toChain");
   const fromChainIconId = metadataText(record, "fromChainIconId");
@@ -110,6 +110,66 @@ function TradeDetails({ record }: { record: ActivityRecord }) {
   );
 }
 
+function PaymentDetails({ record }: { record: ActivityRecord }) {
+  if (record.feature !== "send" && record.feature !== "agent_payments") return null;
+  const token = metadataText(record, "token") || record.token || "";
+  const amount = metadataText(record, "amount") || record.amount || "";
+  const counterparty = metadataText(record, "counterparty") || metadataText(record, "recipient") || metadataText(record, "destination") || metadataText(record, "serviceName");
+
+  return (
+    <div className="mt-3 rounded-lg border border-cyan/15 bg-cyan/[0.04] p-3">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-white">
+        {token ? <TokenLogo symbol={token} size={24} /> : null}
+        <span className="font-semibold">{amount || "--"} {token}</span>
+        {counterparty ? (
+          <>
+            <ArrowRight className="h-4 w-4 text-cyan" />
+            <span className="font-semibold">{counterparty.startsWith("0x") ? shortAddress(counterparty) : counterparty}</span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TransactionDetails({ record, explorerUrl }: { record: ActivityRecord; explorerUrl: string | null }) {
+  const approvalTxHash = metadataText(record, "approvalTxHash");
+  const mainTxHash = metadataText(record, "mainTxHash") || (record.txHash && record.txHash !== "N/A" ? record.txHash : "");
+  const routeProvider = metadataText(record, "routeProvider");
+
+  if (!approvalTxHash && !mainTxHash && !routeProvider) return null;
+
+  return (
+    <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
+      <summary className="cursor-pointer font-semibold text-slate-300">Transaction details</summary>
+      <div className="mt-3 space-y-2">
+        {mainTxHash ? (
+          <p>
+            <span className="text-slate-500">Main tx:</span>{" "}
+            {explorerUrl ? (
+              <a href={explorerUrl} target="_blank" rel="noreferrer" className="text-cyan hover:text-cyan">
+                {shortAddress(mainTxHash)}
+              </a>
+            ) : (
+              <span>{shortAddress(mainTxHash)}</span>
+            )}
+          </p>
+        ) : null}
+        {approvalTxHash ? (
+          <p>
+            <span className="text-slate-500">Approval tx:</span> {shortAddress(approvalTxHash)}
+          </p>
+        ) : null}
+        {routeProvider ? (
+          <p>
+            <span className="text-slate-500">Route:</span> {routeProvider}
+          </p>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
 export function ActivityTimeline({ records, emptyText = "No activity recorded yet." }: { records: ActivityRecord[]; emptyText?: string }) {
   if (!records.length) {
     return (
@@ -154,6 +214,8 @@ function ActivityRow({ record, index }: { record: ActivityRecord; index: number 
             </div>
             <p className="mt-2 text-sm leading-6 text-slate-400">{record.description}</p>
             <TradeDetails record={record} />
+            <PaymentDetails record={record} />
+            <TransactionDetails record={record} explorerUrl={explorerUrl} />
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
               <span className="rounded-full bg-white/[0.05] px-3 py-1 capitalize">{record.feature}</span>
               <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.walletAddress === "guest" ? "Guest" : shortAddress(record.walletAddress)}</span>
@@ -162,8 +224,8 @@ function ActivityRow({ record, index }: { record: ActivityRecord; index: number 
               {record.network ? <span className="rounded-full bg-white/[0.05] px-3 py-1">{record.network}</span> : null}
               {record.txHash && record.txHash !== "N/A" ? (
                 explorerUrl ? (
-                  <a className="rounded-full bg-white/[0.05] px-3 py-1 text-cyan hover:text-cyan" href={explorerUrl} target="_blank" rel="noreferrer">
-                    Tx: {shortAddress(record.txHash)}
+                  <a className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 font-semibold text-cyan hover:text-cyan" href={explorerUrl} target="_blank" rel="noreferrer">
+                    View Transaction
                   </a>
                 ) : (
                   <span className="rounded-full bg-white/[0.05] px-3 py-1">Tx: {shortAddress(record.txHash)}</span>

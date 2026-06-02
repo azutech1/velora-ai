@@ -182,14 +182,28 @@ export default function SendPage() {
       );
       recordActivity({
         actionType: "usdc_send_completed",
-        title: "USDC send completed",
-        description: `${amount} USDC transfer confirmed on Arc Testnet.`,
+        title: `Sent ${amount} USDC`,
+        description: `Sent ${amount} USDC to ${shortAddress(recipient)}.`,
         feature: "send",
         token: "USDC",
         amount,
         network: "Arc Testnet",
         status: "success",
-        txHash: submittedHash
+        txHash: submittedHash,
+        metadata: {
+          actionCategory: "payment",
+          actionId: `payment_${submittedHash}`,
+          fromToken: "USDC",
+          toToken: "USDC",
+          fromAmount: amount,
+          toAmount: amount,
+          token: "USDC",
+          amount,
+          counterparty: recipient,
+          recipient,
+          mainTxHash: submittedHash,
+          explorerLink: explorerTxUrl(ARC_EXPLORER_URL, submittedHash)
+        }
       });
       void refetchUsdcBalance();
     } catch (error) {

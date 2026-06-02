@@ -844,7 +844,9 @@ export default function TradePage() {
     if (!txHash) {
       const pendingPayload = {
         ...getSwapActivityMetadata("pending_hash_missing", quote),
-        approvalHash: approvalHash ?? null,
+        actionCategory: "swap",
+        actionId: `swap_pending_${Date.now()}`,
+        approvalTxHash: approvalHash ?? null,
         routeProvider,
         walletAddress: address ?? null,
         chainId: walletChainId ?? null,
@@ -867,23 +869,30 @@ export default function TradePage() {
 
     const activityPayload = {
       ...getSwapActivityMetadata("confirmed", quote),
-      approvalHash: approvalHash ?? null,
+      actionCategory: "swap",
+      actionId: `swap_${txHash}`,
+      approvalTxHash: approvalHash ?? null,
+      mainTxHash: txHash,
       sellToken: sellToken.symbol,
       receiveToken: buyToken.symbol,
       sellAmount: swapAmount,
       receiveAmount: receivedAmount,
+      fromToken: sellToken.symbol,
+      toToken: buyToken.symbol,
+      fromAmount: swapAmount,
+      toAmount: receivedAmount,
       routeProvider,
       walletAddress: address ?? null,
       chainId: walletChainId ?? null,
       confirmationStatus: "confirmed",
-      explorerUrl: explorerTxUrl(ARC_EXPLORER_URL, txHash)
+      explorerLink: explorerTxUrl(ARC_EXPLORER_URL, txHash)
     };
     debugSwap("activity record payload", activityPayload);
 
     return recordActivity({
       actionType: "swap_completed",
-      title: "Swap confirmed",
-      description: "Swap transaction confirmed.",
+      title: `Swapped ${swapAmount} ${sellToken.symbol} -> ${receivedAmount} ${buyToken.symbol}`,
+      description: `Swapped ${swapAmount} ${sellToken.symbol} into ${receivedAmount} ${buyToken.symbol}.`,
       feature: "swap",
       token: `${sellToken.symbol}/${buyToken.symbol}`,
       amount: swapAmount,
@@ -1789,8 +1798,8 @@ export default function TradePage() {
       }
       recordActivity({
         actionType: "bridge_completed",
-        title: "Bridge completed",
-        description: "Bridge transaction confirmed.",
+        title: `Bridged ${bridge.amount} ${bridge.tokenSymbol}`,
+        description: `Bridged ${bridge.amount} ${bridge.tokenSymbol} from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
@@ -1799,7 +1808,16 @@ export default function TradePage() {
         txHash: hash,
         metadata: {
           ...getBridgeActivityMetadata("confirmed", selectedQuote),
-          selectedProvider: bridgeRoute.providerName
+          actionCategory: "bridge",
+          actionId: `bridge_${hash}`,
+          fromToken: bridge.tokenSymbol,
+          toToken: bridge.tokenSymbol,
+          fromAmount: bridge.amount,
+          toAmount: selectedQuote?.toAmount ? formatLifiAmount(selectedQuote.toAmount, 6) : formatDisplayAmount(bridge.quote.estimatedReceive),
+          mainTxHash: hash,
+          routeProvider: bridgeRoute.providerName,
+          selectedProvider: bridgeRoute.providerName,
+          explorerLink: explorerTxUrl(ARC_EXPLORER_URL, hash)
         }
       });
       setBridgeMessage(`Live bridge confirmed: ${hash}`);

@@ -13,6 +13,7 @@ import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
+import { getMainActivityRecords } from "@/lib/activity/display";
 import type { ActivityRecord } from "@/lib/activity/types";
 import { erc20UsdcAbi, USDC_CONTRACT_ADDRESS } from "@/lib/contracts/usdc";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
@@ -75,7 +76,7 @@ export default function DashboardPage() {
   const walletActivities = useMemo(() => {
     if (!isConnected || !address) return [];
     const normalizedAddress = address.toLowerCase();
-    return activities.filter((activity) => activity.walletAddress.toLowerCase() === normalizedAddress);
+    return getMainActivityRecords(activities).filter((activity) => activity.walletAddress.toLowerCase() === normalizedAddress);
   }, [activities, address, isConnected]);
 
   const transactionActivities = useMemo(

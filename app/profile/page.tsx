@@ -14,6 +14,7 @@ import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
+import { isMainActivityRecord } from "@/lib/activity/display";
 import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
 import { APP_CHAINS, getChainById } from "@/lib/config/chains";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
@@ -92,9 +93,7 @@ function activityCounts(records: ActivityRecord[]) {
 }
 
 function isVeloraProfileActivity(record: ActivityRecord) {
-  if (record.actionType === "usdc_receive_completed" && record.metadata?.source === "wallet_watcher") return false;
-  if (record.actionType === "usdc_receive_completed" && record.title === "USDC received") return false;
-  return true;
+  return isMainActivityRecord(record);
 }
 
 function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
