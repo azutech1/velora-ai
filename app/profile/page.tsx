@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Award, BadgeCheck, Copy, Crown, Download, ExternalLink, Flame, LogOut, RefreshCw, Search, Sparkles, WalletCards } from "lucide-react";
+import { Award, BadgeCheck, Copy, Crown, Download, Flame, LogOut, RefreshCw, Sparkles, WalletCards } from "lucide-react";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { MetricCard, Panel } from "@/components/azu/ui";
@@ -15,14 +15,11 @@ import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import { isMainActivityRecord } from "@/lib/activity/display";
-import type { ActivityRecord, ActivityStatus } from "@/lib/activity/types";
-import { APP_CHAINS, getChainById } from "@/lib/config/chains";
-import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
+import type { ActivityRecord } from "@/lib/activity/types";
+import { getChainById } from "@/lib/config/chains";
+import { shortAddress } from "@/lib/utils/format";
 
 type ProfileTab = "positions" | "activities";
-
-const completedStatuses: ActivityStatus[] = ["success"];
-const failedStatuses: ActivityStatus[] = ["failed"];
 
 function avatarStyle(address?: string) {
   const seed = address ?? "velora";
@@ -31,55 +28,6 @@ function avatarStyle(address?: string) {
   return {
     background: `radial-gradient(circle at 30% 25%, hsl(${hueB} 90% 60%), transparent 35%), linear-gradient(135deg, hsl(${hueA} 88% 46%), hsl(${hueB} 80% 38%))`
   };
-}
-
-function activityType(record: ActivityRecord) {
-  if (record.feature === "swap" || record.actionType.includes("swap")) return "Swap";
-  if (record.feature === "bridge" || record.actionType.includes("bridge")) return "Bridge";
-  if (record.feature === "agent_payments" || record.actionType.includes("agent_payment")) return "Agent Payment";
-  if (record.feature === "automation" || record.actionType.includes("approval")) return "Automation Approval";
-  if (record.feature === "send") return "Payment";
-  return record.feature.replaceAll("_", " ");
-}
-
-function normalizedStatus(status: ActivityStatus) {
-  if (completedStatuses.includes(status)) return "Completed";
-  if (failedStatuses.includes(status)) return "Failed";
-  return "Pending";
-}
-
-function statusStyle(status: string) {
-  if (status === "Completed") return "border-mint/30 bg-mint/10 text-mint";
-  if (status === "Failed") return "border-red-400/30 bg-red-500/10 text-red-200";
-  return "border-cyan/30 bg-cyan/10 text-cyan";
-}
-
-function metadataText(record: ActivityRecord, key: string) {
-  const value = record.metadata?.[key];
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  return "";
-}
-
-function isEvmHash(value?: string) {
-  return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value));
-}
-
-function activityExplorerUrl(record: ActivityRecord) {
-  if (!isEvmHash(record.txHash)) return null;
-  const chain = APP_CHAINS.find((item) => item.name === record.network) ?? APP_CHAINS[0];
-  return explorerTxUrl(chain.explorer, record.txHash as string);
-}
-
-function sourceDestination(record: ActivityRecord) {
-  const source = metadataText(record, "fromChain") || metadataText(record, "source") || record.walletAddress;
-  const destination =
-    metadataText(record, "toChain") ||
-    metadataText(record, "destination") ||
-    metadataText(record, "recipientName") ||
-    metadataText(record, "serviceName") ||
-    record.network ||
-    "Velora AI";
-  return { source, destination };
 }
 
 function activityCounts(records: ActivityRecord[]) {
@@ -94,64 +42,6 @@ function activityCounts(records: ActivityRecord[]) {
 
 function isVeloraProfileActivity(record: ActivityRecord) {
   return isMainActivityRecord(record);
-}
-
-function ActivitiesTable({ records }: { records: ActivityRecord[] }) {
-  if (!records.length) {
-    return (
-      <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
-        <Search className="mx-auto h-8 w-8 text-cyan" />
-        <p className="mt-4 text-sm text-slate-400">No activity yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="scrollbar-soft overflow-x-auto">
-      <table className="w-full min-w-[880px] border-separate border-spacing-y-3 text-left text-sm">
-        <thead className="text-slate-500">
-          <tr>
-            <th className="px-4 font-medium">Type</th>
-            <th className="px-4 font-medium">Source</th>
-            <th className="px-4 font-medium">Destination</th>
-            <th className="px-4 font-medium">Status</th>
-            <th className="px-4 font-medium">Date</th>
-            <th className="px-4 font-medium">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((record) => {
-            const status = normalizedStatus(record.status);
-            const explorerUrl = activityExplorerUrl(record);
-            const routeUrl = metadataText(record, "routeExplorerUrl");
-            const { source, destination } = sourceDestination(record);
-            return (
-              <tr key={record.id} className="bg-white/[0.04] text-slate-300">
-                <td className="rounded-l-lg px-4 py-4 capitalize text-white">{activityType(record)}</td>
-                <td className="max-w-[180px] truncate px-4 py-4" title={source}>{source.startsWith("0x") ? shortAddress(source) : source}</td>
-                <td className="max-w-[220px] truncate px-4 py-4" title={destination}>{destination.startsWith("0x") ? shortAddress(destination) : destination}</td>
-                <td className="px-4 py-4"><span className={cx("rounded-full border px-2.5 py-1 text-xs font-semibold", statusStyle(status))}>{status}</span></td>
-                <td className="px-4 py-4">{new Date(record.timestamp).toLocaleString()}</td>
-                <td className="rounded-r-lg px-4 py-4">
-                  {explorerUrl || routeUrl ? (
-                    <a href={explorerUrl ?? routeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-cyan hover:text-cyan">
-                      View Transaction <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  ) : record.txHash && record.txHash !== "N/A" ? (
-                    <span className="text-slate-500">{shortAddress(record.txHash)}</span>
-                  ) : record.status === "pending" ? (
-                    <span className="text-slate-500">Transaction pending</span>
-                  ) : (
-                    <span className="text-slate-500">Hash unavailable</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export default function ProfilePage() {
@@ -339,16 +229,10 @@ export default function ProfilePage() {
                   <Download className="h-4 w-4" /> Export Activity CSV
                 </button>
               </div>
-              <ActivitiesTable records={profileActivities} />
+              <ActivityTimeline records={profileActivities} emptyText="No activity yet" />
             </div>
           )}
         </Panel>
-
-        {tab === "activities" ? (
-          <Panel title="Activity Timeline" eyebrow="Detailed action feed">
-            <ActivityTimeline records={profileActivities} emptyText="No activity yet" />
-          </Panel>
-        ) : null}
       </div>
     </AppShell>
   );
