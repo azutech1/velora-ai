@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, ArrowDownUp, Check, ExternalLink, Loader2, Repeat2, Settings2 } from "lucide-react";
 import { TokenSelector } from "./TokenSelector";
-import { SWAP_TOKENS, estimateDemoSwap, formatTokenAmount, getSwapToken } from "@/lib/swap/tokens";
+import { SWAP_TOKENS, estimateIndicativeSwap, formatTokenAmount, getSwapToken } from "@/lib/swap/tokens";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
 import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
@@ -21,7 +21,7 @@ export function SwapCard() {
   const fromTokenBalance = useSwapTokenBalance(fromToken);
   const toTokenBalance = useSwapTokenBalance(toToken);
 
-  const quote = useMemo(() => estimateDemoSwap(fromToken.symbol, toToken.symbol, amount), [amount, fromToken.symbol, toToken.symbol]);
+  const quote = useMemo(() => estimateIndicativeSwap(fromToken.symbol, toToken.symbol, amount), [amount, fromToken.symbol, toToken.symbol]);
   const slippageBps = Math.round(Number(slippage) * 100);
   const realSwapAvailable = appKitSwap.canUseRealSwap(fromToken.symbol, toToken.symbol);
   const unsupportedReason = appKitSwap.getUnsupportedReason(fromToken.symbol, toToken.symbol);

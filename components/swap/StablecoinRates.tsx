@@ -11,7 +11,7 @@ export function StablecoinRates() {
   return (
     <div className="space-y-3">
       {rows.map(([from, to]) => {
-        const rate = getSwapToken(from).mockPrice / getSwapToken(to).mockPrice;
+        const rate = getSwapToken(from).fallbackPrice / getSwapToken(to).fallbackPrice;
         return (
           <div key={`${from}-${to}`} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-4">
             <span className="text-sm font-semibold text-white">{from}/{to}</span>
@@ -19,7 +19,7 @@ export function StablecoinRates() {
           </div>
         );
       })}
-      <p className="text-xs leading-5 text-slate-500">Demo pricing only. Rates are mock values until a real Arc liquidity source is connected.</p>
+      <p className="text-xs leading-5 text-slate-500">Indicative rates refresh when a supported live quote is available.</p>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export function NetworkSelector({ label, network, onSelect }: { label: string; n
                 </div>
                 <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] p-4">
                   <RadioTower className="h-5 w-5 text-cyan" />
-                  <p className="mt-3 text-sm leading-6 text-slate-400">RPC and explorer values are placeholders for non-Arc testnets until real bridge infrastructure is configured.</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-400">Live execution is enabled only for routes that return wallet transaction data.</p>
                 </div>
               </div>
             </motion.div>

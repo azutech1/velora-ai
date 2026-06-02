@@ -35,7 +35,7 @@ export const APP_CHAINS: AppChain[] = [
     wagmiChainId: 11155111,
     viemChainId: 11155111,
     name: "Ethereum Sepolia",
-    rpcUrl: "https://ethereum-sepolia-rpc.placeholder",
+    rpcUrl: process.env.NEXT_PUBLIC_ETHEREUM_SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
     explorer: "https://sepolia.etherscan.io",
     nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
     icon: "ethereum"
@@ -47,7 +47,7 @@ export const APP_CHAINS: AppChain[] = [
     wagmiChainId: 84532,
     viemChainId: 84532,
     name: "Base Sepolia",
-    rpcUrl: "https://base-sepolia-rpc.placeholder",
+    rpcUrl: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
     explorer: "https://sepolia.basescan.org",
     nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
     icon: "base"
@@ -59,7 +59,7 @@ export const APP_CHAINS: AppChain[] = [
     wagmiChainId: 11155420,
     viemChainId: 11155420,
     name: "Optimism Sepolia",
-    rpcUrl: "https://optimism-sepolia-rpc.placeholder",
+    rpcUrl: process.env.NEXT_PUBLIC_OPTIMISM_SEPOLIA_RPC_URL || "https://sepolia.optimism.io",
     explorer: "https://sepolia-optimism.etherscan.io",
     nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
     icon: "optimism"

@@ -399,8 +399,8 @@ export default function TradePage() {
     return merged.filter((item, index) => merged.findIndex((candidate) => candidate.symbol.toLowerCase() === item.symbol.toLowerCase()) === index);
   }, []);
 
-  const liveSellPrice = prices.prices[sellToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? sellToken.mockPrice;
-  const liveBuyPrice = prices.prices[buyToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? buyToken.mockPrice;
+  const liveSellPrice = prices.prices[sellToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? sellToken.fallbackPrice;
+  const liveBuyPrice = prices.prices[buyToken.symbol as "USDC" | "EURC" | "USDT"]?.price ?? buyToken.fallbackPrice;
   const estimatedReceive = receiveAmount ? Number(receiveAmount) : lifiQuote?.toAmount ? Number(lifiQuote.toAmount) / 1_000_000 : appKitSwap.estimate?.estimatedOutput?.amount ? Number(appKitSwap.estimate.estimatedOutput.amount) : 0;
   const rate = liveSellPrice / Math.max(liveBuyPrice, 0.0001);
   const requiredSellAmount = calculateRequiredSellAmount(receiveAmount, liveSellPrice, liveBuyPrice);

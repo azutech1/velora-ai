@@ -1,14 +1,14 @@
 "use client";
 
-type TradingMode = "live" | "demo" | "live-unavailable";
+type TradingMode = "live" | "preparing" | "live-unavailable";
 
 export function TradingModeBadge({ mode }: { mode: TradingMode }) {
   const text =
     mode === "live"
       ? "Executable live route ready. Swap will open wallet confirmation."
       : mode === "live-unavailable"
-        ? "Route unavailable for live execution. Showing estimated preview only."
-        : "Preparing live route. Enter an amount to load an executable quote.";
+        ? "Live execution is not available for this route."
+        : "Preparing route. Enter an amount to load an executable quote.";
 
   const className =
     mode === "live"

@@ -10,7 +10,7 @@ export const AVL_TOKEN = {
   purpose:
     "AVL is a utility token for premium AI automation access, agent marketplace utility, fee discounts, rewards, and future governance.",
   safety:
-    "AVL is designed as a utility token for the Velora AI ecosystem. This page is for product demonstration and does not represent financial advice."
+    "AVL is not launched. This page describes planned ecosystem utility and does not represent financial advice."
 };
 
 export const AVL_TOKENOMICS = [

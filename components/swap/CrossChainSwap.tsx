@@ -107,12 +107,12 @@ export function CrossChainSwap() {
           </div>
 
           <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-            Estimated preview only. Real execution requires a live route with wallet transaction data.
+            Bridge execution is available when Velora receives a live route with wallet transaction data.
           </div>
 
           <button onClick={review} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01] disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat2 className="h-4 w-4" />}
-            Preview Bridge
+            Review Bridge
           </button>
         </div>
 
@@ -125,7 +125,7 @@ export function CrossChainSwap() {
         {bridge.state === "completed" ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-lg border border-mint/30 bg-mint/10 p-4 text-sm text-mint">
             <Check className="mb-2 h-5 w-5" />
-            Bridge preview completed. No transaction was submitted.
+            Bridge route reviewed.
           </motion.div>
         ) : null}
       </section>

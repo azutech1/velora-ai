@@ -1,6 +1,6 @@
 export const AI_AUTOMATION_STATUS = {
   enabled: false,
-  mode: "architecture-placeholder",
+  mode: "prepare-only",
   description: "Future AI automation orchestration for payments, policies, and agent marketplace workflows."
 } as const;
 

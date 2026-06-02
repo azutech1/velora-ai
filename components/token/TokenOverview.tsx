@@ -38,7 +38,7 @@ export function TokenOverview() {
           ))}
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm text-slate-400">Contract placeholder</span>
+              <span className="text-sm text-slate-400">Contract status</span>
               <Copy className="h-4 w-4 text-cyan" />
             </div>
             <p className="mt-3 break-all text-sm font-semibold text-white">{AVL_TOKEN.contractAddress}</p>

@@ -7,6 +7,13 @@ const nextConfig = {
       "@react-native-async-storage/async-storage": false,
       "pino-pretty": false
     };
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings ?? []),
+      {
+        module: /node_modules[\\/]ox[\\/]_esm[\\/]tempo[\\/]internal[\\/]virtualMasterPool\.js/,
+        message: /Critical dependency: the request of a dependency is an expression/
+      }
+    ];
 
     return config;
   }
