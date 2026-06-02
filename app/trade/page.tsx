@@ -371,6 +371,7 @@ export default function TradePage() {
   const [liveQuoteUnavailable, setLiveQuoteUnavailable] = useState(false);
   const [lifiQuote, setLifiQuote] = useState<LifiEstimate | null>(null);
   const [swapRoute, setSwapRoute] = useState<ExecutableRoute | null>(null);
+  const [swapQuoteOnlyRoute, setSwapQuoteOnlyRoute] = useState<{ providerName: string; toAmount: string; reason: string } | null>(null);
   const [bridgeRoute, setBridgeRoute] = useState<ExecutableRoute | null>(null);
   const swapQuoteRequestIdRef = useRef(0);
 
@@ -423,7 +424,7 @@ export default function TradePage() {
   });
   const currentSwapQuoteKey = `${bridge.fromNetwork.chainId}:${sellToken.symbol}:${buyToken.symbol}:${swapInputMode}:${swapInputMode === "exactIn" ? swapAmount : receiveAmount}`;
   const swapRouteMatchesCurrentInput = Boolean(swapQuoteKey && swapQuoteKey === currentSwapQuoteKey);
-  const showSwapQuoteDetails = hasValidSwapAmount && (swapQuoteLoading || swapQuoteReady || Boolean(receiveAmount) || Boolean(swapRoute) || Boolean(swapQuoteWarning));
+  const showSwapQuoteDetails = hasValidSwapAmount && (swapQuoteLoading || swapQuoteReady || Boolean(receiveAmount) || Boolean(swapRoute) || Boolean(swapQuoteOnlyRoute) || Boolean(swapQuoteWarning));
   const swapPrimaryBusy = swapWalletWaiting || swapSubmitting || appKitSwap.state === "swapping" || transactions.isPending;
   const swapTransactionRequest = lifiQuote?.transactionRequest ?? null;
   const swapTransactionRequestChainId = swapTransactionRequest?.chainId ?? bridge.fromNetwork.chainId;
@@ -442,6 +443,7 @@ export default function TradePage() {
     swapProviderEstimate?.diagnostics?.tokenOut === buyToken.symbol &&
     swapProviderEstimate?.diagnostics?.amountIn === swapAmount &&
     !swapProviderQuoteExpired;
+  const swapHasQuoteOnlyRoute = Boolean(swapQuoteOnlyRoute && swapRouteMatchesCurrentInput);
   const swapHasAppKitQuote = realSwapEnabled && Boolean(appKitSwap.estimate?.estimatedOutput) && appKitQuoteMatches && !appKitQuoteExpired;
   const swapHasProviderExecutableRoute = false;
   const swapHasAppKitExecutableQuote = false;
@@ -466,8 +468,8 @@ export default function TradePage() {
             ? "Exact receive quote is not available for this route."
           : swapProviderQuoteExpired
             ? "Quote expired."
-          : swapHasProviderQuote || swapHasAppKitQuote
-            ? "No executable wallet transaction is available for this route yet."
+          : swapHasProviderQuote || swapHasAppKitQuote || swapHasQuoteOnlyRoute
+            ? "Quote available but executable route generation failed."
           : liveQuoteUnavailable || (swapQuoteReady && swapRouteMatchesCurrentInput && !swapHasExecutableQuote && !swapHasAppKitExecutableQuote && !swapHasProviderExecutableRoute)
               ? "No executable route available for this token pair."
               : swapHasExecutableQuote && swapTransactionRequestChainId !== walletChainId
@@ -481,10 +483,10 @@ export default function TradePage() {
       ? "Swapping..."
       : "Swap";
   const swapQuoteTriggerValue = swapInputMode === "exactIn" ? swapAmount : receiveAmount;
-  const swapRouteLabel = swapQuoteLoading && !swapRouteMatchesCurrentInput ? "Searching best route..." : swapRouteMatchesCurrentInput && swapRoute ? swapRoute.providerName : "No executable route available";
-  const swapFeeLabel = swapRouteMatchesCurrentInput && lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : swapRouteMatchesCurrentInput && swapRoute ? "Included in route" : "--";
-  const swapPriceImpactLabel = swapRouteMatchesCurrentInput && swapRoute ? "Not returned by provider" : "--";
-  const swapEtaLabel = swapRouteMatchesCurrentInput && swapRoute ? "On-chain confirmation" : "--";
+  const swapRouteLabel = swapQuoteLoading && !swapRouteMatchesCurrentInput ? "Searching best route..." : swapRouteMatchesCurrentInput && swapRoute ? swapRoute.providerName : swapHasQuoteOnlyRoute ? swapQuoteOnlyRoute?.providerName ?? "Quote-only route" : "No executable route available";
+  const swapFeeLabel = swapRouteMatchesCurrentInput && lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : swapRouteMatchesCurrentInput && (swapRoute || swapQuoteOnlyRoute) ? "Not returned by provider" : "--";
+  const swapPriceImpactLabel = swapRouteMatchesCurrentInput && (swapRoute || swapQuoteOnlyRoute) ? "Not returned by provider" : "--";
+  const swapEtaLabel = swapRouteMatchesCurrentInput && swapRoute ? "On-chain confirmation" : swapHasQuoteOnlyRoute ? "Not executable" : "--";
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -528,6 +530,8 @@ export default function TradePage() {
       receiveAmount: receiveAmount || (Number.isFinite(estimatedReceive) ? formatDisplayAmount(estimatedReceive) : ""),
       quoteReady: swapQuoteReady,
       selectedProvider: swapRoute?.providerName ?? null,
+      quoteOnlyProvider: swapQuoteOnlyRoute?.providerName ?? null,
+      quoteOnlyReason: swapQuoteOnlyRoute?.reason ?? null,
       providerExecutionMode: swapRoute?.executionMode ?? null,
       providerQuote: swapRoute?.quote ?? null,
       providerDiagnostics: swapRoute?.diagnostics ?? null,
@@ -803,6 +807,7 @@ export default function TradePage() {
     setSwapFailure(null);
     setLifiQuote(null);
     setSwapRoute(null);
+    setSwapQuoteOnlyRoute(null);
     setSwapQuoteTimestamp(null);
     setSwapQuoteKey("");
     setSwapQuoteWarning("");
@@ -1030,12 +1035,24 @@ export default function TradePage() {
       });
 
       if (!routeResult.route) {
+        const quoteOnlyEntry = Object.entries(routeResult.diagnostics.quoteOnlyProviders)[0];
+        const quoteOnlyRoute = quoteOnlyEntry
+          ? {
+              providerName: quoteOnlyEntry[0],
+              toAmount: quoteOnlyEntry[1].toAmount ?? "",
+              reason: quoteOnlyEntry[1].reason
+            }
+          : null;
         setLiveQuoteUnavailable(true);
         setSwapQuoteReady(true);
         setSwapQuoteKey(requestKey);
         setSwapRoute(null);
+        setSwapQuoteOnlyRoute(quoteOnlyRoute);
         setLifiQuote(null);
-        setSwapQuoteWarning("No executable route available for this token pair.");
+        if (quoteOnlyRoute?.toAmount) {
+          setReceiveAmount(quoteOnlyRoute.toAmount);
+        }
+        setSwapQuoteWarning(quoteOnlyRoute ? "Quote available but executable route generation failed." : "No executable route available for this token pair.");
         if (!silent) {
           recordActivity({
             actionType: "quote_failed",
@@ -1051,11 +1068,12 @@ export default function TradePage() {
             }
           });
         }
-        setSwapMessage("No executable route available for this token pair.");
+        setSwapMessage(quoteOnlyRoute ? "Quote available but executable route generation failed." : "No executable route available for this token pair.");
         return;
       }
 
       setSwapRoute(routeResult.route);
+      setSwapQuoteOnlyRoute(null);
       const quote = routeResult.route.quote.raw as LifiEstimate | null;
       if (routeResult.route.executionMode === "transactionRequest" && quote) {
         setLifiQuote(quote);
@@ -1125,6 +1143,7 @@ export default function TradePage() {
       setSwapQuoteReady(false);
       setLifiQuote(null);
       setSwapRoute(null);
+      setSwapQuoteOnlyRoute(null);
       setSwapQuoteKey("");
       setSwapMessage("Connect wallet to prepare a live swap.");
       return;
@@ -1134,6 +1153,7 @@ export default function TradePage() {
       setSwapQuoteReady(false);
       setLifiQuote(null);
       setSwapRoute(null);
+      setSwapQuoteOnlyRoute(null);
       setLiveQuoteUnavailable(false);
       setSwapMessage(sellToken.symbol === buyToken.symbol ? "Select different tokens." : "");
       if (!swapQuoteTriggerValue) {
@@ -1153,6 +1173,21 @@ export default function TradePage() {
 
   function handleSwapPrimaryAction() {
     void executeConfirmedSwap();
+  }
+
+  function refreshSwapRouteAfterSuccess() {
+    swapQuoteRequestIdRef.current += 1;
+    setSwapRoute(null);
+    setSwapQuoteOnlyRoute(null);
+    setLifiQuote(null);
+    setSwapQuoteReady(false);
+    setSwapQuoteKey("");
+    setSwapQuoteTimestamp(null);
+    setSwapQuoteWarning("");
+    setLiveQuoteUnavailable(false);
+    window.setTimeout(() => {
+      autoSwapQuoteRef.current();
+    }, 600);
   }
 
   async function executeConfirmedSwap() {
@@ -1246,6 +1281,7 @@ export default function TradePage() {
           receivedToken: buyToken
         });
         void queryClient.invalidateQueries();
+        refreshSwapRouteAfterSuccess();
       } catch (error) {
         const failure = swapFailureFromError(error);
         debugSwap("execute provider swap failed", { error: serializeSwapError(error), failure });
@@ -1330,6 +1366,7 @@ export default function TradePage() {
         receivedToken: buyToken
       });
       void queryClient.invalidateQueries();
+      refreshSwapRouteAfterSuccess();
     } catch (error) {
       const failure = swapFailureFromError(error);
       debugSwap("execute swap failed", { error, failure });

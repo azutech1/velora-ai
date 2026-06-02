@@ -68,6 +68,7 @@ export type RouteDiagnostics = {
   providersTried: string[];
   selectedProvider: string | null;
   failureReasons: Record<string, string>;
+  quoteOnlyProviders: Record<string, { toAmount?: string | null; reason: string }>;
   executable: boolean;
   routeType: RouteType;
   chainId: number;
@@ -192,8 +193,8 @@ export function createProviderExecutionRoute(options: {
     async buildTransactionRequest() {
       return null;
     },
-    isExecutable(quote: RouteQuote, _transactionRequest: RouteTransactionRequest | null, request: RouteRequest) {
-      return Boolean(quote.toAmount && request.walletChainId === request.fromChainId);
+    isExecutable() {
+      return false;
     },
     execute: options.execute
   } satisfies RouteProvider;
@@ -210,6 +211,7 @@ export async function findExecutableRoute(request: RouteRequest, providers: Rout
     providersTried: [],
     selectedProvider: null,
     failureReasons: {},
+    quoteOnlyProviders: {},
     executable: false,
     routeType: request.routeType,
     chainId: request.fromChainId,
@@ -254,7 +256,14 @@ export async function findExecutableRoute(request: RouteRequest, providers: Rout
       const transactionRequest = await provider.buildTransactionRequest(quote, request);
       const executable = provider.isExecutable(quote, transactionRequest, request);
       if (!executable) {
-        diagnostics.failureReasons[provider.providerName] = "Provider returned no executable route.";
+        const reason = transactionRequest ? "Provider returned an invalid transaction request." : "Provider returned a quote without wallet transaction data.";
+        diagnostics.failureReasons[provider.providerName] = reason;
+        if (quote.toAmount) {
+          diagnostics.quoteOnlyProviders[provider.providerName] = {
+            toAmount: quote.toAmount,
+            reason
+          };
+        }
         continue;
       }
 
