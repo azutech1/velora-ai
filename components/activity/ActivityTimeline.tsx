@@ -39,13 +39,21 @@ function isEvmTransactionHash(value?: string) {
 
 function getExplorerUrl(record: ActivityRecord) {
   if (!isEvmTransactionHash(record.txHash)) return null;
-  const chain = APP_CHAINS.find((item) => item.name === record.network) ?? APP_CHAINS[0];
+  const metadataChainId = Number(metadataText(record, "explorerChainId") || metadataText(record, "fromChainId"));
+  const metadataExplorerLink = metadataText(record, "explorerLink");
+  if (metadataExplorerLink && metadataExplorerLink.includes(record.txHash as string)) {
+    return metadataExplorerLink;
+  }
+  const chain =
+    APP_CHAINS.find((item) => Number.isFinite(metadataChainId) && item.chainId === metadataChainId) ??
+    APP_CHAINS.find((item) => item.name === record.network || item.name === metadataText(record, "fromChain")) ??
+    APP_CHAINS[0];
   return explorerTxUrl(chain.explorer, record.txHash as string);
 }
 
 function transactionFallbackLabel(record: ActivityRecord) {
   if (record.status === "pending") return "Transaction pending";
-  if (record.actionType === "swap_completed") return "Hash unavailable";
+  if (record.actionType === "swap_completed" || record.actionType === "bridge_completed") return "Transaction hash unavailable";
   return "";
 }
 

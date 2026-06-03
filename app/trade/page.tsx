@@ -30,6 +30,7 @@ import {
   lifiSwapProvider,
   stablefxProvider,
   type ExecutableRoute,
+  type RouteDiagnostics,
   type RouteRequest
 } from "@/lib/routes/router";
 import { CROSS_CHAIN_NETWORKS, type BridgeNetwork } from "@/lib/swap/networks";
@@ -61,6 +62,10 @@ type LifiEstimate = {
   fromAmount: string | null;
   fromTokenAddress: string | null;
   fromChainId: number | null;
+  routeId?: string | null;
+  transactionId?: string | null;
+  stepIds?: string | null;
+  stepTools?: string | null;
   transactionRequest: {
     to?: string;
     from?: string;
@@ -156,6 +161,10 @@ function calculateRequiredSellAmount(receiveAmount: string, sellPrice: number, b
 
 function hasExecutableTransactionRequest(quote: LifiEstimate | null) {
   return Boolean(quote?.transactionRequest?.to && quote.transactionRequest.data);
+}
+
+function isEvmTransactionHash(value?: string | null) {
+  return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value));
 }
 
 function hexChainId(chainId: number) {
@@ -435,6 +444,7 @@ export default function TradePage() {
   const [swapRoute, setSwapRoute] = useState<ExecutableRoute | null>(null);
   const [swapQuoteOnlyRoute, setSwapQuoteOnlyRoute] = useState<{ providerName: string; toAmount: string; reason: string } | null>(null);
   const [bridgeRoute, setBridgeRoute] = useState<ExecutableRoute | null>(null);
+  const [bridgeRouteDiagnostics, setBridgeRouteDiagnostics] = useState<RouteDiagnostics | null>(null);
   const [bridgeSuccess, setBridgeSuccess] = useState<{
     txHash: string;
     amount: string;
@@ -816,12 +826,22 @@ export default function TradePage() {
       estimatedReceiveAmount: quote?.toAmount ? formatLifiAmount(quote.toAmount, 6) : null,
       fromChain: bridge.fromNetwork.name,
       toChain: bridge.toNetwork.name,
+      fromChainId: bridge.fromNetwork.chainId,
+      toChainId: bridge.toNetwork.chainId,
       fromChainIconId: bridge.fromNetwork.iconId,
       toChainIconId: bridge.toNetwork.iconId,
+      sourceExplorerUrl: bridge.fromNetwork.explorerUrl,
+      destinationExplorerUrl: bridge.toNetwork.explorerUrl,
+      explorerChainId: bridge.fromNetwork.chainId,
+      explorerChainName: bridge.fromNetwork.name,
       routeProvider: quote?.provider ?? null,
       quoteMode: quote?.transactionRequest ? "live" : "unavailable",
       trackingStatus,
       bridgeFee: quote?.feeEstimateUsd ? `$${quote.feeEstimateUsd}` : null,
+      routeId: quote?.routeId ?? null,
+      providerTransactionId: quote?.transactionId ?? null,
+      stepIds: quote?.stepIds ?? null,
+      stepTools: quote?.stepTools ?? null,
       eta: quote?.transactionRequest ? "On-chain confirmation" : null
     };
   }
@@ -1448,6 +1468,7 @@ export default function TradePage() {
     setBridgeMessage(`Switching wallet to ${sourceChain.name}...`);
     setBridgeQuoteReady(false);
     setBridgeRoute(null);
+    setBridgeRouteDiagnostics(null);
     setLifiQuote(null);
 
     try {
@@ -1838,6 +1859,7 @@ export default function TradePage() {
         }
       });
       const routeResult = await findExecutableRoute(bridgeRouteRequest, [arcNativeBridgeProvider, lifiRouteProvider, fallbackProvider]);
+      setBridgeRouteDiagnostics(routeResult.diagnostics);
       debugRoute("bridge route diagnostics", routeResult.diagnostics);
       debugBridge("provider response", {
         diagnostics: routeResult.diagnostics,
@@ -1951,6 +1973,17 @@ export default function TradePage() {
       let hash: Hex;
       let confirmationStatus: "confirmed" | "pending" = "pending";
       const selectedQuote = bridgeRoute.quote.raw as LifiEstimate | null;
+      debugBridge("bridge execution route audit", {
+        routeId: selectedQuote?.routeId ?? null,
+        stepIds: selectedQuote?.stepIds ?? null,
+        providerTransactionId: selectedQuote?.transactionId ?? null,
+        providerId: bridgeRoute.providerName,
+        provider: selectedQuote?.provider ?? bridgeRoute.providerName,
+        transactionRequest: bridgeRoute.transactionRequest,
+        transactionRequestChainId: bridgeRoute.transactionRequest?.chainId ?? null,
+        sourceChainId: bridge.fromNetwork.chainId,
+        destinationChainId: bridge.toNetwork.chainId
+      });
       if (bridgeRoute.executionMode === "transactionRequest" && selectedQuote && hasExecutableTransactionRequest(selectedQuote)) {
         setLifiQuote(selectedQuote);
         const result = await executeLifiTransaction(selectedQuote, "bridge");
@@ -1988,18 +2021,42 @@ export default function TradePage() {
         hash = result.txHash;
         confirmationStatus = "pending";
       }
+
+      if (!isEvmTransactionHash(hash)) {
+        debugBridge("bridge hash rejected", {
+          reason: "Submitted bridge hash is not a valid EVM transaction hash.",
+          txHash: hash,
+          selectedProvider: bridgeRoute.providerName,
+          selectedQuote
+        });
+        throw new Error("Transaction hash unavailable.");
+      }
+
+      const bridgeConfirmed = confirmationStatus === "confirmed";
+      const bridgeExplorerLink = explorerTxUrl(bridge.fromNetwork.explorerUrl || ARC_EXPLORER_URL, hash);
+      debugBridge("bridge tx hash captured", {
+        txHash: hash,
+        sourceExplorer: bridge.fromNetwork.explorerUrl,
+        explorerLink: bridgeExplorerLink,
+        destinationTxHash: null,
+        bridgeStatus: confirmationStatus,
+        providerId: bridgeRoute.providerName
+      });
+
       recordActivity({
-        actionType: "bridge_completed",
-        title: `Bridged ${bridge.amount} ${bridge.tokenSymbol}`,
-        description: `Bridged ${bridge.amount} ${bridge.tokenSymbol} from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
+        actionType: bridgeConfirmed ? "bridge_completed" : "bridge_transaction_submitted",
+        title: bridgeConfirmed ? `Bridged ${bridge.amount} ${bridge.tokenSymbol}` : `Bridge submitted: ${bridge.amount} ${bridge.tokenSymbol}`,
+        description: bridgeConfirmed
+          ? `Bridged ${bridge.amount} ${bridge.tokenSymbol} from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`
+          : `Bridge transaction submitted from ${bridge.fromNetwork.name} to ${bridge.toNetwork.name}.`,
         feature: "bridge",
         token: bridge.tokenSymbol,
         amount: bridge.amount,
         network: `${bridge.fromNetwork.name} -> ${bridge.toNetwork.name}`,
-        status: "success",
+        status: bridgeConfirmed ? "success" : "pending",
         txHash: hash,
         metadata: {
-          ...getBridgeActivityMetadata("confirmed", selectedQuote),
+          ...getBridgeActivityMetadata(bridgeConfirmed ? "confirmed" : "transaction_submitted", selectedQuote),
           actionCategory: "bridge",
           actionId: `bridge_${hash}`,
           fromToken: bridge.tokenSymbol,
@@ -2007,9 +2064,12 @@ export default function TradePage() {
           fromAmount: bridge.amount,
           toAmount: selectedQuote?.toAmount ? formatLifiAmount(selectedQuote.toAmount, 6) : null,
           mainTxHash: hash,
+          destinationTxHash: null,
           routeProvider: bridgeRoute.providerName,
           selectedProvider: bridgeRoute.providerName,
-          explorerLink: explorerTxUrl(bridge.fromNetwork.explorerUrl || ARC_EXPLORER_URL, hash)
+          explorerChainId: bridge.fromNetwork.chainId,
+          explorerChainName: bridge.fromNetwork.name,
+          explorerLink: bridgeExplorerLink
         }
       });
       setBridgeSuccess({
@@ -2241,7 +2301,16 @@ export default function TradePage() {
                   </div>
                 ) : bridgeMessage ? (
                   <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
-                    {bridgeMessage}
+                    <p>{bridgeMessage}</p>
+                    {bridgeRouteDiagnostics ? (
+                      <div className="mt-3 space-y-1 text-xs text-amber-100/80">
+                        {Object.entries(bridgeRouteDiagnostics.failureReasons).map(([provider, reason]) => (
+                          <p key={provider}>
+                            <span className="font-semibold">{provider}:</span> {reason}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 <button

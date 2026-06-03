@@ -14,6 +14,9 @@ type LifiQuoteRequest = {
 };
 
 type LifiQuoteResponse = {
+  id?: string;
+  transactionId?: string;
+  includedSteps?: Array<{ id?: string; tool?: string; type?: string }>;
   toAmount?: string;
   action?: {
     fromAmount?: string;
@@ -131,7 +134,10 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: "Live quote unavailable." }, { status: 502 });
+      const payload = (await response.json().catch(() => null)) as { message?: string; error?: string; code?: number } | null;
+      const detail = payload?.message ?? payload?.error ?? "Live quote unavailable.";
+      const code = payload?.code ? ` Provider code ${payload.code}.` : "";
+      return NextResponse.json({ error: `${detail}${code}` }, { status: 502 });
     }
 
     const payload = (await response.json()) as LifiQuoteResponse;
@@ -146,12 +152,17 @@ export async function POST(request: Request) {
         fromAmount: payload.action?.fromAmount ?? fromAmount,
         fromTokenAddress: payload.action?.fromToken?.address ?? fromToken,
         fromChainId: payload.action?.fromChainId ?? fromChain,
+        routeId: payload.id ?? null,
+        transactionId: payload.transactionId ?? null,
+        stepIds: payload.includedSteps?.map((step) => step.id).filter(Boolean).join(",") ?? null,
+        stepTools: payload.includedSteps?.map((step) => step.tool).filter(Boolean).join(",") ?? null,
         transactionRequest: payload.transactionRequest ?? null
       }
     };
     QUOTE_CACHE.set(cacheKey, { data: normalized, expiresAt: Date.now() + CACHE_TTL_MS });
     return NextResponse.json(normalized);
-  } catch {
-    return NextResponse.json({ error: "Live quote unavailable." }, { status: 502 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Live quote unavailable.";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
