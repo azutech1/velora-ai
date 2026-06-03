@@ -9,6 +9,7 @@ import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { useAdminMode } from "@/hooks/useAdminMode";
+import { recordAdminAnalyticsEvent } from "@/lib/admin/analytics";
 import { Logo, LogoMark } from "./brand";
 import { navItems } from "./data";
 import { SiteFooter } from "./footer";
@@ -128,10 +129,30 @@ function Sidebar() {
 export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { address, isConnected, chain } = useAccount();
   const { isAdmin, adminLabel } = useAdminMode();
   const visibleNavItems = navItems.filter((item) => !["/activity", "/admin"].includes(item.href) || isAdmin);
   const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
+
+  useEffect(() => {
+    recordAdminAnalyticsEvent({
+      type: "page_view",
+      path: pathname,
+      walletAddress: isConnected ? address : undefined,
+      network: chain?.name
+    });
+  }, [address, chain?.name, isConnected, pathname]);
+
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    recordAdminAnalyticsEvent({
+      type: "wallet_connected",
+      path: pathname,
+      walletAddress: address,
+      network: chain?.name
+    });
+  }, [address, chain?.name, isConnected, pathname]);
 
   return (
     <main className="min-h-screen overflow-hidden">
