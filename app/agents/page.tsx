@@ -1,261 +1,103 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  Bot,
-  BrainCircuit,
-  Check,
-  Database,
-  Eye,
-  Gauge,
-  LockKeyhole,
-  PauseCircle,
-  ShieldCheck,
-  Sparkles,
-  Workflow,
-  X
-} from "lucide-react";
+import { BarChart3, Bot, CircleDollarSign, LockKeyhole, Route, ShieldAlert, Sparkles, WalletCards } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
-import { MetricCard, Panel } from "@/components/azu/ui";
-import { PaymentAgentWorkspace } from "@/components/agents/PaymentAgentWorkspace";
-import { useAIAgents } from "@/hooks/useAIAgents";
+import { Panel } from "@/components/azu/ui";
 
-const statusStyles = {
-  online: "border-mint/20 bg-mint/10 text-mint",
-  paused: "border-slate-500/20 bg-slate-500/10 text-slate-300",
-  "needs approval": "border-cyan/20 bg-cyan/10 text-cyan"
-};
+const agents = [
+  {
+    name: "Treasury Agent",
+    purpose: "Helps users understand stablecoin allocation.",
+    helps: "Analyze USDC, EURC, and USDT balances, show allocation percentages, and recommend safer balance distribution.",
+    icon: WalletCards
+  },
+  {
+    name: "Routing Agent",
+    purpose: "Finds best swap and bridge route.",
+    helps: "Compare available routes, check fees, review estimated receive amounts, and warn if a route is unavailable.",
+    icon: Route
+  },
+  {
+    name: "Payment Agent",
+    purpose: "Helps users prepare stablecoin payments.",
+    helps: "Create payment request drafts, check recipient wallets, check amounts, and require user approval before transactions.",
+    icon: CircleDollarSign
+  },
+  {
+    name: "Risk Agent",
+    purpose: "Protects users from bad routes and risky actions.",
+    helps: "Warn about high fees, unsupported routes, wrong networks, failed quotes, and suspicious recipients.",
+    icon: ShieldAlert
+  },
+  {
+    name: "Analytics Agent",
+    purpose: "Summarizes user activity.",
+    helps: "Show total swaps, bridges, activity trends, most used token, and Velora Pioneers progress.",
+    icon: BarChart3
+  }
+];
 
-const riskStyles = {
-  low: "border-mint/20 bg-mint/10 text-mint",
-  medium: "border-yellow-400/20 bg-yellow-400/10 text-yellow-200",
-  high: "border-red-400/20 bg-red-400/10 text-red-200"
-};
+function ComingSoonBadge() {
+  return (
+    <span className="inline-flex rounded-full border border-orange-400/35 bg-orange-500/15 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-orange-300">
+      Coming Soon
+    </span>
+  );
+}
 
 export default function AgentsPage() {
-  const { agents, selectedAgent, recommendations, openAgent, createRecommendation, updateRecommendation } = useAIAgents();
-  const onlineAgents = agents.filter((agent) => agent.status === "online").length;
-  const pendingAgentApprovals = agents.flatMap((agent) => agent.approvalQueue).filter((approval) => approval.status === "pending").length;
-  const pendingRecommendations = recommendations.filter((recommendation) => recommendation.status === "approval requested").length;
-
   return (
-    <AppShell title="AI Agents">
+    <AppShell title="AI Agents" eyebrow="Public beta preparation">
       <div className="space-y-6">
-        <Panel title="Agent command center" eyebrow="AI-native stablecoin workers">
-          <p className="max-w-3xl text-sm leading-6 text-slate-400">
-            Velora AI agents analyze balances, routes, payments, risks, and activity. They can recommend and prepare actions, but every transaction still requires user review and wallet approval.
-          </p>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard title="Online agents" value={String(onlineAgents)} detail="Monitoring Arc workflows" icon={Bot} />
-            <MetricCard title="Pending approvals" value={String(pendingAgentApprovals)} detail="User review required" icon={LockKeyhole} />
-            <MetricCard title="Recommendations" value={String(pendingRecommendations)} detail="Approval-first queue" icon={Sparkles} />
-            <MetricCard title="Execution mode" value="Safe" detail="No automatic fund movement" icon={ShieldCheck} />
+        <Panel title="AI Agents" eyebrow="AI-powered assistants for stablecoin finance.">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+              <ComingSoonBadge />
+              <h2 className="mt-5 text-3xl font-black text-white">AI Agents</h2>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-400">
+                AI Agents will help users analyze balances, compare routes, detect risks, review activity, and prepare recommendations.
+              </p>
+              <div className="mt-6 rounded-lg border border-orange-400/25 bg-orange-500/10 p-4 text-sm leading-6 text-orange-200">
+                This feature is currently in preparation for public release. Velora is launching core wallet, swap, bridge, activity, and Pioneer features first. AI-powered automation and agent workflows will be rolled out after additional testing.
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+              <Sparkles className="h-6 w-6 text-orange-300" />
+              <p className="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Target rollout</p>
+              <p className="mt-3 text-2xl font-black text-white">Within 1 month</p>
+              <p className="mt-4 text-sm leading-6 text-slate-400">AI Agents will provide recommendations only. They will not move funds automatically.</p>
+              <button disabled className="mt-6 w-full cursor-not-allowed rounded-lg border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-bold text-slate-400">
+                Coming Soon
+              </button>
+            </div>
           </div>
         </Panel>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <Panel title="Finance agents" eyebrow="Specialized stablecoin intelligence">
-            <div className="grid gap-4 md:grid-cols-2">
-              {agents.map((agent) => (
-                <motion.section key={agent.id} whileHover={{ y: -3 }} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex gap-3">
-                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-cyan/20 bg-cyan/10">
-                        <BrainCircuit className="h-6 w-6 text-cyan" />
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="font-bold text-white">{agent.name}</h2>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${statusStyles[agent.status]}`}>
-                            {agent.status}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-5 text-slate-400">{agent.purpose}</p>
-                      </div>
-                    </div>
+        <Panel title="Planned agent lineup" eyebrow="Recommendation-only intelligence">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {agents.map((agent) => (
+              <section key={agent.name} className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="flex items-start gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-orange-400/25 bg-orange-500/10">
+                    <agent.icon className="h-5 w-5 text-orange-300" />
                   </div>
-                  <div className="mt-4 grid gap-3 text-sm">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Permissions</p>
-                      <p className="mt-1 text-slate-300">{agent.permissions.join(", ")}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Connected tools</p>
-                      <p className="mt-1 text-slate-300">{agent.connectedTools.join(", ")}</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#080d18]/70 p-3">
-                      <p className="text-xs text-slate-500">Last insight</p>
-                      <p className="mt-1 text-sm leading-5 text-slate-300">{agent.lastInsight}</p>
-                    </div>
+                  <div>
+                    <h3 className="font-black text-white">{agent.name}</h3>
+                    <p className="mt-2 text-sm font-semibold text-slate-300">{agent.purpose}</p>
                   </div>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Confidence score</span>
-                      <span className="text-mint">{agent.confidenceScore}%</span>
-                    </div>
-                    <div className="mt-2 h-2 rounded-full bg-white/10">
-                      <div className="h-2 rounded-full bg-cyan" style={{ width: `${agent.confidenceScore}%` }} />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <p className="w-full text-xs uppercase tracking-[0.14em] text-slate-500">Available actions</p>
-                    {agent.recentActions.map((action) => (
-                      <span key={action} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">{action}</span>
-                    ))}
-                  </div>
-                  <button onClick={() => openAgent(agent.id)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-semibold text-mint transition hover:bg-cyan hover:text-white">
-                    <Eye className="h-4 w-4" /> Open Agent
-                  </button>
-                </motion.section>
-              ))}
-            </div>
-          </Panel>
-
-          <div className="space-y-6">
-            <Panel
-              title={selectedAgent.name}
-              eyebrow="Agent detail panel"
-              action={
-                <button onClick={() => createRecommendation(selectedAgent.id)} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan hover:text-white">
-                  <Sparkles className="h-4 w-4" /> New recommendation
+                </div>
+                <p className="mt-4 text-sm leading-6 text-slate-400">{agent.helps}</p>
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-slate-300">
+                  <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-orange-300" />
+                  <span>Approval-first: recommendations only, no automatic fund movement.</span>
+                </div>
+                <button disabled className="mt-4 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-bold text-slate-400">
+                  <Bot className="h-4 w-4" /> Open Agent
                 </button>
-              }
-            >
-              <div className="space-y-4 text-sm">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Current analysis</p>
-                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.currentAnalysis}</p>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Suggested action</p>
-                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.suggestedAction}</p>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Risk level</p>
-                    <span className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${riskStyles[selectedAgent.riskLevel]}`}>{selectedAgent.riskLevel}</span>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Data source</p>
-                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.dataSource}</p>
-                  </div>
-                </div>
-                <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-cyan">
-                  User approval required before any prepared action can open a wallet transaction.
-                </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-slate-300">
-                  AI Automation can prepare actions from this agent insight after user review. Wallet approval is still required before any transaction.
-                </div>
-
-                {selectedAgent.id === "payment-agent" ? (
-                  <PaymentAgentWorkspace />
-                ) : (
-                  <>
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Instructions</p>
-                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.instructions}</p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                      <p className="flex items-center gap-2 font-semibold text-white"><Workflow className="h-4 w-4 text-cyan" /> Allowed actions</p>
-                      <ul className="mt-3 space-y-2 text-slate-300">
-                        {selectedAgent.allowedActions.map((action) => <li key={action}>{action}</li>)}
-                      </ul>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                      <p className="flex items-center gap-2 font-semibold text-white"><LockKeyhole className="h-4 w-4 text-mint" /> Spending limits</p>
-                      <p className="mt-3 leading-6 text-slate-300">{selectedAgent.spendingLimits}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                    <p className="flex items-center gap-2 font-semibold text-white"><Database className="h-4 w-4 text-cyan" /> Data sources</p>
-                    <p className="mt-2 text-slate-300">{selectedAgent.dataSources.join(", ")}</p>
-                  </div>
-                  </>
-                )}
-              </div>
-            </Panel>
-
-            <Panel title="Agent approval queue" eyebrow="Review before preparation">
-              <div className="space-y-3">
-                {selectedAgent.approvalQueue.length ? (
-                  selectedAgent.approvalQueue.map((approval) => (
-                    <div key={approval.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-white">{approval.title}</p>
-                          <p className="mt-2 text-sm leading-5 text-slate-400">{approval.description}</p>
-                        </div>
-                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${riskStyles[approval.riskLevel]}`}>{approval.riskLevel}</span>
-                      </div>
-                      <p className="mt-3 text-xs text-cyan">Status: {approval.status}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-                    No agent approval requests are pending for this worker.
-                  </div>
-                )}
-              </div>
-            </Panel>
+              </section>
+            ))}
           </div>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <Panel title="AI recommendations" eyebrow="Rule-based MVP engine">
-            <div className="grid gap-4">
-              {recommendations.map((recommendation) => (
-                <div key={recommendation.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-white">{recommendation.title}</p>
-                      <p className="mt-2 text-sm leading-5 text-slate-400">{recommendation.description}</p>
-                    </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${riskStyles[recommendation.riskLevel]}`}>{recommendation.riskLevel}</span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button onClick={() => updateRecommendation(recommendation.id, "approved")} className="inline-flex items-center gap-2 rounded-lg border border-mint/30 px-3 py-2 text-xs font-semibold text-mint hover:bg-mint/10">
-                      <Check className="h-4 w-4" /> Approve
-                    </button>
-                    <button onClick={() => updateRecommendation(recommendation.id, "rejected")} className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/10">
-                      <X className="h-4 w-4" /> Reject
-                    </button>
-                    <button onClick={() => createRecommendation(recommendation.agentId)} className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan/10">
-                      <Gauge className="h-4 w-4" /> Edit
-                    </button>
-                    <button
-                      onClick={() => updateRecommendation(recommendation.id, "prepared")}
-                      disabled={recommendation.status !== "approved"}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 disabled:cursor-not-allowed disabled:opacity-50 enabled:hover:border-cyan/35 enabled:hover:text-cyan"
-                    >
-                      <Workflow className="h-4 w-4" /> Prepare action
-                    </button>
-                  </div>
-                  <p className="mt-3 text-xs text-slate-500">Status: {recommendation.status}. Token: {recommendation.token ?? "N/A"}. Network: {recommendation.network ?? "Arc Testnet"}.</p>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel title="Agent activity history" eyebrow="Safe local intelligence layer">
-            <div className="grid gap-4 md:grid-cols-2">
-              {agents.map((agent) => (
-                <div key={agent.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex items-center gap-2">
-                    {agent.status === "paused" ? <PauseCircle className="h-4 w-4 text-slate-400" /> : <Bot className="h-4 w-4 text-mint" />}
-                    <p className="font-semibold text-white">{agent.name}</p>
-                  </div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-400">
-                    {agent.activityHistory.map((item) => <p key={item}>{item}</p>)}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-              Future integrations: OpenAI/Claude reasoning APIs, Arc MCP tools, Supabase persistence, scheduled workers, smart contract permissions, and agent wallets.
-            </div>
-          </Panel>
-        </div>
+        </Panel>
       </div>
     </AppShell>
   );
