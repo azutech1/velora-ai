@@ -157,6 +157,19 @@ html.light a.bg-cyan {
   color: #ffffff !important;
 }
 
+html.light .velora-logo-dark {
+  display: none !important;
+}
+
+html.light .velora-logo-light {
+  display: block !important;
+}
+
+html.light .velora-mark {
+  background: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
 html.light [class*="border-white/10"],
 html.light [class*="border-white/20"],
 html.light [class*="border-slate"],

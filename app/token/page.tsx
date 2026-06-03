@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowRight, BadgeCheck, Blocks, Crown, Flag, Layers, LockKeyhole, Rocket, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { ArrowRight, BadgeCheck, Blocks, Crown, Flag, Layers, LockKeyhole, Rocket, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/azu/app-shell";
+import { LogoMark } from "@/components/azu/brand";
 import { Panel } from "@/components/azu/ui";
 
 const utilityCards = [
@@ -35,9 +36,7 @@ export default function TokenPage() {
         >
           <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <div className="grid h-16 w-16 place-items-center rounded-lg border border-cyan/25 bg-cyan/10">
-                <ShieldCheck className="h-8 w-8 text-cyan" />
-              </div>
+              <LogoMark size={88} className="rounded-2xl" />
               <h2 className="mt-5 text-3xl font-black text-white">The future utility token of the Velora ecosystem.</h2>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
                 Token details will be revealed as the ecosystem evolves.

@@ -9,7 +9,7 @@ import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { useAdminMode } from "@/hooks/useAdminMode";
-import { Logo } from "./brand";
+import { Logo, LogoMark } from "./brand";
 import { navItems } from "./data";
 import { SiteFooter } from "./footer";
 import { cx } from "./utils";
@@ -145,6 +145,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
                 <button className="rounded-lg border border-white/10 p-2 text-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
                   <Menu className="h-5 w-5" />
                 </button>
+                <LogoMark size={42} className="hidden sm:grid" />
                 <div>
                   <p className="text-sm text-slate-400">{eyebrow ?? "AI-native stablecoin operating system on Arc"}</p>
                   <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">{title}</h1>

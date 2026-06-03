@@ -7,7 +7,7 @@ export const TOKEN_ICON_PATHS = {
   ETH: "/tokens/eth.svg",
   BTC: "/tokens/btc.svg",
   ARC: "/tokens/arc-official.jpg",
-  AVL: "/tokens/avl.svg"
+  AVL: "/brand/velora-mark-dark.png"
 } as const;
 
 export type TokenIconSymbol = keyof typeof TOKEN_ICON_PATHS;
