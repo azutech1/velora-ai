@@ -98,12 +98,13 @@ export default function AgentsPage() {
                     </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
+                    <p className="w-full text-xs uppercase tracking-[0.14em] text-slate-500">Available actions</p>
                     {agent.recentActions.map((action) => (
                       <span key={action} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">{action}</span>
                     ))}
                   </div>
                   <button onClick={() => openAgent(agent.id)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-semibold text-mint transition hover:bg-cyan hover:text-white">
-                    <Eye className="h-4 w-4" /> Open agent
+                    <Eye className="h-4 w-4" /> Open Agent
                   </button>
                 </motion.section>
               ))}
@@ -120,10 +121,36 @@ export default function AgentsPage() {
                 </button>
               }
             >
-              {selectedAgent.id === "payment-agent" ? (
-                <PaymentAgentWorkspace />
-              ) : (
-                <div className="space-y-4 text-sm">
+              <div className="space-y-4 text-sm">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Current analysis</p>
+                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.currentAnalysis}</p>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Suggested action</p>
+                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.suggestedAction}</p>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Risk level</p>
+                    <span className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${riskStyles[selectedAgent.riskLevel]}`}>{selectedAgent.riskLevel}</span>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Data source</p>
+                    <p className="mt-2 leading-6 text-slate-300">{selectedAgent.dataSource}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-cyan">
+                  User approval required before any prepared action can open a wallet transaction.
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 text-slate-300">
+                  AI Automation can prepare actions from this agent insight after user review. Wallet approval is still required before any transaction.
+                </div>
+
+                {selectedAgent.id === "payment-agent" ? (
+                  <PaymentAgentWorkspace />
+                ) : (
+                  <>
                   <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Instructions</p>
                     <p className="mt-2 leading-6 text-slate-300">{selectedAgent.instructions}</p>
@@ -144,8 +171,9 @@ export default function AgentsPage() {
                     <p className="flex items-center gap-2 font-semibold text-white"><Database className="h-4 w-4 text-cyan" /> Data sources</p>
                     <p className="mt-2 text-slate-300">{selectedAgent.dataSources.join(", ")}</p>
                   </div>
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </Panel>
 
             <Panel title="Agent approval queue" eyebrow="Review before preparation">

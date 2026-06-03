@@ -5,7 +5,7 @@ import { ArrowDown, ArrowDownUp, Check, ChevronDown, ExternalLink, Loader2, Refr
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, parseUnits, type Address, type Hex } from "viem";
-import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
@@ -17,7 +17,7 @@ import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
 import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 import { useTransactions } from "@/hooks/useTransactions";
 import type { ArcAppKitSwapEstimate } from "@/lib/appkit/swap";
-import { getChainById } from "@/lib/config/chains";
+import { getChainById, type AppChain } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import {
   arcNativeBridgeProvider,
@@ -156,6 +156,56 @@ function calculateRequiredSellAmount(receiveAmount: string, sellPrice: number, b
 
 function hasExecutableTransactionRequest(quote: LifiEstimate | null) {
   return Boolean(quote?.transactionRequest?.to && quote.transactionRequest.data);
+}
+
+function hexChainId(chainId: number) {
+  return `0x${chainId.toString(16)}`;
+}
+
+function chainSwitchErrorMessage(error: unknown) {
+  const serialized = serializeSwapError(error);
+  const raw = [
+    serialized.message,
+    serialized.shortMessage,
+    serialized.details,
+    serialized.reason,
+    serialized.code ? `Wallet error code ${serialized.code}` : undefined
+  ]
+    .filter((item): item is string => typeof item === "string" && item.length > 0)
+    .join(" ");
+  const lower = raw.toLowerCase();
+
+  if (lower.includes("4001") || lower.includes("rejected") || lower.includes("denied")) return "Wallet rejected network switch.";
+  if (lower.includes("4902") || lower.includes("unrecognized") || lower.includes("not added")) return "Network not supported.";
+  if (lower.includes("does not support") || lower.includes("unsupported method")) return "Wallet does not support chain switching.";
+  if (lower.includes("missing") || lower.includes("configuration")) return "Chain configuration missing.";
+  return raw || "Wallet does not support chain switching.";
+}
+
+function isMissingWalletChainError(error: unknown) {
+  const serialized = serializeSwapError(error);
+  const raw = [
+    serialized.message,
+    serialized.shortMessage,
+    serialized.details,
+    serialized.reason,
+    serialized.code ? String(serialized.code) : undefined
+  ]
+    .filter((item): item is string => typeof item === "string" && item.length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  return raw.includes("4902") || raw.includes("unrecognized") || raw.includes("not added");
+}
+
+function walletAddEthereumChainParams(chain: AppChain) {
+  return {
+    chainId: hexChainId(chain.chainId),
+    chainName: chain.name,
+    nativeCurrency: chain.nativeCurrency,
+    rpcUrls: [chain.rpcUrl],
+    blockExplorerUrls: [chain.explorer]
+  };
 }
 
 function PriceTicker() {
@@ -343,6 +393,7 @@ export default function TradePage() {
   const { isConnected, address, chainId: walletChainId } = useAccount();
   const queryClient = useQueryClient();
   const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();
   const { recordActivity } = useActivityRecorder();
   const autoSwapQuoteRef = useRef<() => void>(() => undefined);
@@ -375,6 +426,7 @@ export default function TradePage() {
   const [swapQuoteTimestamp, setSwapQuoteTimestamp] = useState<number | null>(null);
   const [swapWalletWaiting, setSwapWalletWaiting] = useState(false);
   const [swapSubmitting, setSwapSubmitting] = useState(false);
+  const [bridgeSwitching, setBridgeSwitching] = useState(false);
   const [bridgeQuoteReady, setBridgeQuoteReady] = useState(false);
   const [bridgeQuoteLoading, setBridgeQuoteLoading] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
@@ -510,19 +562,23 @@ export default function TradePage() {
   const bridgeAmountValue = Number(bridge.amount);
   const hasValidBridgeAmount = Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0;
   const bridgeWrongNetwork = Boolean(isConnected && walletChainId && walletChainId !== bridge.fromNetwork.chainId);
-  const bridgeRouteUnavailable = !bridgeRoute && bridgeMessage === "Bridge route is not currently available for this network pair.";
+  const bridgeRouteUnavailable = !bridgeRoute && bridgeMessage === "No live bridge route is currently available for this network pair.";
   const bridgeButtonLabel = bridgeQuoteLoading
-    ? "Searching route..."
+    ? "Checking Route..."
+    : bridgeSwitching
+      ? `Switching to ${bridge.fromNetwork.name}...`
     : bridgeHasExecutableQuote
       ? transactions.isPending
         ? "Bridge pending..."
         : "Bridge"
       : bridgeWrongNetwork
         ? `Switch to ${bridge.fromNetwork.name}`
+      : !hasValidBridgeAmount
+        ? "Enter Amount"
       : bridgeRouteUnavailable && hasValidBridgeAmount
-        ? "Bridge unavailable"
+        ? "Route Unavailable"
         : "Get Bridge Quote";
-  const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || bridgeWrongNetwork || (bridgeRouteUnavailable && hasValidBridgeAmount);
+  const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || bridgeSwitching || (!bridgeWrongNetwork && !hasValidBridgeAmount) || (bridgeRouteUnavailable && hasValidBridgeAmount);
   const bridgeReceiveAmount = lifiQuote?.toAmount ? formatLifiAmount(lifiQuote.toAmount, bridgeToken.decimals) : "";
   const bridgeFeeLabel = lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : "Not returned by provider";
 
@@ -1376,6 +1432,72 @@ export default function TradePage() {
     void executeConfirmedSwap();
   }
 
+  async function switchBridgeSourceNetwork() {
+    if (!isConnected || !address) {
+      setBridgeMessage("Connect wallet to switch networks.");
+      return;
+    }
+
+    const sourceChain = getChainById(bridge.fromNetwork.chainId);
+    if (!sourceChain) {
+      setBridgeMessage("Chain configuration missing.");
+      return;
+    }
+
+    setBridgeSwitching(true);
+    setBridgeMessage(`Switching wallet to ${sourceChain.name}...`);
+    setBridgeQuoteReady(false);
+    setBridgeRoute(null);
+    setLifiQuote(null);
+
+    try {
+      if (walletClient?.request) {
+        try {
+          await walletClient.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: hexChainId(sourceChain.chainId) }]
+          });
+        } catch (switchError) {
+          debugBridge("wallet_switchEthereumChain failed", { error: serializeSwapError(switchError), targetChain: sourceChain });
+          if (!isMissingWalletChainError(switchError)) {
+            throw switchError;
+          }
+
+          await walletClient.request({
+            method: "wallet_addEthereumChain",
+            params: [walletAddEthereumChainParams(sourceChain)]
+          });
+          await walletClient.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: hexChainId(sourceChain.chainId) }]
+          });
+        }
+      } else {
+        await switchChainAsync({ chainId: sourceChain.chainId });
+      }
+
+      setBridgeMessage(`Wallet switched to ${sourceChain.name}.`);
+    } catch (error) {
+      const message = chainSwitchErrorMessage(error);
+      debugBridge("network switch failed", { error: serializeSwapError(error), message, targetChain: sourceChain });
+      setBridgeMessage(message);
+    } finally {
+      setBridgeSwitching(false);
+    }
+  }
+
+  async function handleBridgePrimaryAction() {
+    if (bridgeWrongNetwork) {
+      await switchBridgeSourceNetwork();
+      return;
+    }
+    if (bridgeHasExecutableQuote) {
+      await handleReviewBridge();
+      return;
+    }
+    await handleBridgeQuote();
+  }
+
   function refreshSwapRouteAfterSuccess() {
     swapQuoteRequestIdRef.current += 1;
     setSwapRoute(null);
@@ -1639,7 +1761,7 @@ export default function TradePage() {
         metadata: getBridgeActivityMetadata("live_quote_failed")
       });
       setBridgeQuoteReady(false);
-      setBridgeMessage("Bridge route is not currently available for this network pair.");
+      setBridgeMessage("No live bridge route is currently available for this network pair.");
       return;
     }
 
@@ -1655,7 +1777,7 @@ export default function TradePage() {
         status: "failed",
         metadata: getBridgeActivityMetadata("route_unavailable")
       });
-      setBridgeMessage("Bridge route is not currently available for this network pair.");
+      setBridgeMessage("Bridge provider is currently unavailable.");
       setBridgeQuoteReady(false);
       return;
     }
@@ -1739,7 +1861,7 @@ export default function TradePage() {
             diagnostics: JSON.stringify(routeResult.diagnostics)
           }
         });
-        setBridgeMessage("Bridge route is not currently available for this network pair.");
+        setBridgeMessage("No live bridge route is currently available for this network pair.");
         setBridgeQuoteReady(false);
         return;
       }
@@ -1779,7 +1901,7 @@ export default function TradePage() {
         metadata: getBridgeActivityMetadata("live_quote_failed")
       });
       debugBridge("bridge quote failed", { error: serializeSwapError(error), reason });
-      setBridgeMessage("Bridge route is not currently available for this network pair.");
+      setBridgeMessage("No live bridge route is currently available for this network pair.");
       setBridgeQuoteReady(false);
       return;
     } finally {
@@ -1799,7 +1921,7 @@ export default function TradePage() {
     }
 
     if (!bridgeRoute) {
-      setBridgeMessage("Bridge route is not currently available for this network pair.");
+      setBridgeMessage("No live bridge route is currently available for this network pair.");
       return;
     }
 
@@ -2123,7 +2245,7 @@ export default function TradePage() {
                   </div>
                 ) : null}
                 <button
-                  onClick={bridgeHasExecutableQuote ? handleReviewBridge : handleBridgeQuote}
+                  onClick={handleBridgePrimaryAction}
                   disabled={bridgeButtonDisabled}
                   className={cx(
                     "flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 font-bold shadow-neon transition",
