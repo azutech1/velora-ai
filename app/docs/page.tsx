@@ -4,6 +4,11 @@ import { Panel } from "@/components/azu/ui";
 
 const sections = [
   {
+    id: "production-resources",
+    title: "Production Resources",
+    body: "Documentation Coming Soon. Public production resources will be published here as Velora AI moves toward broader release."
+  },
+  {
     id: "api-reference",
     title: "API Reference",
     body: "Velora AI API surfaces are organized around wallet activity, agent payment approvals, payment execution, and transaction status. Public API documentation will expand as production integrations stabilize."
@@ -31,7 +36,7 @@ const sections = [
   {
     id: "support",
     title: "Support",
-    body: "For now, use the Velora AI GitHub repository to review code, track issues, and report bugs."
+    body: "Documentation Coming Soon. Public support and issue-reporting resources will be published here as Velora AI documentation expands."
   }
 ];
 
@@ -39,24 +44,21 @@ export default function DocsPage() {
   return (
     <AppShell title="Documentation" eyebrow="Developer resources and integration notes">
       <div className="mx-auto max-w-5xl space-y-5">
-        <Panel
-          title="Velora AI Documentation"
-          eyebrow="Production resources"
-          action={
-            <a
-              href="https://github.com/azutech1/velora-ai"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan transition hover:border-cyan/50 hover:text-white"
-            >
-              GitHub
-            </a>
-          }
-        >
-          <p className="max-w-3xl text-sm leading-7 text-slate-400">
-            Velora AI is an AI-native stablecoin operating system on Arc. These docs provide a stable home for product, developer, community, and support resources as integrations move from alpha to production.
-          </p>
-        </Panel>
+        <div id="velora-documentation" className="scroll-mt-24">
+          <Panel
+            title="Velora AI Documentation"
+            eyebrow="Production resources"
+            action={
+              <span className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-bold text-cyan">
+                Documentation Coming Soon
+              </span>
+            }
+          >
+            <p className="max-w-3xl text-sm leading-7 text-slate-400">
+              Velora AI is an AI-native stablecoin operating system on Arc. These docs provide a stable home for product, developer, community, and support resources as integrations move from alpha to production.
+            </p>
+          </Panel>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           {sections.map((section) => (

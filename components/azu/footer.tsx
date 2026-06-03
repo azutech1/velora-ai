@@ -19,10 +19,8 @@ const productLinks = [
 
 const developerLinks = [
   { label: "Documentation", href: "/docs" },
-  { label: "API Reference", href: "/docs#api-reference" },
-  { label: "Integration Guide", href: "/docs#integration-guide" },
-  { label: "Status Page", href: "/docs#status" },
-  { label: "Report Bug", href: "/docs#support" }
+  { label: "Production Resources", href: "/docs#production-resources" },
+  { label: "Velora Documentation", href: "/docs#velora-documentation" }
 ];
 
 const communityLinks = [
