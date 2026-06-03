@@ -7,7 +7,6 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
-import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { TokenLogo } from "@/components/token/TokenLogo";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
@@ -112,7 +111,6 @@ export default function DashboardPage() {
 
   const chartData = useMemo(() => buildActivityChartData(walletActivities), [walletActivities]);
   const hasChartData = chartData.some((item) => item.total > 0);
-  const recentActivities = walletActivities.slice(0, 3);
   const pioneers = usePioneerProfile(walletActivities);
   const pioneerSummary = pioneers.summary;
   const latestPioneerBadge = pioneerSummary.badges.filter((badge) => badge.earned).at(-1)?.name ?? "--";
@@ -200,19 +198,7 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <Panel
-            title="Recent Activity"
-            eyebrow="Latest wallet actions"
-            action={
-              <Link href="/activity" className="rounded-lg border border-orange/30 bg-orange/10 px-4 py-2 text-sm font-bold text-orange transition hover:border-orange/50 hover:text-white">
-                View All Activity
-              </Link>
-            }
-          >
-            <ActivityTimeline records={recentActivities} emptyText={isConnected ? "No activity yet." : "Connect wallet to view activity."} />
-          </Panel>
-
+        <div className="grid gap-6">
           <Panel
             title="Velora Pioneers Progress"
             eyebrow="Community status"

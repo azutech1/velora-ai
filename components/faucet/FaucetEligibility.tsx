@@ -1,8 +1,7 @@
 "use client";
 
-import { ExternalLink, Loader2, RadioTower, ShieldCheck, Wallet } from "lucide-react";
+import { Loader2, RadioTower, ShieldCheck, Wallet } from "lucide-react";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
-import { CIRCLE_FAUCET_URL, FAUCET_SAFETY_TEXT } from "@/lib/faucet/tokens";
 
 export function FaucetEligibility({ isConnected, isArc }: { isConnected: boolean; isArc: boolean }) {
   const { isSwitching, switchToArc, expectedChain } = useArcNetwork();
@@ -39,15 +38,6 @@ export function FaucetEligibility({ isConnected, isArc }: { isConnected: boolean
           Switch to Arc
         </button>
       ) : null}
-      <a
-        href={CIRCLE_FAUCET_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-5 inline-flex items-center gap-2 rounded-lg bg-cyan px-4 py-3 text-sm font-bold text-white shadow-neon transition hover:scale-[1.02]"
-      >
-        Open Circle Faucet <ExternalLink className="h-4 w-4" />
-      </a>
-      <p className="mt-5 rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">{FAUCET_SAFETY_TEXT}</p>
     </section>
   );
 }
