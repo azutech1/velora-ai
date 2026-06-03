@@ -1,149 +1,150 @@
 "use client";
 
-import { Award, BadgeCheck, Coins, Crown, Medal, ShieldCheck, Sparkles, Trophy, Users } from "lucide-react";
+import { ArrowRight, BadgeCheck, Blocks, Crown, Flag, Layers, LockKeyhole, Rocket, ShieldCheck, Sparkles, Users } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/azu/app-shell";
-import { MetricCard, Panel } from "@/components/azu/ui";
-import { cx } from "@/components/azu/utils";
-import { useActivityRecorder } from "@/hooks/useActivityRecorder";
-import { calculateVeloraPoints, VELORA_BADGES, VELORA_TOKEN, VELORA_TOKENOMICS } from "@/lib/tokens/velora";
+import { Panel } from "@/components/azu/ui";
 
-const pointCategories = [
-  { label: "Swaps", key: "swaps", detail: "Live swap activity" },
-  { label: "Bridges", key: "bridges", detail: "Bridge workflow activity" },
-  { label: "Payments", key: "payments", detail: "Stablecoin payment activity" },
-  { label: "Automation", key: "automation", detail: "Automation and approval activity" },
-  { label: "Agent Usage", key: "agentUsage", detail: "AI agent and agent payment activity" },
-  { label: "Referrals", key: "referrals", detail: "Referral activity when available" }
-] as const;
+const utilityCards = [
+  { title: "Ecosystem Rewards", detail: "Designed for future ecosystem participation programs.", icon: Sparkles },
+  { title: "Community Participation", detail: "Support recognition for users who help the network grow.", icon: Users },
+  { title: "Velora Pioneers Recognition", detail: "Connect reputation, badges, streaks, and meaningful activity.", icon: BadgeCheck },
+  { title: "Premium Features", detail: "Planned support for advanced product capabilities.", icon: Crown },
+  { title: "Governance Initiatives", detail: "Future community input paths may be introduced over time.", icon: Flag },
+  { title: "Partner Ecosystem Benefits", detail: "Create room for integrations across the Velora ecosystem.", icon: Blocks },
+  { title: "Future Campaigns", detail: "Support product-led ecosystem initiatives as Velora matures.", icon: Rocket },
+  { title: "Platform Incentives", detail: "Align useful platform activity with long-term ecosystem growth.", icon: Layers }
+];
 
-const leaderboardSections = [
-  "Top Users",
-  "Top Contributors",
-  "Top Automation Users",
-  "Top Bridge Users"
+const tokenStatus = [
+  ["Token Status", "In Development"],
+  ["Launch Timeline", "To Be Announced"],
+  ["Tokenomics", "Coming Soon"],
+  ["Supply Details", "To Be Announced"],
+  ["Distribution Details", "To Be Announced"]
 ];
 
 export default function TokenPage() {
-  const { activities } = useActivityRecorder();
-  const summary = calculateVeloraPoints(activities);
-  const earnedBadges = summary.badges.filter((badge) => badge.earned).length;
-
   return (
-    <AppShell title="Velora Token" eyebrow="Coming soon ecosystem participation">
+    <AppShell title="Velora Token" eyebrow="Ecosystem utility">
       <div className="space-y-6">
         <Panel
           title="Velora Token"
-          eyebrow="Coming Soon"
-          action={<span className="rounded-full border border-mint/30 bg-mint/10 px-3 py-2 text-xs font-bold text-mint">{VELORA_TOKEN.status}</span>}
+          eyebrow="Future ecosystem utility"
+          action={<span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan">In Development</span>}
         >
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <div className="flex items-center gap-4">
-                <div className="grid h-16 w-16 place-items-center rounded-full border border-mint/30 bg-mint/10 shadow-neon">
-                  <Coins className="h-8 w-8 text-mint" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-400">Ticker</p>
-                  <h2 className="text-3xl font-black text-white">{VELORA_TOKEN.symbol}</h2>
-                </div>
+              <div className="grid h-16 w-16 place-items-center rounded-lg border border-cyan/25 bg-cyan/10">
+                <ShieldCheck className="h-8 w-8 text-cyan" />
               </div>
-              <p className="mt-6 max-w-3xl text-sm leading-7 text-slate-300">{VELORA_TOKEN.purpose}</p>
-              <div className="mt-5 rounded-lg border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
-                <ShieldCheck className="mb-2 h-5 w-5" />
-                {VELORA_TOKEN.communityMessage}
-              </div>
+              <h2 className="mt-5 text-3xl font-black text-white">The future utility token of the Velora ecosystem.</h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
+                Token details will be revealed as the ecosystem evolves.
+              </p>
             </div>
-            <div className="grid gap-3">
-              {[
-                ["Status", VELORA_TOKEN.status],
-                ["Ticker", VELORA_TOKEN.symbol],
-                ["Purpose", "Ecosystem utility planning"],
-                ["Program", "Early adopter recognition"]
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                  <span className="text-sm text-slate-400">{label}</span>
-                  <span className="text-right text-sm font-semibold text-white">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Panel>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard title="Points" value={String(summary.totalPoints)} detail="Calculated from Velora activity" icon={Sparkles} />
-          <MetricCard title="Badges" value={`${earnedBadges}/${VELORA_BADGES.length}`} detail="Earned through real usage" icon={Award} />
-          <MetricCard title="Rank" value={summary.rank} detail="No token entitlement implied" icon={Crown} />
-        </div>
-
-        <Panel title="Tokenomics" eyebrow="Planning framework">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {VELORA_TOKENOMICS.map((item) => (
-              <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm text-slate-400">{item.label}</p>
-                <p className="mt-3 text-2xl font-black text-white">{item.value}</p>
-                {item.value.endsWith("%") ? (
-                  <div className="mt-4 h-2 rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-cyan" style={{ width: item.value }} />
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Current status</p>
+              <div className="mt-4 space-y-3">
+                {tokenStatus.slice(0, 3).map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-black/20 p-3">
+                    <span className="text-sm text-slate-400">{label}</span>
+                    <span className="text-right text-sm font-semibold text-white">{value}</span>
                   </div>
-                ) : null}
-                <p className="mt-4 text-sm leading-6 text-slate-400">{item.detail}</p>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </Panel>
 
-        <Panel title="Early Adopter Program" eyebrow="Community-first participation">
-          <div className="rounded-lg border border-mint/20 bg-mint/10 p-5">
-            <p className="text-lg font-bold text-white">Participation may be considered for future ecosystem rewards.</p>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
-              This is not a promise of token distribution, profit, eligibility, or allocation. Velora AI uses points and badges to recognize product participation while the ecosystem is in testnet alpha.
+        <Panel title="What is Velora Token?" eyebrow="About">
+          <div className="max-w-4xl space-y-4 text-sm leading-7 text-slate-300">
+            <p>
+              The Velora Token is being designed to power the next generation of the Velora ecosystem.
+            </p>
+            <p>
+              Velora is building a stablecoin-focused platform where users can swap assets, bridge across networks, interact with AI-powered tools, and build their reputation through meaningful on-chain activity.
+            </p>
+            <p>
+              The Velora Token is intended to align platform growth with community participation.
             </p>
           </div>
         </Panel>
 
-        <Panel title="Badge System" eyebrow="Recognition levels">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {summary.badges.map((badge) => (
-              <div key={badge.id} className={cx("rounded-lg border p-5", badge.earned ? "border-mint/30 bg-mint/10" : "border-white/10 bg-white/[0.04]")}>
-                <div className="flex items-center justify-between gap-3">
-                  <BadgeCheck className={cx("h-6 w-6", badge.earned ? "text-mint" : "text-slate-500")} />
-                  <span className={cx("rounded-full px-2.5 py-1 text-xs font-semibold", badge.earned ? "bg-mint/15 text-mint" : "bg-white/[0.06] text-slate-400")}>
-                    {badge.earned ? "Earned" : "Locked"}
-                  </span>
+        <Panel title="Why Velora Token?" eyebrow="Purpose">
+          <div className="rounded-lg border border-cyan/20 bg-cyan/10 p-5">
+            <p className="max-w-4xl text-sm leading-7 text-cyan">
+              Velora Token is designed to support ecosystem participation, community growth, future platform features, and long-term network development. The focus is on creating utility first and speculation second.
+            </p>
+          </div>
+        </Panel>
+
+        <Panel title="Planned Utility" eyebrow="Utility roadmap">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {utilityCards.map((item) => (
+              <div key={item.title} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                <div className="grid h-10 w-10 place-items-center rounded-lg border border-cyan/20 bg-cyan/10">
+                  <item.icon className="h-5 w-5 text-cyan" />
                 </div>
-                <h3 className="mt-4 text-lg font-bold text-white">{badge.name}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{badge.detail}</p>
-                <p className="mt-4 text-xs text-cyan">{badge.threshold}</p>
+                <h3 className="mt-4 font-bold text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-sm leading-6 text-slate-400">
+            Additional utility details will be shared as development progresses.
+          </p>
+        </Panel>
+
+        <Panel title="Velora Pioneers" eyebrow="Early ecosystem participation">
+          <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+            <div className="space-y-4 text-sm leading-7 text-slate-300">
+              <p>Early users help shape the future of Velora.</p>
+              <p>
+                Platform activity, engagement, badges, streaks, and participation contribute to user reputation within the ecosystem.
+              </p>
+              <p>Early participation may be considered in future ecosystem initiatives.</p>
+            </div>
+            <Link href="/pioneers" className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01]">
+              Open Velora Pioneers <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </Panel>
+
+        <Panel title="Building for the Long Term" eyebrow="Ecosystem vision">
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <p className="max-w-4xl text-sm leading-7 text-slate-300">
+              Velora is focused on building real products, useful infrastructure, and a strong community before introducing major ecosystem expansions. Sustainable growth comes from utility, participation, and innovation.
+            </p>
+          </div>
+        </Panel>
+
+        <Panel title="Token Status" eyebrow="Transparent development state">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {tokenStatus.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm text-slate-400">{label}</p>
+                <p className="mt-3 text-lg font-black text-white">{value}</p>
               </div>
             ))}
           </div>
         </Panel>
 
-        <Panel title="Points System" eyebrow="Tracked categories">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {pointCategories.map((category) => (
-              <div key={category.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm text-slate-400">{category.label}</p>
-                <p className="mt-3 text-3xl font-black text-white">{summary.counts[category.key]}</p>
-                <p className="mt-2 text-sm text-slate-500">{category.detail}</p>
+        <Panel title="Join Early" eyebrow="The journey is just beginning">
+          <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+            <div className="space-y-3 text-sm leading-7 text-slate-300">
+              <p>Become part of the Velora ecosystem today.</p>
+              <p>Use the platform. Build your reputation. Earn badges. Participate in the community.</p>
+              <p>The journey is just beginning.</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-5">
+              <div className="flex items-start gap-3">
+                <LockKeyhole className="mt-0.5 h-5 w-5 text-cyan" />
+                <p className="text-sm leading-6 text-slate-400">
+                  Supply, distribution, launch timing, and tokenomics remain intentionally undisclosed until finalized.
+                </p>
               </div>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel title="Leaderboard" eyebrow="Community rankings">
-          <div className="grid gap-4 md:grid-cols-2">
-            {leaderboardSections.map((section) => (
-              <div key={section} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-                <div className="flex items-center gap-3">
-                  {section.includes("Bridge") ? <Trophy className="h-5 w-5 text-cyan" /> : section.includes("Automation") ? <Medal className="h-5 w-5 text-cyan" /> : <Users className="h-5 w-5 text-cyan" />}
-                  <h3 className="font-bold text-white">{section}</h3>
-                </div>
-                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-6 text-center text-sm text-slate-400">
-                  No public leaderboard data yet.
-                </div>
-              </div>
-            ))}
+            </div>
           </div>
         </Panel>
       </div>

@@ -2,21 +2,12 @@ import type { ActivityRecord } from "@/lib/activity/types";
 
 export const VELORA_TOKEN = {
   name: "Velora Token",
-  symbol: "AVL",
-  status: "Coming Soon",
+  symbol: "To Be Announced",
+  status: "In Development",
   purpose: "Designed as future ecosystem utility for Velora AI product access, participation, and community contribution tracking.",
   communityMessage:
     "Velora Token is not launched. Velora AI is building community-first participation systems before any token availability or launch decisions."
 };
-
-export const VELORA_TOKENOMICS = [
-  { label: "Total Supply", value: "100,000,000 AVL", detail: "Planned maximum supply for ecosystem planning. Token is not launched." },
-  { label: "Community Allocation", value: "40%", detail: "Reserved for community programs, contribution recognition, and ecosystem participation." },
-  { label: "Ecosystem Allocation", value: "25%", detail: "Reserved for integrations, developer programs, infrastructure, and growth initiatives." },
-  { label: "Treasury", value: "15%", detail: "Reserved for long-term protocol operations, security, and ecosystem sustainability." },
-  { label: "Team", value: "15%", detail: "Reserved for builders and contributors supporting long-term Velora AI development." },
-  { label: "Liquidity", value: "5%", detail: "Reserved for possible future market infrastructure if the token launches." }
-];
 
 export const VELORA_BADGES = [
   { id: "explorer", name: "Explorer", detail: "Connect and use core Velora AI pages.", threshold: "Complete any Velora activity." },
