@@ -5,10 +5,28 @@ import { ChevronDown, Copy, ExternalLink, Loader2, LogOut, ShieldCheck, Wallet }
 import { useEffect, useRef, useState } from "react";
 import { useDisconnect } from "wagmi";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { recordAdminAnalyticsEvent } from "@/lib/admin/analytics";
 import { useAuthContext } from "@/providers/AuthProvider";
+
+const ACTIVE_WALLET_CONNECTION_KEY = "velora:active-wallet-connection";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function getActiveWalletConnection() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ACTIVE_WALLET_CONNECTION_KEY);
+}
+
+function setActiveWalletConnection(address: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACTIVE_WALLET_CONNECTION_KEY, address.toLowerCase());
+}
+
+function clearActiveWalletConnection() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ACTIVE_WALLET_CONNECTION_KEY);
 }
 
 function WalletActivityTracker({
@@ -35,6 +53,10 @@ function WalletActivityTracker({
     const currentChain = connected ? chainId ?? null : null;
 
     if (currentAddress && previousAddress.current !== currentAddress) {
+      const normalizedAddress = currentAddress.toLowerCase();
+      const previousAnalyticsConnection = getActiveWalletConnection();
+      const isNewConnectionEvent = previousAnalyticsConnection !== normalizedAddress;
+
       recordActivity({
         walletAddress: currentAddress,
         actionType: "wallet_connect",
@@ -44,6 +66,16 @@ function WalletActivityTracker({
         network: chainName,
         status: "success"
       });
+
+      if (isNewConnectionEvent) {
+        recordAdminAnalyticsEvent({
+          type: "wallet_connected",
+          path: window.location.pathname,
+          walletAddress: currentAddress,
+          network: chainName
+        });
+        setActiveWalletConnection(currentAddress);
+      }
     }
 
     if (!currentAddress && previousAddress.current) {
@@ -55,6 +87,13 @@ function WalletActivityTracker({
         feature: "wallet",
         status: "info"
       });
+      recordAdminAnalyticsEvent({
+        type: "wallet_disconnected",
+        path: window.location.pathname,
+        walletAddress: previousAddress.current,
+        network: chainName
+      });
+      clearActiveWalletConnection();
     }
 
     if (currentAddress && previousChain.current && previousChain.current !== currentChain) {

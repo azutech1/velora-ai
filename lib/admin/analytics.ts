@@ -110,6 +110,37 @@ function unique<T>(items: T[]) {
   return Array.from(new Set(items));
 }
 
+function normalizeWalletAddress(walletAddress?: string | null) {
+  return walletAddress?.trim().toLowerCase();
+}
+
+function connectedWalletEvents(events: AdminAnalyticsEvent[]) {
+  return events.filter((event) => event.type === "wallet_connected" && Boolean(event.walletAddress));
+}
+
+function countActualWalletConnections(events: AdminAnalyticsEvent[]) {
+  const activeWalletBySession = new Map<string, string>();
+
+  return [...events]
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .reduce((count, event) => {
+      if (!event.walletAddress) return count;
+
+      if (event.type === "wallet_disconnected") {
+        if (activeWalletBySession.get(event.sessionId) === event.walletAddress) {
+          activeWalletBySession.delete(event.sessionId);
+        }
+        return count;
+      }
+
+      if (event.type !== "wallet_connected") return count;
+      if (activeWalletBySession.get(event.sessionId) === event.walletAddress) return count;
+
+      activeWalletBySession.set(event.sessionId, event.walletAddress);
+      return count + 1;
+    }, 0);
+}
+
 function countActivity(records: ActivityRecord[], feature: "swap" | "bridge" | "faucet" | "pioneers") {
   return records.filter((record) => record.feature === feature || record.actionType.includes(feature)).length;
 }
@@ -127,7 +158,7 @@ export function buildDailySeries(events: AdminAnalyticsEvent[], records: Activit
       key,
       label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       visitors: unique(dayEvents.map((event) => event.sessionId)).length,
-      walletConnections: dayEvents.filter((event) => event.walletAddress).length,
+      walletConnections: countActualWalletConnections(dayEvents),
       swaps: countActivity(dayRecords, "swap"),
       bridges: countActivity(dayRecords, "bridge"),
       pageViews: dayEvents.filter((event) => event.type === "page_view").length
@@ -163,8 +194,8 @@ export function buildAdminUserAnalytics(events: AdminAnalyticsEvent[], records: 
 }
 
 export function buildAdminOverview(events: AdminAnalyticsEvent[], records: ActivityRecord[]) {
-  const wallets = unique(records.map((record) => record.walletAddress).filter((wallet) => wallet !== "guest"));
-  const eventWallets = unique(events.map((event) => event.walletAddress).filter((wallet): wallet is string => Boolean(wallet)));
+  const wallets = unique(records.map((record) => normalizeWalletAddress(record.walletAddress)).filter((wallet): wallet is string => Boolean(wallet && wallet !== "guest")));
+  const eventWallets = unique(connectedWalletEvents(events).map((event) => event.walletAddress).filter((wallet): wallet is string => Boolean(wallet)));
   const todayKey = new Date().toISOString().slice(0, 10);
   const sessionsByDay = new Map<string, Set<string>>();
 
@@ -182,7 +213,7 @@ export function buildAdminOverview(events: AdminAnalyticsEvent[], records: Activ
 
   return {
     totalVisitors: unique(events.map((event) => event.sessionId)).length,
-    totalConnectedWallets: events.filter((event) => event.walletAddress).length,
+    totalConnectedWallets: countActualWalletConnections(events),
     uniqueWallets: unique([...wallets, ...eventWallets]).length,
     activeUsersToday: unique(events.filter((event) => dateKey(event.timestamp) === todayKey).map((event) => event.sessionId)).length,
     activeUsersThisWeek: unique(events.filter((event) => withinDays(event.timestamp, 7)).map((event) => event.sessionId)).length,

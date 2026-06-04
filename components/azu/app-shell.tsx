@@ -144,16 +144,6 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
     });
   }, [address, chain?.name, isConnected, pathname]);
 
-  useEffect(() => {
-    if (!isConnected || !address) return;
-    recordAdminAnalyticsEvent({
-      type: "wallet_connected",
-      path: pathname,
-      walletAddress: address,
-      network: chain?.name
-    });
-  }, [address, chain?.name, isConnected, pathname]);
-
   return (
     <main className="min-h-screen overflow-hidden">
       <AmbientBackground />
