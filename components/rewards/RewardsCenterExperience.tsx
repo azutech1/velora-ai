@@ -126,7 +126,7 @@ export function RewardsCenterExperience() {
 
   useEffect(() => {
     if (!rewards.lastReward) return;
-    setToast(`+${rewards.lastReward.amount.toLocaleString()} XP — ${rewards.lastReward.title}`);
+    setToast(`+${rewards.lastReward.amount.toLocaleString()} XP - ${rewards.lastReward.title}`);
     const timeout = window.setTimeout(() => {
       setToast(null);
       rewards.clearLastReward();
@@ -136,11 +136,11 @@ export function RewardsCenterExperience() {
 
   function notify(result: { amount: number; title: string } | null) {
     if (!result) return;
-    setToast(`+${result.amount.toLocaleString()} XP — ${result.title}`);
+    setToast(`+${result.amount.toLocaleString()} XP - ${result.title}`);
   }
 
   return (
-    <AppShell title="Velora Pioneers" eyebrow="Rewards, XP, streaks, and community growth">
+    <AppShell title="Rewards Center" eyebrow="XP, streaks, achievements, and future progression">
       <div className="space-y-6">
         <AnimatePresence>
           {toast ? (
@@ -161,8 +161,8 @@ export function RewardsCenterExperience() {
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-emerald-300 light:text-emerald-700">
                 <Gift className="h-3.5 w-3.5" /> Rewards Center
               </div>
-              <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-white light:text-slate-950 sm:text-5xl">Build XP through real Velora activity.</h2>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 light:text-slate-600">Complete daily check-ins, social tasks, swaps, bridges, and achievements while building your Velora Pioneer reputation.</p>
+              <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-white light:text-slate-950 sm:text-5xl">One rewards hub for every Velora milestone.</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 light:text-slate-600">Earn wallet-scoped XP from daily check-ins, community tasks, swaps, bridges, and achievement milestones. Rewards Center is the single home for current progression and future referrals, leaderboards, campaigns, and ecosystem rewards.</p>
               {!rewards.isConnected ? (
                 <div className="mt-5 inline-flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm font-bold text-yellow-200 light:text-amber-700">
                   <Wallet className="h-4 w-4" /> Connect wallet to start earning XP.
@@ -325,7 +325,7 @@ export function RewardsCenterExperience() {
                       <Star className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-bold text-white light:text-slate-950">+{item.amount.toLocaleString()} XP — {item.title}</p>
+                      <p className="font-bold text-white light:text-slate-950">+{item.amount.toLocaleString()} XP - {item.title}</p>
                       <p className="mt-1 text-xs text-slate-500 light:text-slate-600">{formatTime(item.timestamp)}</p>
                     </div>
                   </div>

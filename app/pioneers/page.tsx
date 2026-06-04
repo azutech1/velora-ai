@@ -1,5 +1,5 @@
-import { RewardsCenterExperience } from "@/components/rewards/RewardsCenterExperience";
+import { redirect } from "next/navigation";
 
 export default function PioneersPage() {
-  return <RewardsCenterExperience />;
+  redirect("/rewards");
 }
