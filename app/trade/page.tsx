@@ -17,16 +17,15 @@ import { useStablecoinPrices } from "@/hooks/useStablecoinPrices";
 import { useSwapTokenBalance } from "@/hooks/useSwapTokenBalance";
 import { useTransactions } from "@/hooks/useTransactions";
 import type { ArcAppKitSwapEstimate } from "@/lib/appkit/swap";
+import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
 import { getChainById, type AppChain } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import {
-  arcNativeBridgeProvider,
   arcNativeSwapProvider,
   createProviderExecutionRoute,
   createTransactionRequestProvider,
   fallbackProvider,
   findExecutableRoute,
-  lifiBridgeProvider,
   lifiSwapProvider,
   stablefxProvider,
   type ExecutableRoute,
@@ -161,6 +160,10 @@ function calculateRequiredSellAmount(receiveAmount: string, sellPrice: number, b
 
 function hasExecutableTransactionRequest(quote: LifiEstimate | null) {
   return Boolean(quote?.transactionRequest?.to && quote.transactionRequest.data);
+}
+
+function isLifiEstimate(value: unknown): value is LifiEstimate {
+  return Boolean(value && typeof value === "object" && "transactionRequest" in value && "provider" in value);
 }
 
 function isEvmTransactionHash(value?: string | null) {
@@ -464,7 +467,8 @@ export default function TradePage() {
   const balanceActionDisabled = !hasSellBalance || sellTokenBalance.isLoading;
   const hasBridgeBalance = typeof bridgeTokenBalance.numericBalance === "number" && bridgeTokenBalance.numericBalance > 0;
   const bridgeMaxDisabled = !hasBridgeBalance || bridgeTokenBalance.isLoading;
-  const bridgeHasExecutableQuote = Boolean(bridgeRoute?.transactionRequest?.to && bridgeRoute.transactionRequest.data);
+  const bridgeHasExecutableTransactionRequest = Boolean(bridgeRoute?.transactionRequest?.to && bridgeRoute.transactionRequest.data);
+  const bridgeHasExecutableRoute = Boolean(bridgeRoute);
   const comingSoonTokens = useMemo<ComingSoonToken[]>(() => {
     const merged = SWAP_TOKENS.filter((token) => COMING_SOON_SYMBOLS.has(token.symbol)).map((token) => ({ symbol: token.symbol, name: token.name }));
     return merged.filter((item, index) => merged.findIndex((candidate) => candidate.symbol.toLowerCase() === item.symbol.toLowerCase()) === index);
@@ -577,7 +581,7 @@ export default function TradePage() {
     ? "Checking Route..."
     : bridgeSwitching
       ? `Switching to ${bridge.fromNetwork.name}...`
-    : bridgeHasExecutableQuote
+    : bridgeHasExecutableRoute
       ? transactions.isPending
         ? "Bridge pending..."
         : "Bridge"
@@ -589,8 +593,8 @@ export default function TradePage() {
         ? "Route Unavailable"
         : "Get Bridge Quote";
   const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || bridgeSwitching || (!bridgeWrongNetwork && !hasValidBridgeAmount) || (bridgeRouteUnavailable && hasValidBridgeAmount);
-  const bridgeReceiveAmount = lifiQuote?.toAmount ? formatLifiAmount(lifiQuote.toAmount, bridgeToken.decimals) : "";
-  const bridgeFeeLabel = lifiQuote?.feeEstimateUsd ? `$${lifiQuote.feeEstimateUsd}` : "Not returned by provider";
+  const bridgeReceiveAmount = lifiQuote?.toAmount ? formatLifiAmount(lifiQuote.toAmount, bridgeToken.decimals) : bridgeRoute?.quote.toAmount ?? "";
+  const bridgeFeeLabel = bridgeRoute?.quote.feeEstimateUsd ? `$${bridgeRoute.quote.feeEstimateUsd}` : "Not returned by provider";
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -670,7 +674,7 @@ export default function TradePage() {
       destinationTokenAddress: getTokenAddress(bridge.tokenSymbol, bridge.toNetwork.chainId),
       routeReady: bridgeQuoteReady,
       selectedProvider: bridgeRoute?.providerName ?? null,
-      transactionRequestExists: bridgeHasExecutableQuote,
+      transactionRequestExists: bridgeHasExecutableTransactionRequest,
       transactionRequestTo: bridgeRoute?.transactionRequest?.to ?? null,
       transactionRequestDataLength: bridgeRoute?.transactionRequest?.data?.length ?? 0,
       transactionRequestValue: bridgeRoute?.transactionRequest?.value ?? null,
@@ -1512,7 +1516,7 @@ export default function TradePage() {
       await switchBridgeSourceNetwork();
       return;
     }
-    if (bridgeHasExecutableQuote) {
+    if (bridgeHasExecutableRoute) {
       await handleReviewBridge();
       return;
     }
@@ -1806,9 +1810,7 @@ export default function TradePage() {
     try {
       setBridgeQuoteLoading(true);
       setBridgeMessage("Searching best available route...");
-      const fromChain = getChainById(bridge.fromNetwork.chainId);
-      const toChain = getChainById(bridge.toNetwork.chainId);
-      if (!fromChain || !toChain) {
+      if (!getChainById(bridge.fromNetwork.chainId) || !getChainById(bridge.toNetwork.chainId)) {
         throw new Error("Route currently unavailable.");
       }
       const bridgeRouteRequest: RouteRequest = {
@@ -1828,37 +1830,13 @@ export default function TradePage() {
         supportedRoutesRequested: [
           "Arc Testnet -> Ethereum Sepolia",
           "Arc Testnet -> Base Sepolia",
-          "Arc Testnet -> Optimism Sepolia",
           "Ethereum Sepolia -> Arc Testnet",
           "Base Sepolia -> Arc Testnet",
-          "Optimism Sepolia -> Arc Testnet"
+          "Arc Testnet -> Arbitrum Sepolia",
+          "Arbitrum Sepolia -> Arc Testnet"
         ]
       });
-      const lifiRouteProvider = createTransactionRequestProvider({
-        providerName: lifiBridgeProvider.providerName,
-        routeType: "bridge",
-        getQuote: async () => {
-          const quote = await requestLifiQuote({
-            fromChain: fromChain.lifiChainId,
-            toChain: toChain.lifiChainId,
-            fromToken: fromTokenAddress,
-            toToken: toTokenAddress,
-            fromAmount: parseUnits(bridge.amount, 6).toString(),
-            fromAddress: address,
-            slippage: 0.5
-          });
-          return {
-            provider: quote.provider,
-            toAmount: quote.toAmount,
-            toAmountMin: quote.toAmountMin,
-            approvalAddress: quote.approvalAddress,
-            feeEstimateUsd: quote.feeEstimateUsd,
-            gasEstimateUsd: quote.gasEstimateUsd,
-            raw: quote
-          };
-        }
-      });
-      const routeResult = await findExecutableRoute(bridgeRouteRequest, [arcNativeBridgeProvider, lifiRouteProvider, fallbackProvider]);
+      const routeResult = await findExecutableRoute(bridgeRouteRequest, createBridgeServiceProviders(requestLifiQuote));
       setBridgeRouteDiagnostics(routeResult.diagnostics);
       debugRoute("bridge route diagnostics", routeResult.diagnostics);
       debugBridge("provider response", {
@@ -1887,7 +1865,7 @@ export default function TradePage() {
         setBridgeQuoteReady(false);
         return;
       }
-      const quote = routeResult.route.quote.raw as LifiEstimate;
+      const quote = isLifiEstimate(routeResult.route.quote.raw) ? routeResult.route.quote.raw : null;
       setBridgeRoute(routeResult.route);
       setLifiQuote(quote);
       setLiveQuoteUnavailable(false);
@@ -1902,6 +1880,8 @@ export default function TradePage() {
         metadata: {
           ...getBridgeActivityMetadata("live_quote_success", quote),
           selectedProvider: routeResult.route.providerName,
+          estimatedReceiveAmount: routeResult.route.quote.toAmount ?? null,
+          bridgeFee: routeResult.route.quote.feeEstimateUsd ? `$${routeResult.route.quote.feeEstimateUsd}` : null,
           diagnostics: JSON.stringify(routeResult.diagnostics)
         }
       });
@@ -1947,7 +1927,7 @@ export default function TradePage() {
       return;
     }
 
-    if (!bridgeRoute.transactionRequest?.to || !bridgeRoute.transactionRequest.data) {
+    if (bridgeRoute.executionMode === "transactionRequest" && (!bridgeRoute.transactionRequest?.to || !bridgeRoute.transactionRequest.data)) {
       debugBridge("bridge execution blocked", {
         reason: "Transaction request missing.",
         route: bridgeRoute
@@ -1972,7 +1952,7 @@ export default function TradePage() {
       setBridgeMessage("Waiting for wallet confirmation...");
       let hash: Hex;
       let confirmationStatus: "confirmed" | "pending" = "pending";
-      const selectedQuote = bridgeRoute.quote.raw as LifiEstimate | null;
+      const selectedQuote = isLifiEstimate(bridgeRoute.quote.raw) ? bridgeRoute.quote.raw : null;
       debugBridge("bridge execution route audit", {
         routeId: selectedQuote?.routeId ?? null,
         stepIds: selectedQuote?.stepIds ?? null,
@@ -1991,6 +1971,13 @@ export default function TradePage() {
         confirmationStatus = result.confirmationPending ? "pending" : "confirmed";
       } else {
         const result = await bridgeRoute.execute({
+          executeProviderRoute: async () =>
+            executeCircleBridgeRoute({
+              fromChainId: bridge.fromNetwork.chainId,
+              toChainId: bridge.toNetwork.chainId,
+              amount: bridge.amount,
+              walletAddress: address as Address
+            }),
           sendTransaction: async (transactionRequest) => {
             if (!walletClient || !publicClient || !address) {
               throw new Error("Connect wallet.");
@@ -2019,7 +2006,7 @@ export default function TradePage() {
           }
         });
         hash = result.txHash;
-        confirmationStatus = "pending";
+        confirmationStatus = result.confirmationStatus ?? "pending";
       }
 
       if (!isEvmTransactionHash(hash)) {
@@ -2062,7 +2049,7 @@ export default function TradePage() {
           fromToken: bridge.tokenSymbol,
           toToken: bridge.tokenSymbol,
           fromAmount: bridge.amount,
-          toAmount: selectedQuote?.toAmount ? formatLifiAmount(selectedQuote.toAmount, 6) : null,
+          toAmount: selectedQuote?.toAmount ? formatLifiAmount(selectedQuote.toAmount, 6) : bridgeRoute.quote.toAmount ?? null,
           mainTxHash: hash,
           destinationTxHash: null,
           routeProvider: bridgeRoute.providerName,
@@ -2291,11 +2278,11 @@ export default function TradePage() {
                     <Loader2 className="mr-2 inline h-4 w-4 animate-spin text-cyan" />
                     Searching best available bridge route...
                   </div>
-                ) : bridgeHasExecutableQuote && lifiQuote ? (
+                ) : bridgeHasExecutableRoute ? (
                   <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm sm:grid-cols-2">
                     <p className="text-slate-300">Estimated receive: <span className="font-semibold text-white">{bridgeReceiveAmount} {bridge.tokenSymbol}</span></p>
                     <p className="text-slate-300">Bridge fee: <span className="font-semibold text-white">{bridgeFeeLabel}</span></p>
-                    <p className="text-slate-300">ETA: <span className="font-semibold text-white">On-chain confirmation</span></p>
+                    <p className="text-slate-300">ETA: <span className="font-semibold text-white">{bridgeRoute?.providerName.includes("Circle") ? "Fast CCTP transfer" : "On-chain confirmation"}</span></p>
                     <p className="text-slate-300">Route: <span className="font-semibold text-white">{bridgeRoute?.providerName}</span></p>
                     <p className="text-slate-300 sm:col-span-2">Path: <span className="font-semibold text-white">{bridge.fromNetwork.name} to {bridge.toNetwork.name}</span></p>
                   </div>
@@ -2318,11 +2305,11 @@ export default function TradePage() {
                   disabled={bridgeButtonDisabled}
                   className={cx(
                     "flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 font-bold shadow-neon transition",
-                    bridgeHasExecutableQuote ? "bg-cyan text-white hover:scale-[1.01]" : "bg-cyan text-white",
+                    bridgeHasExecutableRoute ? "bg-cyan text-white hover:scale-[1.01]" : "bg-cyan text-white",
                     bridgeButtonDisabled && "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none"
                   )}
                 >
-                  {bridgeQuoteLoading || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : bridgeHasExecutableQuote ? <Check className="h-4 w-4" /> : <Repeat2 className="h-4 w-4" />}
+                  {bridgeQuoteLoading || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : bridgeHasExecutableRoute ? <Check className="h-4 w-4" /> : <Repeat2 className="h-4 w-4" />}
                   {bridgeButtonLabel}
                 </button>
               </div>

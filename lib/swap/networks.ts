@@ -21,7 +21,7 @@ export const CROSS_CHAIN_NETWORKS: BridgeNetwork[] = [
     explorerUrl: chain.explorer,
     status: "supported" as const,
     iconId: chain.icon
-  }))
+  })).filter((network) => ["arc-testnet", "base-sepolia", "ethereum-sepolia", "arbitrum-sepolia"].includes(network.id))
 ];
 
 export function getBridgeNetwork(id: string) {

@@ -13,6 +13,10 @@ import { TokenLogo } from "@/components/token/TokenLogo";
 
 export function CrossChainSwap() {
   const bridge = useCrossChainSwap();
+  const estimatedReceiveLabel = typeof bridge.quote.estimatedReceive === "number" ? `${bridge.quote.estimatedReceive.toFixed(4)} USDC` : "--";
+  const bridgeFeeLabel = typeof bridge.quote.bridgeFee === "number" ? `${bridge.quote.bridgeFee.toFixed(4)} USDC` : "--";
+  const gasEstimateLabel = bridge.quote.gasEstimate ?? "--";
+  const estimatedTimeLabel = bridge.quote.estimatedTime ?? "--";
   const { recordActivity } = useActivityRecorder();
   const [modalOpen, setModalOpen] = useState(false);
   const busy = bridge.state === "approving" || bridge.state === "bridging" || bridge.state === "confirming";
@@ -135,10 +139,10 @@ export function CrossChainSwap() {
           <h2 className="text-xl font-bold text-white">Bridge quote</h2>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
-              ["Estimated receive", `${bridge.quote.estimatedReceive.toFixed(4)} USDC`],
-              ["Bridge fee", `${bridge.quote.bridgeFee.toFixed(4)} USDC`],
-              ["Gas estimate", bridge.quote.gasEstimate],
-              ["Arrival time", bridge.quote.estimatedTime],
+              ["Estimated receive", estimatedReceiveLabel],
+              ["Bridge fee", bridgeFeeLabel],
+              ["Gas estimate", gasEstimateLabel],
+              ["Arrival time", estimatedTimeLabel],
               ["Source match", bridge.sourceNetworkMatchesWallet ? "Wallet ready" : "Switch source network"],
               ["Destination status", bridge.toNetwork.status]
             ].map(([label, value]) => (

@@ -47,6 +47,8 @@ export type RouteQuote = {
 export type RouteExecutionResult = {
   txHash: Hex;
   receivedAmount?: string;
+  confirmationStatus?: "confirmed" | "pending";
+  raw?: unknown;
 };
 
 export type RouteExecutionContext = {
@@ -284,11 +286,11 @@ export async function findExecutableRoute(request: RouteRequest, providers: Rout
               const txHash = await context.sendTransaction(transactionRequest);
               return { txHash };
             }
-            if (provider.execute) {
-              return provider.execute(quote, request);
-            }
             if (context.executeProviderRoute) {
               return context.executeProviderRoute();
+            }
+            if (provider.execute) {
+              return provider.execute(quote, request);
             }
             throw new Error("Provider execution is unavailable.");
           }

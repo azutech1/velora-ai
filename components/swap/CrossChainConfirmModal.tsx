@@ -26,6 +26,8 @@ export function CrossChainConfirmModal({
   quote: BridgeQuote;
 }) {
   const busy = state === "approving" || state === "bridging" || state === "confirming";
+  const receiveLabel = typeof quote.estimatedReceive === "number" ? `${quote.estimatedReceive.toFixed(4)} USDC` : "--";
+  const feeLabel = typeof quote.bridgeFee === "number" ? `${quote.bridgeFee.toFixed(4)} USDC` : "--";
 
   return (
     <AnimatePresence>
@@ -45,8 +47,8 @@ export function CrossChainConfirmModal({
               <div className="flex justify-between gap-4 text-slate-300"><span>From</span><span className="text-right text-white">{fromNetwork.name}</span></div>
               <div className="flex justify-between gap-4 text-slate-300"><span>To</span><span className="text-right text-white">{toNetwork.name}</span></div>
               <div className="flex justify-between text-slate-300"><span>Amount</span><span className="text-white">{amount} USDC</span></div>
-              <div className="flex justify-between text-slate-300"><span>Receive</span><span className="text-white">{quote.estimatedReceive.toFixed(4)} USDC</span></div>
-              <div className="flex justify-between text-slate-300"><span>Bridge fee</span><span>{quote.bridgeFee.toFixed(4)} USDC</span></div>
+              <div className="flex justify-between text-slate-300"><span>Receive</span><span className="text-white">{receiveLabel}</span></div>
+              <div className="flex justify-between text-slate-300"><span>Bridge fee</span><span>{feeLabel}</span></div>
             </div>
             <div className="mt-4 rounded-lg border border-cyan/30 bg-cyan/10 p-4 text-sm leading-6 text-cyan">
               Preview only. Real execution requires a live route with wallet transaction data.

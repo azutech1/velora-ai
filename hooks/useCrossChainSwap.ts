@@ -18,7 +18,6 @@ export function useCrossChainSwap() {
   const [slippage, setSlippage] = useState("0.50");
   const [state, setState] = useState<BridgeFlowState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [completedHash, setCompletedHash] = useState<string | null>(null);
 
   const fromNetwork = getBridgeNetwork(fromNetworkId);
   const toNetwork = getBridgeNetwork(toNetworkId);
@@ -55,22 +54,9 @@ export function useCrossChainSwap() {
     return true;
   }, [fromNetwork.id, fromNetwork.name, isArc, isConnected, quote.reason, quote.valid, sourceNetworkMatchesWallet]);
 
-  const confirmBridge = useCallback(async () => {
-    setState("approving");
-    setError(null);
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
-    setState("bridging");
-    await new Promise((resolve) => window.setTimeout(resolve, 850));
-    setState("confirming");
-    await new Promise((resolve) => window.setTimeout(resolve, 750));
-    setCompletedHash(quote.hashPlaceholder);
-    setState("completed");
-  }, [quote.hashPlaceholder]);
-
   useEffect(() => {
     setState("idle");
     setError(null);
-    setCompletedHash(null);
   }, [amount, fromNetworkId, toNetworkId]);
 
   return {
@@ -87,9 +73,7 @@ export function useCrossChainSwap() {
     quote,
     state,
     error,
-    completedHash,
     reviewBridge,
-    confirmBridge,
     sourceNetworkMatchesWallet
   };
 }
