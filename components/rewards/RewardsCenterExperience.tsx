@@ -139,6 +139,10 @@ export function RewardsCenterExperience() {
     setToast(`+${result.amount.toLocaleString()} XP - ${result.title}`);
   }
 
+  function showError(message: string) {
+    setToast(message);
+  }
+
   return (
     <AppShell title="Rewards Center" eyebrow="XP, streaks, achievements, and future progression">
       <div className="space-y-6">
@@ -251,19 +255,45 @@ export function RewardsCenterExperience() {
         </Panel>
 
         <Panel title="Social Tasks" eyebrow="Community actions">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {rewards.socialTasks.map((task, index) => {
               const icons = [Sparkles, MessageCircle, Send, Heart, Share2];
               const Icon = icons[index] ?? Sparkles;
+              const status = task.completed ? "Completed" : task.opened ? "Pending Verification" : "Not Started";
               return (
                 <motion.div key={task.id} whileHover={{ y: -3 }} className="rounded-lg border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white light:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
                   <Icon className={cx("h-5 w-5", task.completed ? "text-emerald-300 light:text-emerald-700" : "text-yellow-300 light:text-amber-600")} />
                   <h3 className="mt-4 font-bold text-white light:text-slate-950">{task.title}</h3>
                   <p className="mt-2 text-sm text-slate-400 light:text-slate-600">+{task.reward.toLocaleString()} XP</p>
-                  <div className="mt-4">
-                    <RewardButton disabled={!rewards.isConnected || task.completed} onClick={() => notify(rewards.completeSocialTask(task.id))}>
-                      {task.completed ? "Completed" : "Complete"}
-                    </RewardButton>
+                  <p className="mt-3 text-xs font-bold text-slate-500 light:text-slate-600">{status}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {!task.opened && !task.completed ? (
+                      <RewardButton
+                        disabled={task.completed}
+                        onClick={() => {
+                          const result = rewards.openSocialTask(task.id);
+                          if (result?.error) showError(result.error);
+                        }}
+                      >
+                        Open Task
+                      </RewardButton>
+                    ) : null}
+                    {task.opened && !task.completed ? (
+                      <RewardButton
+                        onClick={() => {
+                          const result = rewards.verifySocialTask(task.id);
+                          if ("error" in result) showError(result.error);
+                          else notify(result);
+                        }}
+                      >
+                        Verify Task
+                      </RewardButton>
+                    ) : null}
+                    {task.completed ? (
+                      <RewardButton disabled>
+                        Completed <CheckCircle2 className="ml-1 inline h-4 w-4" />
+                      </RewardButton>
+                    ) : null}
                   </div>
                 </motion.div>
               );

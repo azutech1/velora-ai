@@ -115,11 +115,31 @@ export function useRewardsCenter(records: ActivityRecord[]) {
     return reward;
   }, [address, canClaimDaily, dailyReward, store]);
 
-  const completeSocialTask = useCallback(
+  const openSocialTask = useCallback(
     (taskId: string) => {
-      if (!address || store.completedSocialTasks[taskId]) return null;
+      if (!address || !isConnected) return { error: "Connect wallet to start this task." };
       const task = SOCIAL_TASKS.find((item) => item.id === taskId);
-      if (!task) return null;
+      if (!task) return { error: "Task is not available." };
+      if (store.completedSocialTasks[taskId]) return { error: "Task already completed." };
+      window.open(task.url, "_blank", "noopener,noreferrer");
+      const nextStore: RewardsStore = {
+        ...store,
+        openedSocialTasks: { ...store.openedSocialTasks, [task.id]: true }
+      };
+      persist(address, nextStore);
+      setStore(nextStore);
+      return { opened: true, title: task.title };
+    },
+    [address, isConnected, store]
+  );
+
+  const verifySocialTask = useCallback(
+    (taskId: string) => {
+      if (!address || !isConnected) return { error: "Connect wallet to verify this task." };
+      const task = SOCIAL_TASKS.find((item) => item.id === taskId);
+      if (!task) return { error: "Task is not available." };
+      if (store.completedSocialTasks[taskId]) return { error: "Task already completed." };
+      if (!store.openedSocialTasks[taskId]) return { error: "Open the task before verification." };
       const reward = createRewardActivity(task.title, task.reward, "social");
       const nextStore: RewardsStore = {
         ...store,
@@ -132,7 +152,7 @@ export function useRewardsCenter(records: ActivityRecord[]) {
       setLastReward(reward);
       return reward;
     },
-    [address, store]
+    [address, isConnected, store]
   );
 
   const bridgeTasks = taskProgress.bridgeTasks.map((task) => ({ ...task, claimed: Boolean(store.claimedMilestones[task.id]) }));
@@ -154,10 +174,15 @@ export function useRewardsCenter(records: ActivityRecord[]) {
     bridgeTasks,
     swapTasks,
     achievements,
-    socialTasks: SOCIAL_TASKS.map((task) => ({ ...task, completed: Boolean(store.completedSocialTasks[task.id]) })),
+    socialTasks: SOCIAL_TASKS.map((task) => ({
+      ...task,
+      opened: Boolean(store.openedSocialTasks[task.id]),
+      completed: Boolean(store.completedSocialTasks[task.id])
+    })),
     lastReward,
     clearLastReward: () => setLastReward(null),
     claimDaily,
-    completeSocialTask
+    openSocialTask,
+    verifySocialTask
   };
 }

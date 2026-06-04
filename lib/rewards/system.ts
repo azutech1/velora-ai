@@ -14,6 +14,7 @@ export type RewardsStore = {
   bestStreak: number;
   cycleDay: number;
   lastCheckinDate: string | null;
+  openedSocialTasks: Record<string, boolean>;
   completedSocialTasks: Record<string, boolean>;
   claimedMilestones: Record<string, boolean>;
   claimedAchievements: Record<string, boolean>;
@@ -34,11 +35,10 @@ export type RewardTask = {
 export const DAILY_REWARDS = [500, 1000, 1500, 2000, 2500, 3000, 5000];
 
 export const SOCIAL_TASKS = [
-  { id: "follow-x", title: "Follow Velora X", reward: 1000 },
-  { id: "join-discord", title: "Join Velora Discord", reward: 1000 },
-  { id: "join-telegram", title: "Join Velora Telegram", reward: 1000 },
-  { id: "like-content", title: "Like Velora Content", reward: 500 },
-  { id: "share-content", title: "Share Velora Content", reward: 1000 }
+  { id: "follow-x", title: "Follow Velora AI on X", reward: 1000, url: "https://x.com/UseVeloraAI" },
+  { id: "join-telegram", title: "Join Velora Telegram", reward: 1000, url: "https://t.me/Useveloraai" },
+  { id: "like-content", title: "Like Velora Content", reward: 500, url: "https://x.com/i/status/2059173987738145103" },
+  { id: "share-content", title: "Share Velora Content", reward: 1000, url: "https://x.com/i/status/2059173987738145103" }
 ];
 
 export const ACHIEVEMENT_REWARDS = [
@@ -54,6 +54,7 @@ export const defaultRewardsStore: RewardsStore = {
   bestStreak: 0,
   cycleDay: 1,
   lastCheckinDate: null,
+  openedSocialTasks: {},
   completedSocialTasks: {},
   claimedMilestones: {},
   claimedAchievements: {},
