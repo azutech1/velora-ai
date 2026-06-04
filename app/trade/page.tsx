@@ -47,9 +47,33 @@ type ComingSoonToken = {
 
 type SwapInputMode = "exactIn" | "exactOut";
 
+type BridgeTransactionState =
+  | "idle"
+  | "preparingRoute"
+  | "waitingWalletConfirmation"
+  | "sendingTransaction"
+  | "waitingForBridgeMessage"
+  | "waitingForDestinationConfirmation"
+  | "success"
+  | "failed";
+
+type BridgeToast = {
+  id: number;
+  message: string;
+  tone: "info" | "success" | "error";
+};
+
 const ACTIVE_STABLECOINS = ["USDC", "EURC", "USDT"] as const;
 
 const COMING_SOON_SYMBOLS = new Set(["WETH", "WBTC", "ETH", "BTC"]);
+
+const ACTIVE_BRIDGE_TRANSACTION_STATES = new Set<BridgeTransactionState>([
+  "preparingRoute",
+  "waitingWalletConfirmation",
+  "sendingTransaction",
+  "waitingForBridgeMessage",
+  "waitingForDestinationConfirmation"
+]);
 
 type LifiEstimate = {
   toAmount: string | null;
@@ -448,14 +472,19 @@ export default function TradePage() {
   const [swapQuoteOnlyRoute, setSwapQuoteOnlyRoute] = useState<{ providerName: string; toAmount: string; reason: string } | null>(null);
   const [bridgeRoute, setBridgeRoute] = useState<ExecutableRoute | null>(null);
   const [bridgeRouteDiagnostics, setBridgeRouteDiagnostics] = useState<RouteDiagnostics | null>(null);
+  const [bridgeTransactionState, setBridgeTransactionState] = useState<BridgeTransactionState>("idle");
+  const [bridgeProgressMessage, setBridgeProgressMessage] = useState("");
+  const [bridgeToast, setBridgeToast] = useState<BridgeToast | null>(null);
   const [bridgeSuccess, setBridgeSuccess] = useState<{
     txHash: string;
     amount: string;
     token: string;
     fromNetwork: BridgeNetwork;
     toNetwork: BridgeNetwork;
+    provider: string;
     confirmationStatus: "confirmed" | "pending";
   } | null>(null);
+  const [bridgeFailure, setBridgeFailure] = useState<{ title: string; message: string } | null>(null);
   const swapQuoteRequestIdRef = useRef(0);
 
   const activeTokens = useMemo(() => ACTIVE_STABLECOINS.map((symbol) => getSwapToken(symbol)).filter(Boolean), []);
@@ -577,7 +606,14 @@ export default function TradePage() {
   const hasValidBridgeAmount = Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0;
   const bridgeWrongNetwork = Boolean(isConnected && walletChainId && walletChainId !== bridge.fromNetwork.chainId);
   const bridgeRouteUnavailable = !bridgeRoute && bridgeMessage === "No live bridge route is currently available for this network pair.";
-  const bridgeButtonLabel = bridgeQuoteLoading
+  const bridgeExecutionActive = ACTIVE_BRIDGE_TRANSACTION_STATES.has(bridgeTransactionState);
+  const bridgeButtonLabel = bridgeTransactionState === "preparingRoute"
+    ? "Preparing route..."
+    : bridgeTransactionState === "waitingWalletConfirmation"
+      ? "Confirm in Wallet"
+      : bridgeTransactionState === "sendingTransaction" || bridgeTransactionState === "waitingForBridgeMessage" || bridgeTransactionState === "waitingForDestinationConfirmation"
+        ? "Bridging..."
+        : bridgeQuoteLoading
     ? "Checking Route..."
     : bridgeSwitching
       ? `Switching to ${bridge.fromNetwork.name}...`
@@ -592,9 +628,17 @@ export default function TradePage() {
       : bridgeRouteUnavailable && hasValidBridgeAmount
         ? "Route Unavailable"
         : "Get Bridge Quote";
-  const bridgeButtonDisabled = bridgeQuoteLoading || transactions.isPending || bridgeSwitching || (!bridgeWrongNetwork && !hasValidBridgeAmount) || (bridgeRouteUnavailable && hasValidBridgeAmount);
+  const bridgeButtonDisabled = bridgeExecutionActive || bridgeQuoteLoading || transactions.isPending || bridgeSwitching || (!bridgeWrongNetwork && !hasValidBridgeAmount) || (bridgeRouteUnavailable && hasValidBridgeAmount);
   const bridgeReceiveAmount = lifiQuote?.toAmount ? formatLifiAmount(lifiQuote.toAmount, bridgeToken.decimals) : bridgeRoute?.quote.toAmount ?? "";
   const bridgeFeeLabel = bridgeRoute?.quote.feeEstimateUsd ? `$${bridgeRoute.quote.feeEstimateUsd}` : "Not returned by provider";
+  const bridgeProgressSteps = [
+    { label: "Route prepared", active: bridgeTransactionState === "preparingRoute", complete: Boolean(bridgeRoute) || bridgeTransactionState !== "idle" },
+    { label: "Wallet confirmation", active: bridgeTransactionState === "waitingWalletConfirmation", complete: ["sendingTransaction", "waitingForBridgeMessage", "waitingForDestinationConfirmation", "success"].includes(bridgeTransactionState) },
+    { label: "Source transaction submitted", active: bridgeTransactionState === "sendingTransaction", complete: ["waitingForBridgeMessage", "waitingForDestinationConfirmation", "success"].includes(bridgeTransactionState) },
+    { label: "Cross-chain message processing", active: bridgeTransactionState === "waitingForBridgeMessage", complete: ["waitingForDestinationConfirmation", "success"].includes(bridgeTransactionState) },
+    { label: "Destination confirmation", active: bridgeTransactionState === "waitingForDestinationConfirmation", complete: bridgeTransactionState === "success" },
+    { label: "Bridge complete", active: false, complete: bridgeTransactionState === "success" }
+  ];
 
   async function requestLifiQuote(params: {
     fromChain: number;
@@ -682,6 +726,15 @@ export default function TradePage() {
       quoteResponse: lifiQuote,
       ...details
     });
+  }
+
+  function setBridgeStage(stage: BridgeTransactionState, message: string, toastTone: BridgeToast["tone"] = "info") {
+    setBridgeTransactionState(stage);
+    setBridgeProgressMessage(message);
+    setBridgeMessage(message);
+    if (stage !== "idle") {
+      setBridgeToast({ id: Date.now(), message, tone: toastTone });
+    }
   }
 
   function swapFailureFromError(error: unknown) {
@@ -1050,6 +1103,21 @@ export default function TradePage() {
     setLiveQuoteUnavailable(false);
   }
 
+  function handleCloseBridgeSuccess() {
+    setBridgeSuccess(null);
+    setBridgeTransactionState("idle");
+    setBridgeProgressMessage("");
+    setBridgeMessage("");
+    setBridgeToast(null);
+  }
+
+  function handleCloseBridgeFailure() {
+    setBridgeFailure(null);
+    setBridgeTransactionState("idle");
+    setBridgeProgressMessage("");
+    setBridgeToast(null);
+  }
+
   async function requestCurrentSwapLifiQuote() {
     const chainId = bridge.fromNetwork.chainId;
     const fromTokenAddress = getTokenAddress(sellToken.symbol, chainId);
@@ -1102,7 +1170,14 @@ export default function TradePage() {
     setLifiQuote(null);
     setBridgeMessage("");
     setBridgeSuccess(null);
+    setBridgeFailure(null);
   }, [bridge.amount, bridge.fromNetwork.chainId, bridge.toNetwork.chainId, bridge.tokenSymbol]);
+
+  useEffect(() => {
+    if (!bridgeToast) return;
+    const timeout = window.setTimeout(() => setBridgeToast(null), 4200);
+    return () => window.clearTimeout(timeout);
+  }, [bridgeToast]);
 
   useEffect(() => {
     if (swapInputMode !== "exactOut") return;
@@ -1912,6 +1987,8 @@ export default function TradePage() {
   }
 
   async function handleReviewBridge() {
+    if (bridgeExecutionActive) return;
+
     if (!isConnected || !address) {
       setBridgeMessage("Connect wallet to bridge.");
       return;
@@ -1936,6 +2013,10 @@ export default function TradePage() {
       return;
     }
 
+    setBridgeSuccess(null);
+    setBridgeFailure(null);
+    setBridgeStage("preparingRoute", "Preparing route...");
+
     recordActivity({
       actionType: "bridge_execution_started",
       title: "Bridge execution started",
@@ -1949,7 +2030,7 @@ export default function TradePage() {
     });
 
     try {
-      setBridgeMessage("Waiting for wallet confirmation...");
+      setBridgeStage("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
       let hash: Hex;
       let confirmationStatus: "confirmed" | "pending" = "pending";
       const selectedQuote = isLifiEstimate(bridgeRoute.quote.raw) ? bridgeRoute.quote.raw : null;
@@ -1966,7 +2047,11 @@ export default function TradePage() {
       });
       if (bridgeRoute.executionMode === "transactionRequest" && selectedQuote && hasExecutableTransactionRequest(selectedQuote)) {
         setLifiQuote(selectedQuote);
-        const result = await executeLifiTransaction(selectedQuote, "bridge");
+        setBridgeStage("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
+        const result = await executeLifiTransaction(selectedQuote, "bridge", () => {
+          setBridgeStage("sendingTransaction", "Your bridge transaction is processing. Please wait.");
+        });
+        setBridgeStage("waitingForBridgeMessage", "Cross-chain message is processing.");
         hash = result.txHash;
         confirmationStatus = result.confirmationPending ? "pending" : "confirmed";
       } else {
@@ -1976,7 +2061,8 @@ export default function TradePage() {
               fromChainId: bridge.fromNetwork.chainId,
               toChainId: bridge.toNetwork.chainId,
               amount: bridge.amount,
-              walletAddress: address as Address
+              walletAddress: address as Address,
+              onStage: (stage, message) => setBridgeStage(stage, message)
             }),
           sendTransaction: async (transactionRequest) => {
             if (!walletClient || !publicClient || !address) {
@@ -1989,6 +2075,7 @@ export default function TradePage() {
             if (walletChainId !== requestChainId) {
               throw new Error("Wrong network.");
             }
+            setBridgeStage("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
             const submittedHash = await walletClient.sendTransaction({
               account: address as Address,
               to: transactionRequest.to as Address,
@@ -1998,6 +2085,7 @@ export default function TradePage() {
               maxFeePerGas: parseOptionalBigInt(transactionRequest.maxFeePerGas),
               maxPriorityFeePerGas: parseOptionalBigInt(transactionRequest.maxPriorityFeePerGas)
             });
+            setBridgeStage("sendingTransaction", "Your bridge transaction is processing. Please wait.");
             const receipt = await transactions.trackTransaction(submittedHash);
             if (receipt?.status === "reverted") {
               throw new Error("Contract call failed.");
@@ -2008,6 +2096,8 @@ export default function TradePage() {
         hash = result.txHash;
         confirmationStatus = result.confirmationStatus ?? "pending";
       }
+
+      setBridgeStage("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
 
       if (!isEvmTransactionHash(hash)) {
         debugBridge("bridge hash rejected", {
@@ -2065,12 +2155,14 @@ export default function TradePage() {
         token: bridge.tokenSymbol,
         fromNetwork: bridge.fromNetwork,
         toNetwork: bridge.toNetwork,
+        provider: bridgeRoute.providerName,
         confirmationStatus
       });
-      setBridgeMessage(confirmationStatus === "confirmed" ? "Bridge confirmed." : "Bridge submitted.");
+      setBridgeStage("success", "Bridge completed successfully.", "success");
       void queryClient.invalidateQueries();
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Live bridge execution failed.";
+      const message = reason.toLowerCase().includes("reject") ? "Transaction rejected" : "Bridge failed. Please try again.";
       debugBridge("bridge execution failed", { error: serializeSwapError(error), reason });
       recordActivity({
         actionType: "bridge_failed",
@@ -2083,7 +2175,8 @@ export default function TradePage() {
         status: "failed",
         metadata: getBridgeActivityMetadata("failed")
       });
-      setBridgeMessage(reason);
+      setBridgeFailure({ title: message, message: reason });
+      setBridgeStage("failed", message, "error");
     }
   }
 
@@ -2300,6 +2393,42 @@ export default function TradePage() {
                     ) : null}
                   </div>
                 ) : null}
+                {bridgeTransactionState !== "idle" ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-start gap-3">
+                      {bridgeExecutionActive ? <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-cyan" /> : bridgeTransactionState === "success" ? <Check className="mt-0.5 h-5 w-5 text-mint" /> : <X className="mt-0.5 h-5 w-5 text-red-300" />}
+                      <div>
+                        <p className="text-sm font-semibold text-white">{bridgeProgressMessage || bridgeButtonLabel}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {bridgeTransactionState === "waitingWalletConfirmation"
+                            ? "Please confirm the transaction in your wallet."
+                            : bridgeExecutionActive
+                              ? "Your bridge transaction is processing. Please wait."
+                              : bridgeTransactionState === "success"
+                                ? "Bridge completed successfully."
+                                : "Bridge failed. Please try again."}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2">
+                      {bridgeProgressSteps.map((step, index) => (
+                        <div key={step.label} className="flex items-center gap-3 text-xs">
+                          <span
+                            className={cx(
+                              "grid h-6 w-6 place-items-center rounded-full border font-bold",
+                              step.complete ? "border-mint/40 bg-mint/10 text-mint" : step.active ? "border-cyan/40 bg-cyan/10 text-cyan" : "border-white/10 bg-white/[0.03] text-slate-500"
+                            )}
+                          >
+                            {step.complete ? <Check className="h-3.5 w-3.5" /> : step.active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : index + 1}
+                          </span>
+                          <span className={cx("font-medium", step.complete ? "text-slate-200" : step.active ? "text-white" : "text-slate-500")}>
+                            Step {index + 1}: {step.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <button
                   onClick={handleBridgePrimaryAction}
                   disabled={bridgeButtonDisabled}
@@ -2309,13 +2438,33 @@ export default function TradePage() {
                     bridgeButtonDisabled && "cursor-not-allowed border border-white/10 bg-white/[0.04] text-slate-500 shadow-none"
                   )}
                 >
-                  {bridgeQuoteLoading || transactions.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : bridgeHasExecutableRoute ? <Check className="h-4 w-4" /> : <Repeat2 className="h-4 w-4" />}
+                  {bridgeQuoteLoading || transactions.isPending || bridgeExecutionActive ? <Loader2 className="h-4 w-4 animate-spin" /> : bridgeHasExecutableRoute ? <Check className="h-4 w-4" /> : <Repeat2 className="h-4 w-4" />}
                   {bridgeButtonLabel}
                 </button>
               </div>
             )}
           </div>
         </section>
+        <AnimatePresence>
+          {bridgeToast ? (
+            <motion.div
+              key={bridgeToast.id}
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.98 }}
+              className={cx(
+                "fixed right-4 top-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-semibold shadow-2xl backdrop-blur-md",
+                bridgeToast.tone === "success"
+                  ? "border-mint/30 bg-mint/15 text-mint"
+                  : bridgeToast.tone === "error"
+                    ? "border-red-400/30 bg-red-400/15 text-red-100"
+                    : "border-cyan/30 bg-cyan/15 text-cyan"
+              )}
+            >
+              {bridgeToast.message}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <AnimatePresence>
           {swapSuccess ? (
             <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-md" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -2370,6 +2519,7 @@ export default function TradePage() {
                   <Check className="h-7 w-7" />
                 </div>
                 <h2 className="mt-4 text-2xl font-bold text-white">{bridgeSuccess.confirmationStatus === "confirmed" ? "Bridge Successful" : "Bridge Submitted"}</h2>
+                <p className="mt-2 text-sm font-semibold text-mint">Bridge completed successfully.</p>
                 <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4 text-left">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Amount</p>
                   <div className="mt-2 flex items-center gap-2 text-xl font-bold text-white">
@@ -2384,6 +2534,8 @@ export default function TradePage() {
                     <NetworkLogo id={bridgeSuccess.toNetwork.iconId} size={22} />
                     {bridgeSuccess.toNetwork.name}
                   </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Provider</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{bridgeSuccess.provider}</p>
                 </div>
                 <p className="mt-4 text-sm font-semibold text-slate-300">
                   {bridgeSuccess.confirmationStatus === "confirmed" ? "Transaction confirmed." : "Transaction submitted. Bridge settlement may continue after source-chain confirmation."}
@@ -2392,10 +2544,26 @@ export default function TradePage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Transaction Hash</p>
                   <p className="mt-1 break-all text-sm font-semibold text-slate-300">{shortAddress(bridgeSuccess.txHash)}</p>
                 </div>
-                <a href={explorerTxUrl(bridgeSuccess.fromNetwork.explorerUrl || ARC_EXPLORER_URL, bridgeSuccess.txHash)} target="_blank" rel="noreferrer" onClick={() => setBridgeSuccess(null)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01]">
+                <a href={explorerTxUrl(bridgeSuccess.fromNetwork.explorerUrl || ARC_EXPLORER_URL, bridgeSuccess.txHash)} target="_blank" rel="noreferrer" onClick={handleCloseBridgeSuccess} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-5 py-3 font-bold text-white shadow-neon transition hover:scale-[1.01]">
                   <ExternalLink className="h-4 w-4" /> View Transaction
                 </a>
-                <button onClick={() => setBridgeSuccess(null)} className="mt-3 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
+                <button onClick={handleCloseBridgeSuccess} className="mt-3 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
+                  Close
+                </button>
+              </motion.div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        <AnimatePresence>
+          {bridgeFailure ? (
+            <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-md" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: 18, scale: 0.96, opacity: 0 }} transition={{ duration: 0.24 }} className="glass w-full max-w-md rounded-lg p-6 text-center">
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-red-400/30 bg-red-400/10 text-red-300">
+                  <X className="h-7 w-7" />
+                </div>
+                <h2 className="mt-4 text-2xl font-bold text-white">{bridgeFailure.title}</h2>
+                <p className="mt-3 text-sm text-slate-300">{bridgeFailure.message}</p>
+                <button onClick={handleCloseBridgeFailure} className="mt-6 w-full rounded-lg border border-white/10 px-5 py-3 font-semibold text-slate-300 transition hover:border-cyan/40 hover:text-white">
                   Close
                 </button>
               </motion.div>

@@ -35,6 +35,14 @@ type CircleBridgeResult = {
   steps?: CircleBridgeStep[];
 };
 
+type CircleBridgeStage =
+  | "waitingWalletConfirmation"
+  | "sendingTransaction"
+  | "waitingForBridgeMessage"
+  | "waitingForDestinationConfirmation";
+
+type CircleBridgeStageHandler = (stage: CircleBridgeStage, message: string) => void;
+
 const CIRCLE_BRIDGE_CHAIN_BY_ID: Record<number, CircleBridgeChain> = {
   5042002: "Arc_Testnet",
   84532: "Base_Sepolia",
@@ -75,6 +83,33 @@ function selectPrimarySourceTxHash(steps: CircleBridgeStep[] = []) {
     }) ?? successfulSteps.find((step) => !(step.name ?? "").toLowerCase().includes("approve"));
 
   return (sourceStep ?? successfulSteps[0])?.txHash as Hex | undefined;
+}
+
+function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler) {
+  if (!onStage) return;
+  const text = JSON.stringify(payload ?? {}).toLowerCase();
+  if (text.includes("approve") || text.includes("wallet") || text.includes("signature")) {
+    onStage("waitingWalletConfirmation", "Confirm next step in Wallet.");
+    return;
+  }
+  if (text.includes("txhash") || text.includes("submitted") || text.includes("transaction")) {
+    onStage("sendingTransaction", "Your bridge transaction is processing. Please wait.");
+    return;
+  }
+  if (text.includes("attestation") || text.includes("message") || text.includes("cctp")) {
+    onStage("waitingForBridgeMessage", "Cross-chain message is processing.");
+    return;
+  }
+  if (text.includes("mint") || text.includes("destination") || text.includes("complete")) {
+    onStage("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
+  }
+}
+
+function attachCircleBridgeStageListener(kit: unknown, onStage?: CircleBridgeStageHandler) {
+  if (!onStage) return;
+  const maybeEmitter = kit as { on?: (event: string, handler: (payload: unknown) => void) => void };
+  if (typeof maybeEmitter.on !== "function") return;
+  maybeEmitter.on("*", (payload) => notifyCircleBridgeStage(payload, onStage));
 }
 
 async function createCircleAdapter() {
@@ -213,6 +248,7 @@ export async function executeCircleBridgeRoute(request: {
   toChainId: number;
   amount: string;
   walletAddress: Address;
+  onStage?: CircleBridgeStageHandler;
 }) {
   const fromChain = getCircleChain(request.fromChainId);
   const toChain = getCircleChain(request.toChainId);
@@ -222,6 +258,8 @@ export async function executeCircleBridgeRoute(request: {
 
   const [{ BridgeKit }, adapter] = await Promise.all([import("@circle-fin/bridge-kit"), createCircleAdapter()]);
   const kit = new BridgeKit();
+  attachCircleBridgeStageListener(kit, request.onStage);
+  request.onStage?.("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
   const result = (await kit.bridge({
     from: { adapter, chain: fromChain },
     to: { adapter, chain: toChain, recipientAddress: request.walletAddress },
@@ -232,6 +270,7 @@ export async function executeCircleBridgeRoute(request: {
       callers: [{ type: "app", name: "Velora", version: "public-beta" }]
     }
   })) as CircleBridgeResult;
+  request.onStage?.("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
 
   const txHash = selectPrimarySourceTxHash(result.steps);
   if (!txHash || !EVM_TX_HASH.test(txHash)) {
