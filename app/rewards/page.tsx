@@ -1,5 +1,5 @@
 import { RewardsCenterExperience } from "@/components/rewards/RewardsCenterExperience";
 
-export default function PioneersPage() {
+export default function RewardsPage() {
   return <RewardsCenterExperience />;
 }
