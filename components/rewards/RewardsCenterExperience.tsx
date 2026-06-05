@@ -63,10 +63,11 @@ function XPRewardBadge({ amount, suffix = "XP", className }: { amount: number; s
   return (
     <span
       className={cx(
-        "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-1 text-xs font-black text-white shadow-[0_10px_28px_rgba(249,115,22,0.3)] ring-1 ring-white/15",
+        "inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3.5 py-1.5 text-xs font-black text-white shadow-[0_12px_32px_rgba(249,115,22,0.34)] ring-1 ring-white/20 light:shadow-[0_12px_28px_rgba(249,115,22,0.26)]",
         className
       )}
     >
+      <Star className="h-3.5 w-3.5 fill-white/35 text-white" />
       +{amount.toLocaleString()} {suffix}
     </span>
   );
@@ -112,10 +113,11 @@ function StatusBadge({ status }: { status: "completed" | "pending" | "ready" | "
 function TaskCard({ task }: { task: RewardTask }) {
   const percent = progressPercent(task.progress, task.requirement);
   return (
-    <motion.div whileHover={{ y: -3 }} className="rounded-lg border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white light:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+    <motion.div whileHover={{ y: -3 }} className="relative overflow-hidden rounded-xl border border-orange-400/15 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/60 light:shadow-[0_18px_42px_rgba(15,23,42,0.09)]">
+      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-orange-400/10 blur-2xl" />
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-bold text-white light:text-slate-950">{task.title}</h3>
+          <h3 className="relative font-bold text-white light:text-slate-950">{task.title}</h3>
           <div className="mt-2"><XPRewardBadge amount={task.reward} /></div>
         </div>
         {task.claimed ? <StatusBadge status="claimed" /> : task.completed ? <StatusBadge status="ready" /> : <StatusBadge status="progress" />}
@@ -246,8 +248,8 @@ function XLogo({ className = "h-7 w-7" }: { className?: string }) {
 
 function XBrandIcon() {
   return (
-    <div className="grid h-12 w-12 place-items-center rounded-xl border border-black bg-black text-white shadow-[0_14px_34px_rgba(0,0,0,0.38)] ring-1 ring-white/15 light:border-black light:shadow-[0_14px_30px_rgba(0,0,0,0.24)]">
-      <XLogo className="h-5 w-5 text-white" />
+    <div className="grid h-14 w-14 place-items-center rounded-2xl border border-black bg-black text-white shadow-[0_16px_38px_rgba(0,0,0,0.42)] ring-1 ring-white/20 light:border-black light:shadow-[0_16px_34px_rgba(0,0,0,0.28)]">
+      <XLogo className="h-7 w-7 text-white" />
     </div>
   );
 }
@@ -266,7 +268,7 @@ function TelegramLogo({ className = "h-7 w-7" }: { className?: string }) {
 
 function TelegramBrandIcon() {
   return (
-    <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#229ED9] text-white shadow-[0_14px_34px_rgba(34,158,217,0.34)] ring-1 ring-white/15">
+    <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#229ED9] text-white shadow-[0_16px_38px_rgba(34,158,217,0.34)] ring-1 ring-white/20">
       <TelegramLogo className="h-7 w-7" />
     </div>
   );
@@ -392,10 +394,12 @@ export function RewardsCenterExperience() {
           ) : null}
         </AnimatePresence>
 
-        <section className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/12 via-white/[0.04] to-yellow-400/10 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)] light:border-black light:bg-white light:from-emerald-50 light:via-white light:to-yellow-50">
-          <div className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
+        <section className="relative overflow-hidden rounded-2xl border border-orange-400/20 bg-gradient-to-br from-orange-500/14 via-white/[0.04] to-amber-400/12 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.26)] light:border-black light:bg-white light:from-orange-50 light:via-white light:to-amber-50 light:shadow-[0_24px_70px_rgba(15,23,42,0.1)]">
+          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-orange-500/16 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 right-10 h-72 w-72 rounded-full bg-amber-300/14 blur-3xl" />
+          <div className="relative grid gap-6 xl:grid-cols-[1fr_0.75fr]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-emerald-300 light:text-emerald-700">
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/35 bg-orange-400/12 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-orange-200 light:text-orange-700">
                 <Gift className="h-3.5 w-3.5" /> Rewards Center
               </div>
               <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-white light:text-slate-950 sm:text-5xl">One rewards hub for every Velora milestone.</h2>
@@ -410,7 +414,7 @@ export function RewardsCenterExperience() {
             <motion.div
               initial={{ scale: 0.98, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="rounded-xl border border-yellow-400/25 bg-black/30 p-5 light:border-black light:bg-white light:shadow-[0_16px_46px_rgba(15,23,42,0.1)]"
+              className="rounded-2xl border border-orange-400/25 bg-black/35 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] light:border-black light:bg-white/85 light:shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -446,6 +450,7 @@ export function RewardsCenterExperience() {
           </div>
         </section>
 
+        <div className="rounded-2xl bg-gradient-to-br from-orange-500/8 via-transparent to-amber-400/8 p-[1px] light:from-orange-100 light:via-white light:to-amber-100">
         <Panel title="Daily Check-in" eyebrow="7-day XP reward cycle">
           <div className="grid gap-5 xl:grid-cols-[1fr_280px]">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
@@ -495,7 +500,9 @@ export function RewardsCenterExperience() {
             </div>
           </div>
         </Panel>
+        </div>
 
+        <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 via-amber-400/5 to-transparent p-[1px] shadow-[0_24px_70px_rgba(0,0,0,0.1)] light:from-orange-100 light:via-white light:to-amber-100">
         <Panel title="Social Tasks" eyebrow="Community actions">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {rewards.socialTasks.map((task) => {
@@ -505,10 +512,11 @@ export function RewardsCenterExperience() {
                 <motion.div
                   key={task.id}
                   whileHover={{ y: -5, scale: 1.01 }}
-                  className="group relative overflow-hidden rounded-xl border border-emerald-400/20 bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.22)] transition light:border-black light:bg-white light:shadow-[0_18px_44px_rgba(15,23,42,0.1)]"
+                  className="group relative overflow-hidden rounded-2xl border border-orange-400/18 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-orange-400/[0.045] p-5 shadow-[0_22px_64px_rgba(0,0,0,0.24)] transition light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/60 light:shadow-[0_22px_52px_rgba(15,23,42,0.12)]"
                 >
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent opacity-70" />
-                  <div className="absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl transition group-hover:bg-yellow-400/15" />
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-300/80 to-transparent opacity-80" />
+                  <div className="absolute -right-16 -top-16 h-36 w-36 rounded-full bg-orange-400/12 blur-2xl transition group-hover:bg-amber-400/18" />
+                  <div className="absolute -bottom-20 left-6 h-28 w-28 rounded-full bg-amber-300/8 blur-2xl" />
                   <div className="relative">
                     <div className="flex items-start justify-between gap-3">
                       <div className={cx("grid h-12 w-12 place-items-center rounded-xl", visual.accent)}>
@@ -516,8 +524,8 @@ export function RewardsCenterExperience() {
                       </div>
                       <XPRewardBadge amount={task.reward} />
                     </div>
-                    <h3 className="mt-5 text-base font-black text-white light:text-slate-950">{task.title}</h3>
-                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-slate-400 light:text-slate-600">{visual.description}</p>
+                    <h3 className="mt-6 text-base font-black text-white light:text-slate-950">{task.title}</h3>
+                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-slate-300 light:text-slate-700">{visual.description}</p>
                     <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 light:border-black light:bg-slate-50">
                       <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 light:text-slate-600">Status</span>
                       <span
@@ -565,18 +573,23 @@ export function RewardsCenterExperience() {
             })}
           </div>
         </Panel>
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-2xl bg-gradient-to-br from-orange-500/8 via-transparent to-amber-400/8 p-[1px] light:from-orange-100 light:via-white light:to-amber-100">
           <Panel title="Bridge Tasks" eyebrow="Milestones update from real bridge history">
             <div className="grid gap-4">
               {rewards.bridgeTasks.map((task) => <TaskCard key={task.id} task={task} />)}
             </div>
           </Panel>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-orange-500/8 via-transparent to-amber-400/8 p-[1px] light:from-orange-100 light:via-white light:to-amber-100">
           <Panel title="Swap Tasks" eyebrow="Milestones update from real swap history">
             <div className="grid gap-4">
               {rewards.swapTasks.map((task) => <TaskCard key={task.id} task={task} />)}
             </div>
           </Panel>
+          </div>
         </div>
 
         <Panel title="Achievement Rewards" eyebrow="XP milestones and claimable ecosystem badges">
