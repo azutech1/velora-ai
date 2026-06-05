@@ -14,9 +14,11 @@ import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { usePioneerProfile } from "@/hooks/usePioneerProfile";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
+import { useRewardsCenter } from "@/hooks/useRewardsCenter";
 import { isMainActivityRecord } from "@/lib/activity/display";
 import type { ActivityRecord } from "@/lib/activity/types";
 import { getChainById } from "@/lib/config/chains";
+import type { EarlyVeloraPioneerProgress } from "@/lib/rewards/system";
 import { shortAddress } from "@/lib/utils/format";
 
 type ProfileTab = "positions" | "activities";
@@ -44,6 +46,78 @@ function isVeloraProfileActivity(record: ActivityRecord) {
   return isMainActivityRecord(record);
 }
 
+function formatBadgeDate(value?: string | null) {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(value));
+}
+
+function EarlyPioneerProfileBadge({ badge, address }: { badge: EarlyVeloraPioneerProgress; address?: string }) {
+  return (
+    <div
+      className={cx(
+        "relative overflow-hidden rounded-xl border p-5 light:border-black light:bg-white light:shadow-[0_16px_42px_rgba(15,23,42,0.1)]",
+        badge.claimed ? "border-yellow-300/50 bg-gradient-to-br from-emerald-400/12 via-yellow-300/10 to-white/[0.04]" : "border-white/10 bg-white/[0.04] opacity-85"
+      )}
+    >
+      <div className="absolute -right-20 -top-20 h-44 w-44 rounded-full bg-yellow-400/10 blur-3xl" />
+      <div className="relative grid gap-5 lg:grid-cols-[160px_1fr]">
+        <div className="grid place-items-center">
+          <div className={cx("relative grid h-32 w-32 place-items-center overflow-hidden rounded-full border bg-gradient-to-br from-emerald-500/20 via-yellow-300/15 to-amber-500/20", badge.claimed ? "border-yellow-300/70 shadow-[0_0_50px_rgba(234,179,8,0.18)]" : "border-white/15 grayscale")}>
+            <div className="absolute inset-2 rounded-full border border-emerald-300/35" />
+            <Image src="/brand/velora-mark-dark.png" alt="Velora AI" width={68} height={68} className="relative drop-shadow-[0_0_18px_rgba(16,185,129,0.4)]" />
+          </div>
+        </div>
+        <div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-300 light:text-amber-700">Early Supporter Badge</p>
+              <h3 className="mt-2 text-2xl font-black text-white light:text-slate-950">Early Velora Pioneer</h3>
+            </div>
+            <span className={cx("rounded-full border px-3 py-1 text-xs font-black", badge.claimed ? "border-emerald-400/35 bg-emerald-400/12 text-emerald-300 light:text-emerald-700" : "border-white/10 bg-white/[0.05] text-slate-400 light:border-black light:bg-slate-100 light:text-slate-700")}>
+              {badge.claimed ? "Claimed" : badge.readyToClaim ? "Ready To Claim" : badge.progress > 0 ? "In Progress" : "Locked"}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-400 light:text-slate-600">
+            {badge.claimed
+              ? "You joined Velora AI during its earliest growth phase and completed meaningful ecosystem activity."
+              : "Complete the requirements and claim this badge from Rewards Center before it appears as earned."}
+          </p>
+          {badge.claimed ? (
+            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3 light:border-black light:bg-slate-50">
+                <p className="text-slate-500">Earned</p>
+                <p className="mt-1 font-bold text-white light:text-slate-950">{formatBadgeDate(badge.earnedAt)}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3 light:border-black light:bg-slate-50">
+                <p className="text-slate-500">Wallet</p>
+                <p className="mt-1 font-bold text-white light:text-slate-950">{address ? shortAddress(address) : "--"}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <div className="flex justify-between text-xs font-bold text-slate-400 light:text-slate-600">
+                <span>Progress</span>
+                <span>{badge.progress}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-black/30 light:bg-slate-200">
+                <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-yellow-400" style={{ width: `${badge.progress}%` }} />
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {badge.requirements.map((requirement) => (
+                  <div key={requirement.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm light:border-black light:bg-slate-50">
+                    <span className="text-slate-300 light:text-slate-700">{requirement.completed ? "Done" : "Open"}: {requirement.label}</span>
+                    {requirement.detail ? <span className="text-xs font-bold text-slate-500">{requirement.detail}</span> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { address, isConnected } = useAccount();
   const { isAdmin } = useAdminMode();
@@ -60,6 +134,7 @@ export default function ProfilePage() {
   }, [activities, address, isConnected]);
   const stats = useMemo(() => activityCounts(profileActivities), [profileActivities]);
   const pioneers = usePioneerProfile(profileActivities);
+  const rewards = useRewardsCenter(profileActivities);
   const pioneerSummary = pioneers.summary;
   const earnedBadges = pioneerSummary.badges.filter((badge) => badge.earned);
   const hasAssets = portfolio.positions.some((position) => position.balance > 0);
@@ -195,6 +270,14 @@ export default function ProfilePage() {
               {!earnedBadges.length ? <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-slate-400">No badges earned yet</div> : null}
               <p className="text-xs leading-6 text-slate-500">Early participation, activity, and contributions may be considered in future Velora ecosystem programs.</p>
             </div>
+          )}
+        </Panel>
+
+        <Panel title="My Badges" eyebrow="Claimed achievements and badge progress">
+          {!isConnected ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Connect wallet to view badges</div>
+          ) : (
+            <EarlyPioneerProfileBadge badge={rewards.earlyPioneerBadge} address={address} />
           )}
         </Panel>
 

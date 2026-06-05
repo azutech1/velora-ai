@@ -18,6 +18,8 @@ export type RewardsStore = {
   completedSocialTasks: Record<string, boolean>;
   claimedMilestones: Record<string, boolean>;
   claimedAchievements: Record<string, boolean>;
+  claimedBadges: Record<string, boolean>;
+  claimedBadgeTimestamps: Record<string, string>;
   recentActivity: RewardActivity[];
 };
 
@@ -30,6 +32,23 @@ export type RewardTask = {
   unit: string;
   completed: boolean;
   claimed: boolean;
+};
+
+export type EarlyVeloraPioneerProgress = {
+  id: "early-velora-pioneer";
+  title: "Early Velora Pioneer";
+  description: string;
+  claimed: boolean;
+  readyToClaim: boolean;
+  progress: number;
+  socialCompleted: number;
+  requirements: Array<{
+    id: string;
+    label: string;
+    completed: boolean;
+    detail?: string;
+  }>;
+  earnedAt?: string | null;
 };
 
 export const DAILY_REWARDS = [500, 1000, 1500, 2000, 2500, 3000, 5000];
@@ -58,6 +77,8 @@ export const defaultRewardsStore: RewardsStore = {
   completedSocialTasks: {},
   claimedMilestones: {},
   claimedAchievements: {},
+  claimedBadges: {},
+  claimedBadgeTimestamps: {},
   recentActivity: []
 };
 
@@ -144,4 +165,39 @@ export function buildRewardTaskProgress(records: ActivityRecord[]) {
 
 export function progressPercent(progress: number, requirement: number) {
   return Math.min(100, Math.round((Math.min(progress, requirement) / Math.max(requirement, 1)) * 100));
+}
+
+export function buildEarlyVeloraPioneerProgress(options: {
+  connected: boolean;
+  records: ActivityRecord[];
+  bestStreak: number;
+  completedSocialTasks: Record<string, boolean>;
+  claimedBadges: Record<string, boolean>;
+  claimedBadgeTimestamps: Record<string, string>;
+}): EarlyVeloraPioneerProgress {
+  const completedRecords = completed(options.records);
+  const hasSwap = completedRecords.some((record) => record.feature === "swap" || record.actionType.includes("swap"));
+  const hasBridge = completedRecords.some((record) => record.feature === "bridge" || record.actionType.includes("bridge"));
+  const socialCompleted = SOCIAL_TASKS.filter((task) => options.completedSocialTasks[task.id]).length;
+  const requirements = [
+    { id: "wallet", label: "Wallet Connected", completed: options.connected },
+    { id: "swap", label: "First Swap Completed", completed: hasSwap },
+    { id: "bridge", label: "First Bridge Completed", completed: hasBridge },
+    { id: "streak", label: "7-Day Check-in Streak Completed", completed: options.bestStreak >= 7, detail: `${Math.min(options.bestStreak, 7)} / 7 Days` },
+    { id: "social", label: "Social Tasks Completed", completed: socialCompleted >= 2, detail: `${Math.min(socialCompleted, 2)} / 2 Social Tasks` }
+  ];
+  const completedCount = requirements.filter((requirement) => requirement.completed).length;
+  const claimed = Boolean(options.claimedBadges["early-velora-pioneer"]);
+
+  return {
+    id: "early-velora-pioneer",
+    title: "Early Velora Pioneer",
+    description: "You joined Velora AI during its earliest growth phase and completed meaningful ecosystem activity.",
+    claimed,
+    readyToClaim: !claimed && requirements.every((requirement) => requirement.completed),
+    progress: Math.round((completedCount / requirements.length) * 100),
+    socialCompleted,
+    requirements,
+    earnedAt: options.claimedBadgeTimestamps["early-velora-pioneer"] ?? null
+  };
 }

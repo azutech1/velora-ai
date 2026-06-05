@@ -7,6 +7,7 @@ import {
   ACHIEVEMENT_REWARDS,
   DAILY_REWARDS,
   SOCIAL_TASKS,
+  buildEarlyVeloraPioneerProgress,
   buildRewardTaskProgress,
   defaultRewardsStore,
   levelFromXp,
@@ -30,7 +31,18 @@ function createRewardActivity(title: string, amount: number, type: RewardActivit
 function mergeStore(raw: string | null): RewardsStore {
   if (!raw) return defaultRewardsStore;
   try {
-    return { ...defaultRewardsStore, ...(JSON.parse(raw) as Partial<RewardsStore>) };
+    const parsed = JSON.parse(raw) as Partial<RewardsStore>;
+    return {
+      ...defaultRewardsStore,
+      ...parsed,
+      openedSocialTasks: { ...defaultRewardsStore.openedSocialTasks, ...parsed.openedSocialTasks },
+      completedSocialTasks: { ...defaultRewardsStore.completedSocialTasks, ...parsed.completedSocialTasks },
+      claimedMilestones: { ...defaultRewardsStore.claimedMilestones, ...parsed.claimedMilestones },
+      claimedAchievements: { ...defaultRewardsStore.claimedAchievements, ...parsed.claimedAchievements },
+      claimedBadges: { ...defaultRewardsStore.claimedBadges, ...parsed.claimedBadges },
+      claimedBadgeTimestamps: { ...defaultRewardsStore.claimedBadgeTimestamps, ...parsed.claimedBadgeTimestamps },
+      recentActivity: parsed.recentActivity ?? defaultRewardsStore.recentActivity
+    };
   } catch {
     return defaultRewardsStore;
   }
@@ -157,6 +169,40 @@ export function useRewardsCenter(records: ActivityRecord[]) {
 
   const bridgeTasks = taskProgress.bridgeTasks.map((task) => ({ ...task, claimed: Boolean(store.claimedMilestones[task.id]) }));
   const swapTasks = taskProgress.swapTasks.map((task) => ({ ...task, claimed: Boolean(store.claimedMilestones[task.id]) }));
+  const earlyPioneerBadge = buildEarlyVeloraPioneerProgress({
+    connected: Boolean(isConnected && address),
+    records,
+    bestStreak: store.bestStreak,
+    completedSocialTasks: store.completedSocialTasks,
+    claimedBadges: store.claimedBadges,
+    claimedBadgeTimestamps: store.claimedBadgeTimestamps
+  });
+  const claimEarlyPioneerBadge = useCallback(() => {
+    if (!address || !isConnected) return { error: "Connect wallet to claim this badge." };
+    const progress = buildEarlyVeloraPioneerProgress({
+      connected: true,
+      records,
+      bestStreak: store.bestStreak,
+      completedSocialTasks: store.completedSocialTasks,
+      claimedBadges: store.claimedBadges,
+      claimedBadgeTimestamps: store.claimedBadgeTimestamps
+    });
+    if (progress.claimed) return { error: "Badge already claimed." };
+    if (!progress.readyToClaim) return { error: "Complete all badge requirements before claiming." };
+    const claimedAt = new Date().toISOString();
+    const nextStore: RewardsStore = {
+      ...store,
+      claimedBadges: { ...store.claimedBadges, [progress.id]: true },
+      claimedBadgeTimestamps: { ...store.claimedBadgeTimestamps, [progress.id]: claimedAt }
+    };
+    persist(address, nextStore);
+    setStore(nextStore);
+    return {
+      title: "Early Velora Pioneer Badge Claimed",
+      message: "You are among the first generation of Velora AI users.",
+      claimedAt
+    };
+  }, [address, isConnected, records, store]);
   const level = levelFromXp(store.xp);
   const achievements = ACHIEVEMENT_REWARDS.map((achievement) => ({
     ...achievement,
@@ -173,6 +219,7 @@ export function useRewardsCenter(records: ActivityRecord[]) {
     level,
     bridgeTasks,
     swapTasks,
+    earlyPioneerBadge,
     achievements,
     socialTasks: SOCIAL_TASKS.map((task) => ({
       ...task,
@@ -183,6 +230,7 @@ export function useRewardsCenter(records: ActivityRecord[]) {
     clearLastReward: () => setLastReward(null),
     claimDaily,
     openSocialTask,
-    verifySocialTask
+    verifySocialTask,
+    claimEarlyPioneerBadge
   };
 }

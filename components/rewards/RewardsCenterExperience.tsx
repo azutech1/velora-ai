@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -18,7 +19,7 @@ import { Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useRewardsCenter } from "@/hooks/useRewardsCenter";
-import { DAILY_REWARDS, progressPercent, type RewardTask } from "@/lib/rewards/system";
+import { DAILY_REWARDS, progressPercent, type EarlyVeloraPioneerProgress, type RewardTask } from "@/lib/rewards/system";
 
 function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(value);
@@ -95,6 +96,107 @@ function TaskCard({ task }: { task: RewardTask }) {
         <span>{percent}%</span>
       </div>
       <ProgressBar value={percent} className="mt-2 h-2" />
+    </motion.div>
+  );
+}
+
+function VeloraPioneerBadgeVisual({ claimed, ready }: { claimed?: boolean; ready?: boolean }) {
+  return (
+    <div
+      className={cx(
+        "relative mx-auto grid h-32 w-32 place-items-center overflow-hidden rounded-full border bg-gradient-to-br from-emerald-500/20 via-yellow-300/15 to-amber-500/20 shadow-[0_0_50px_rgba(234,179,8,0.18)]",
+        ready || claimed ? "border-yellow-300/70" : "border-white/15 opacity-70 blur-[0.5px]"
+      )}
+    >
+      <div className="absolute inset-2 rounded-full border border-emerald-300/35" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_24%),radial-gradient(circle_at_70%_85%,rgba(16,185,129,0.24),transparent_34%)]" />
+      {(ready || claimed) ? (
+        <motion.div
+          className="absolute inset-y-0 -left-16 w-12 rotate-12 bg-white/35 blur-md"
+          animate={{ x: [0, 210] }}
+          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
+        />
+      ) : null}
+      <div className="relative grid h-20 w-20 place-items-center rounded-full border border-yellow-300/40 bg-slate-950/80">
+        <Image src="/brand/velora-mark-dark.png" alt="Velora AI" width={56} height={56} className="drop-shadow-[0_0_18px_rgba(16,185,129,0.4)]" />
+      </div>
+    </div>
+  );
+}
+
+function EarlyPioneerAchievementCard({
+  badge,
+  onClaim
+}: {
+  badge: EarlyVeloraPioneerProgress;
+  onClaim: () => void;
+}) {
+  const state = badge.claimed ? "Claimed" : badge.readyToClaim ? "Ready To Claim" : badge.progress > 0 ? "In Progress" : "Locked";
+
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className={cx(
+        "relative overflow-hidden rounded-xl border p-5 transition light:border-black light:bg-white light:shadow-[0_16px_42px_rgba(15,23,42,0.1)]",
+        badge.claimed
+          ? "border-emerald-400/40 bg-emerald-400/10"
+          : badge.readyToClaim
+            ? "border-yellow-300/60 bg-gradient-to-br from-yellow-400/16 via-emerald-400/10 to-white/[0.04] shadow-[0_0_55px_rgba(234,179,8,0.14)]"
+            : "border-white/10 bg-white/[0.04]"
+      )}
+    >
+      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
+      <div className="relative">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-300 light:text-amber-700">Early Supporter Badge</p>
+            <h3 className="mt-2 text-xl font-black text-white light:text-slate-950">Early Velora Pioneer</h3>
+          </div>
+          <span
+            className={cx(
+              "rounded-full border px-3 py-1 text-xs font-black",
+              badge.claimed
+                ? "border-emerald-400/35 bg-emerald-400/12 text-emerald-300 light:text-emerald-700"
+                : badge.readyToClaim
+                  ? "border-yellow-300/45 bg-yellow-300/12 text-yellow-200 light:text-amber-700"
+                  : "border-white/10 bg-white/[0.05] text-slate-400 light:border-black light:bg-slate-100 light:text-slate-700"
+            )}
+          >
+            {state}
+          </span>
+        </div>
+        <div className="mt-5">
+          <VeloraPioneerBadgeVisual claimed={badge.claimed} ready={badge.readyToClaim} />
+        </div>
+        <p className="mt-5 text-sm leading-6 text-slate-400 light:text-slate-600">{badge.description}</p>
+        <div className="mt-5 flex justify-between text-xs font-bold text-slate-400 light:text-slate-600">
+          <span>Progress</span>
+          <span>{badge.progress}%</span>
+        </div>
+        <ProgressBar value={badge.progress} className="mt-2 h-2" />
+        <div className="mt-5 space-y-2">
+          {badge.requirements.map((requirement) => (
+            <div key={requirement.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm light:border-black light:bg-slate-50">
+              <span className="flex items-center gap-2 text-slate-300 light:text-slate-700">
+                {requirement.completed ? <CheckCircle2 className="h-4 w-4 text-emerald-300 light:text-emerald-700" /> : <Lock className="h-4 w-4 text-slate-500" />}
+                {requirement.label}
+              </span>
+              {requirement.detail ? <span className="text-xs font-bold text-slate-500">{requirement.detail}</span> : null}
+            </div>
+          ))}
+        </div>
+        <div className="mt-5">
+          {badge.claimed ? (
+            <RewardButton disabled>
+              Claimed <BadgeCheck className="ml-1 inline h-4 w-4" />
+            </RewardButton>
+          ) : badge.readyToClaim ? (
+            <RewardButton onClick={onClaim}>Claim Badge</RewardButton>
+          ) : (
+            <RewardButton disabled>Complete Requirements</RewardButton>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -192,6 +294,7 @@ export function RewardsCenterExperience() {
   }, [activities, address]);
   const rewards = useRewardsCenter(walletActivities);
   const [toast, setToast] = useState<string | null>(null);
+  const [badgeUnlocked, setBadgeUnlocked] = useState(false);
 
   useEffect(() => {
     if (!rewards.lastReward) return;
@@ -212,6 +315,16 @@ export function RewardsCenterExperience() {
     setToast(message);
   }
 
+  function claimEarlyPioneerBadge() {
+    const result = rewards.claimEarlyPioneerBadge();
+    if ("error" in result) {
+      showError(result.error ?? "Badge claim failed.");
+      return;
+    }
+    setToast("Early Velora Pioneer Badge Unlocked - You are among the first generation of Velora AI users.");
+    setBadgeUnlocked(true);
+  }
+
   return (
     <AppShell title="Rewards Center" eyebrow="XP, streaks, achievements, and future progression">
       <div className="space-y-6">
@@ -224,6 +337,35 @@ export function RewardsCenterExperience() {
               className="fixed right-4 top-4 z-[60] rounded-xl border border-emerald-400/30 bg-slate-950/95 px-5 py-4 text-sm font-black text-white shadow-[0_20px_70px_rgba(16,185,129,0.28)] backdrop-blur-xl light:bg-white light:text-slate-950"
             >
               {toast}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        <AnimatePresence>
+          {badgeUnlocked ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-xl"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                className="relative w-full max-w-md overflow-hidden rounded-2xl border border-yellow-300/50 bg-slate-950 p-7 text-center shadow-[0_0_90px_rgba(234,179,8,0.22)] light:bg-white"
+              >
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
+                <VeloraPioneerBadgeVisual claimed ready />
+                <h2 className="mt-6 text-2xl font-black text-white light:text-slate-950">Early Velora Pioneer Badge Unlocked</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-400 light:text-slate-600">You are among the first generation of Velora AI users.</p>
+                <button
+                  type="button"
+                  onClick={() => setBadgeUnlocked(false)}
+                  className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-400 to-yellow-400 px-5 py-3 text-sm font-black text-slate-950"
+                >
+                  Close
+                </button>
+              </motion.div>
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -411,8 +553,11 @@ export function RewardsCenterExperience() {
           </Panel>
         </div>
 
-        <Panel title="Achievement Rewards" eyebrow="Unlocked automatically from XP progress">
+        <Panel title="Achievement Rewards" eyebrow="XP milestones and claimable ecosystem badges">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="md:col-span-2 xl:col-span-2">
+              <EarlyPioneerAchievementCard badge={rewards.earlyPioneerBadge} onClaim={claimEarlyPioneerBadge} />
+            </div>
             {rewards.achievements.map((achievement) => {
               const percent = progressPercent(achievement.progress, achievement.requirement);
               return (
