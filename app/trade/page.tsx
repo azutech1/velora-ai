@@ -757,8 +757,8 @@ export default function TradePage() {
     }
     if (lower.includes("createswap") || lower.includes("stablecoin service") || lower.includes("failed to fetch") || lower.includes("maximum retry attempts")) {
       return {
-        title: "Swap service unavailable",
-        message: "The swap service could not create a wallet transaction for this route. Try again later or use another pair.",
+        title: "Provider transaction creation failed",
+        message: `The selected swap provider could not create a wallet transaction for this route. Reason: ${raw}`,
         raw
       };
     }
@@ -1639,6 +1639,15 @@ export default function TradePage() {
         debugSwap("execute provider swap start", {
           providerExecutable: true,
           selectedProvider: swapRoute.providerName,
+          sourceChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+          destinationChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+          sourceToken: { symbol: sellToken.symbol, address: getTokenAddress(sellToken.symbol, bridge.fromNetwork.chainId), decimals: sellToken.decimals },
+          destinationToken: { symbol: buyToken.symbol, address: getTokenAddress(buyToken.symbol, bridge.fromNetwork.chainId), decimals: buyToken.decimals },
+          amount: swapAmount,
+          quoteResponse: swapRoute.quote,
+          transactionRequest: swapRoute.transactionRequest,
+          transactionRequestExists: Boolean(swapRoute.transactionRequest?.to && swapRoute.transactionRequest.data),
+          diagnostics: swapRoute.diagnostics,
           estimate: swapProviderEstimate
         });
         recordActivity({
@@ -1680,24 +1689,150 @@ export default function TradePage() {
         void queryClient.invalidateQueries();
         refreshSwapRouteAfterSuccess();
       } catch (error) {
-        const failure = swapFailureFromError(error);
-        setSwapTransactionState("failed");
-        debugSwap("execute provider swap failed", { error: serializeSwapError(error), failure });
-        recordActivity({
-          actionType: "swap_failed",
-          title: "Swap failed",
-          description: failure.message,
-          feature: "swap",
-          token: `${sellToken.symbol}/${buyToken.symbol}`,
+        const providerFailure = swapFailureFromError(error);
+        debugSwap("execute provider swap failed", {
+          selectedProvider: swapRoute.providerName,
+          sourceChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+          destinationChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+          sourceToken: { symbol: sellToken.symbol, address: getTokenAddress(sellToken.symbol, bridge.fromNetwork.chainId), decimals: sellToken.decimals },
+          destinationToken: { symbol: buyToken.symbol, address: getTokenAddress(buyToken.symbol, bridge.fromNetwork.chainId), decimals: buyToken.decimals },
           amount: swapAmount,
-          status: "failed",
-          metadata: {
-            ...getSwapActivityMetadata("failed"),
-            routeProvider: swapRoute.providerName,
-            error: failure.raw ?? failure.message
-          }
+          quoteResponse: swapRoute.quote,
+          transactionRequest: swapRoute.transactionRequest,
+          transactionRequestExists: Boolean(swapRoute.transactionRequest?.to && swapRoute.transactionRequest.data),
+          diagnostics: swapRoute.diagnostics,
+          exactError: serializeSwapError(error),
+          failure: providerFailure
         });
-        setSwapFailure(failure);
+
+        if (isLifiEnabled) {
+          try {
+            setSwapTransactionState("preparingSwap");
+            setSwapWalletWaiting(false);
+            debugSwap("execute provider swap fallback lifi request", {
+              failedProvider: swapRoute.providerName,
+              providerFailure,
+              sourceChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+              destinationChain: { id: bridge.fromNetwork.chainId, name: bridge.fromNetwork.name },
+              sourceToken: { symbol: sellToken.symbol, address: getTokenAddress(sellToken.symbol, bridge.fromNetwork.chainId), decimals: sellToken.decimals },
+              destinationToken: { symbol: buyToken.symbol, address: getTokenAddress(buyToken.symbol, bridge.fromNetwork.chainId), decimals: buyToken.decimals },
+              amount: swapAmount
+            });
+
+            const fallbackQuote = await requestCurrentSwapLifiQuote();
+            debugSwap("execute provider swap fallback lifi response", {
+              selectedProvider: fallbackQuote.provider,
+              quoteResponse: fallbackQuote,
+              transactionRequestResponse: fallbackQuote.transactionRequest ?? null,
+              transactionRequestExists: hasExecutableTransactionRequest(fallbackQuote),
+              transactionRequestTo: fallbackQuote.transactionRequest?.to ?? null,
+              transactionRequestDataLength: fallbackQuote.transactionRequest?.data?.length ?? 0,
+              transactionRequestValue: fallbackQuote.transactionRequest?.value ?? null,
+              transactionRequestChainId: fallbackQuote.transactionRequest?.chainId ?? null
+            });
+
+            if (!hasExecutableTransactionRequest(fallbackQuote)) {
+              throw new Error("LI.FI fallback returned a quote without wallet transaction data.");
+            }
+
+            const fallbackRequestChainId = fallbackQuote.transactionRequest?.chainId ?? bridge.fromNetwork.chainId;
+            if (fallbackRequestChainId !== walletChainId) {
+              throw new Error(`LI.FI fallback transaction is for chain ${fallbackRequestChainId}, but wallet is on chain ${walletChainId}.`);
+            }
+
+            setLifiQuote(fallbackQuote);
+            setSwapWalletWaiting(true);
+            setSwapTransactionState("waitingWalletConfirmation");
+            recordActivity({
+              actionType: "swap_started",
+              title: "Swap started",
+              description: `Wallet confirmation requested for ${swapAmount} ${sellToken.symbol} to ${buyToken.symbol}.`,
+              feature: "swap",
+              token: `${sellToken.symbol}/${buyToken.symbol}`,
+              amount: swapAmount,
+              status: "pending",
+              metadata: {
+                ...getSwapActivityMetadata("execution_started", fallbackQuote),
+                routeProvider: fallbackQuote.provider ?? "LI.FI Swap",
+                fallbackFromProvider: swapRoute.providerName
+              }
+            });
+
+            const fallbackResult = await executeLifiTransaction(fallbackQuote, "swap", () => {
+              setSwapWalletWaiting(false);
+              setSwapTransactionState("swapping");
+            });
+            const fallbackReceivedAmount = formatLifiAmount(fallbackQuote.toAmount, buyToken.decimals);
+            if (fallbackResult.receiptStatus === "confirmed") {
+              recordCompletedSwap({
+                txHash: fallbackResult.txHash,
+                approvalHash: fallbackResult.approvalHash,
+                receivedAmount: fallbackReceivedAmount,
+                routeProvider: fallbackQuote.provider ?? "LI.FI Swap",
+                quote: fallbackQuote
+              });
+            }
+            setSwapSuccess(createSwapSuccessPayload({
+              txHash: fallbackResult.txHash,
+              approvalHash: fallbackResult.approvalHash,
+              receivedAmount: fallbackReceivedAmount,
+              routeProvider: fallbackQuote.provider ?? "LI.FI Swap",
+              confirmationStatus: fallbackResult.confirmationPending ? "pending" : "confirmed"
+            }));
+            setSwapTransactionState("success");
+            void queryClient.invalidateQueries();
+            refreshSwapRouteAfterSuccess();
+            return;
+          } catch (fallbackError) {
+            const fallbackFailure = swapFailureFromError(fallbackError);
+            const combinedFailure = {
+              title: fallbackFailure.title,
+              message: `${providerFailure.message} Fallback route failed: ${fallbackFailure.message}`,
+              raw: `Primary provider (${swapRoute.providerName}): ${providerFailure.raw ?? providerFailure.message}\nLI.FI fallback: ${fallbackFailure.raw ?? fallbackFailure.message}`
+            };
+            setSwapTransactionState("failed");
+            debugSwap("execute provider swap fallback lifi failed", {
+              failedProvider: swapRoute.providerName,
+              providerFailure,
+              fallbackFailure,
+              exactError: serializeSwapError(fallbackError),
+              combinedFailure
+            });
+            recordActivity({
+              actionType: "swap_failed",
+              title: "Swap failed",
+              description: combinedFailure.message,
+              feature: "swap",
+              token: `${sellToken.symbol}/${buyToken.symbol}`,
+              amount: swapAmount,
+              status: "failed",
+              metadata: {
+                ...getSwapActivityMetadata("failed"),
+                routeProvider: swapRoute.providerName,
+                fallbackProvider: "LI.FI Swap",
+                error: combinedFailure.raw
+              }
+            });
+            setSwapFailure(combinedFailure);
+          }
+        } else {
+          setSwapTransactionState("failed");
+          recordActivity({
+            actionType: "swap_failed",
+            title: "Swap failed",
+            description: providerFailure.message,
+            feature: "swap",
+            token: `${sellToken.symbol}/${buyToken.symbol}`,
+            amount: swapAmount,
+            status: "failed",
+            metadata: {
+              ...getSwapActivityMetadata("failed"),
+              routeProvider: swapRoute.providerName,
+              error: providerFailure.raw ?? providerFailure.message
+            }
+          });
+          setSwapFailure(providerFailure);
+        }
       } finally {
         setSwapWalletWaiting(false);
         setSwapSubmitting(false);
