@@ -195,12 +195,13 @@ export function createCircleBridgeProvider(): RouteProvider {
   };
 }
 
-export function createLifiBridgeProvider(fetchQuote: LifiQuoteFetcher): RouteProvider {
+export function createLifiBridgeProvider(fetchQuote: LifiQuoteFetcher, enabled: boolean): RouteProvider {
   return createTransactionRequestProvider({
     providerName: "LI.FI Bridge",
     routeType: "bridge",
     supportedChains: Array.from(SUPPORTED_BRIDGE_CHAIN_IDS),
     getQuote: async (request) => {
+      if (!enabled) throw new Error("LI.FI bridge provider is disabled.");
       const quote = await fetchQuote({
         fromChain: request.fromChainId,
         toChain: request.toChainId,
@@ -239,8 +240,8 @@ export function createRelayBridgeProvider(): RouteProvider {
   };
 }
 
-export function createBridgeServiceProviders(fetchLifiQuote: LifiQuoteFetcher) {
-  return [createCircleBridgeProvider(), createLifiBridgeProvider(fetchLifiQuote), createRelayBridgeProvider()];
+export function createBridgeServiceProviders(fetchLifiQuote: LifiQuoteFetcher, lifiEnabled = true) {
+  return [createCircleBridgeProvider(), createLifiBridgeProvider(fetchLifiQuote, lifiEnabled), createRelayBridgeProvider()];
 }
 
 export async function executeCircleBridgeRoute(request: {
@@ -270,11 +271,14 @@ export async function executeCircleBridgeRoute(request: {
       callers: [{ type: "app", name: "Velora", version: "public-beta" }]
     }
   })) as CircleBridgeResult;
-  request.onStage?.("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
 
   const txHash = selectPrimarySourceTxHash(result.steps);
   if (!txHash || !EVM_TX_HASH.test(txHash)) {
     throw new Error("Transaction hash unavailable.");
+  }
+
+  if (result.state !== "success") {
+    request.onStage?.("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
   }
 
   return {

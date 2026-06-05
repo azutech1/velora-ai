@@ -1672,6 +1672,14 @@ export default function TradePage() {
         });
         setSwapWalletWaiting(false);
         setSwapTransactionState("swapping");
+        if (!isEvmTransactionHash(result.txHash)) {
+          debugSwap("provider swap hash rejected", {
+            selectedProvider: swapRoute.providerName,
+            txHash: result.txHash,
+            rawResult: result.raw
+          });
+          throw new Error("Provider completed without a valid transaction hash.");
+        }
         const providerReceivedAmount = result.receivedAmount ?? swapProviderEstimate?.estimatedOutput?.amount ?? formatDisplayAmount(estimatedReceive);
         recordCompletedSwap({
           txHash: result.txHash,
@@ -1995,23 +2003,6 @@ export default function TradePage() {
       return;
     }
 
-    if (!isLifiEnabled) {
-      setLiveQuoteUnavailable(true);
-      recordActivity({
-        actionType: "bridge_quote_failed",
-        title: "Bridge route unavailable",
-        description: "Live routing is unavailable.",
-        feature: "bridge",
-        token: bridge.tokenSymbol,
-        amount: bridge.amount,
-        status: "failed",
-        metadata: getBridgeActivityMetadata("route_unavailable")
-      });
-      setBridgeMessage("Bridge provider is currently unavailable.");
-      setBridgeQuoteReady(false);
-      return;
-    }
-
     try {
       setBridgeQuoteLoading(true);
       setBridgeMessage("Searching best available route...");
@@ -2041,7 +2032,7 @@ export default function TradePage() {
           "Arbitrum Sepolia -> Arc Testnet"
         ]
       });
-      const routeResult = await findExecutableRoute(bridgeRouteRequest, createBridgeServiceProviders(requestLifiQuote));
+      const routeResult = await findExecutableRoute(bridgeRouteRequest, createBridgeServiceProviders(requestLifiQuote, isLifiEnabled));
       setBridgeRouteDiagnostics(routeResult.diagnostics);
       debugRoute("bridge route diagnostics", routeResult.diagnostics);
       debugBridge("provider response", {
@@ -2227,8 +2218,6 @@ export default function TradePage() {
         confirmationStatus = result.confirmationStatus ?? "pending";
       }
 
-      setBridgeStage("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
-
       if (!isEvmTransactionHash(hash)) {
         debugBridge("bridge hash rejected", {
           reason: "Submitted bridge hash is not a valid EVM transaction hash.",
@@ -2240,6 +2229,11 @@ export default function TradePage() {
       }
 
       const bridgeConfirmed = confirmationStatus === "confirmed";
+      if (bridgeConfirmed) {
+        setBridgeStage("success", "Bridge completed successfully.", "success");
+      } else {
+        setBridgeStage("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
+      }
       const bridgeExplorerLink = explorerTxUrl(bridge.fromNetwork.explorerUrl || ARC_EXPLORER_URL, hash);
       debugBridge("bridge tx hash captured", {
         txHash: hash,

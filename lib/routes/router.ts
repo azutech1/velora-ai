@@ -101,15 +101,19 @@ function isPositiveAmount(amount: string) {
   return Number.isFinite(parsed) && parsed > 0;
 }
 
+function isEvmAddress(value: unknown) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
+}
+
+function isNonEmptyHexData(value: unknown) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]+$/.test(value) && value.length > 2;
+}
+
 export function isValidTransactionRequest(transactionRequest: RouteTransactionRequest | null | undefined, walletChainId: number) {
   return Boolean(
-    transactionRequest?.to &&
-      transactionRequest.data &&
-      typeof transactionRequest.to === "string" &&
-      transactionRequest.to.startsWith("0x") &&
-      typeof transactionRequest.data === "string" &&
-      transactionRequest.data.startsWith("0x") &&
-      (transactionRequest.chainId ?? walletChainId) === walletChainId
+    isEvmAddress(transactionRequest?.to) &&
+      isNonEmptyHexData(transactionRequest?.data) &&
+      (transactionRequest?.chainId ?? walletChainId) === walletChainId
   );
 }
 
