@@ -238,18 +238,10 @@ type SocialVisual = {
   icon: React.ReactNode;
 };
 
-function XLogo({ className = "h-7 w-7" }: { className?: string }) {
+function XLogoImage() {
   return (
-    <svg className={className} viewBox="0 0 1200 1227" aria-hidden="true" fill="currentColor">
-      <path d="M714.2 519.3 1160.9 0h-105.8L667.2 450.9 357.5 0H0l468.5 681.8L0 1226.4h105.8l415.6-483.2 331.6 483.2h357.5L714.2 519.3Zm-147.1 171-47.2-67.4L142.2 79.7h166.6l304.7 436 47.2 67.4 396.6 568.2H890.7L567.1 690.3Z" />
-    </svg>
-  );
-}
-
-function XBrandIcon() {
-  return (
-    <div className="grid h-14 w-14 place-items-center rounded-2xl border border-black bg-black text-white shadow-[0_16px_38px_rgba(0,0,0,0.42)] ring-1 ring-white/20 light:border-black light:shadow-[0_16px_34px_rgba(0,0,0,0.28)]">
-      <XLogo className="h-7 w-7 text-white" />
+    <div className="grid h-14 w-14 place-items-center rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_16px_34px_rgba(15,23,42,0.16)] ring-1 ring-black/5 dark:border-white/15 dark:bg-white dark:shadow-[0_16px_38px_rgba(0,0,0,0.36)]">
+      <Image src="/brand/x-logo.png" alt="X" width={40} height={40} className="h-10 w-10 object-contain" />
     </div>
   );
 }
@@ -280,7 +272,7 @@ function socialVisual(taskId: string): SocialVisual {
       return {
         description: "Follow the official Velora AI account for public updates and ecosystem announcements.",
         accent: "",
-        icon: <XBrandIcon />
+        icon: <XLogoImage />
       };
     case "join-telegram":
       return {
@@ -292,19 +284,19 @@ function socialVisual(taskId: string): SocialVisual {
       return {
         description: "Open the Velora post on X, like the content, then verify the task manually.",
         accent: "",
-        icon: <XBrandIcon />
+        icon: <XLogoImage />
       };
     case "share-content":
       return {
         description: "Share or repost the Velora content on X, then return here to verify completion.",
         accent: "",
-        icon: <XBrandIcon />
+        icon: <XLogoImage />
       };
     default:
       return {
         description: "Complete this community task and verify it to claim XP.",
         accent: "from-emerald-500 to-yellow-400 text-slate-950",
-        icon: <XBrandIcon />
+        icon: <XLogoImage />
       };
   }
 }
@@ -519,7 +511,7 @@ export function RewardsCenterExperience() {
                   <div className="absolute -bottom-20 left-6 h-28 w-28 rounded-full bg-amber-300/8 blur-2xl" />
                   <div className="relative">
                     <div className="flex items-start justify-between gap-3">
-                      <div className={cx("grid h-12 w-12 place-items-center rounded-xl", visual.accent)}>
+                      <div className={cx("grid place-items-center rounded-xl", visual.accent)}>
                         {visual.icon}
                       </div>
                       <XPRewardBadge amount={task.reward} />
