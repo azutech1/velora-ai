@@ -244,13 +244,10 @@ function XLogo({ className = "h-7 w-7" }: { className?: string }) {
   );
 }
 
-function XBrandIcon({ accent }: { accent?: "engagement" | "share" }) {
+function XBrandIcon() {
   return (
-    <div className="relative grid h-12 w-12 place-items-center overflow-hidden rounded-xl bg-black text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)] ring-1 ring-white/10 light:ring-black/10">
-      <div className={cx("absolute inset-x-0 top-0 h-px", accent === "share" ? "bg-gradient-to-r from-transparent via-orange-400 to-transparent" : "bg-gradient-to-r from-transparent via-white/70 to-transparent")} />
-      <XLogo className="relative h-5 w-5" />
-      {accent === "engagement" ? <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-red-500" /> : null}
-      {accent === "share" ? <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-orange-500" /> : null}
+    <div className="grid h-12 w-12 place-items-center rounded-xl border border-black bg-black text-white shadow-[0_14px_34px_rgba(0,0,0,0.38)] ring-1 ring-white/15 light:border-black light:shadow-[0_14px_30px_rgba(0,0,0,0.24)]">
+      <XLogo className="h-5 w-5 text-white" />
     </div>
   );
 }
@@ -293,13 +290,13 @@ function socialVisual(taskId: string): SocialVisual {
       return {
         description: "Open the Velora post on X, like the content, then verify the task manually.",
         accent: "",
-        icon: <XBrandIcon accent="engagement" />
+        icon: <XBrandIcon />
       };
     case "share-content":
       return {
         description: "Share or repost the Velora content on X, then return here to verify completion.",
         accent: "",
-        icon: <XBrandIcon accent="share" />
+        icon: <XBrandIcon />
       };
     default:
       return {
@@ -539,35 +536,30 @@ export function RewardsCenterExperience() {
                       </span>
                     </div>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {!task.opened && !task.completed ? (
-                      <RewardButton
-                        disabled={task.completed}
-                        onClick={() => {
-                          const result = rewards.openSocialTask(task.id);
-                          if (result?.error) showError(result.error);
-                        }}
-                      >
-                        Open Task
-                      </RewardButton>
-                    ) : null}
-                    {task.opened && !task.completed ? (
-                      <RewardButton
-                        onClick={() => {
-                          const result = rewards.verifySocialTask(task.id);
-                          if ("error" in result) showError(result.error);
-                          else notify(result);
-                        }}
-                      >
-                        Verify Task
-                      </RewardButton>
-                    ) : null}
-                    {task.completed ? (
-                      <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/12 px-4 py-2.5 text-sm font-black text-emerald-300 light:text-emerald-700">
-                        Completed <CheckCircle2 className="h-4 w-4" />
-                      </span>
-                    ) : null}
-                  </div>
+                  {!task.completed ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {!task.opened ? (
+                        <RewardButton
+                          onClick={() => {
+                            const result = rewards.openSocialTask(task.id);
+                            if (result?.error) showError(result.error);
+                          }}
+                        >
+                          Open Task
+                        </RewardButton>
+                      ) : (
+                        <RewardButton
+                          onClick={() => {
+                            const result = rewards.verifySocialTask(task.id);
+                            if ("error" in result) showError(result.error);
+                            else notify(result);
+                          }}
+                        >
+                          Verify Task
+                        </RewardButton>
+                      )}
+                    </div>
+                  ) : null}
                 </motion.div>
               );
             })}
