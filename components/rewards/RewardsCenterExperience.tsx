@@ -6,13 +6,7 @@ import {
   CheckCircle2,
   Flame,
   Gift,
-  Heart,
   Lock,
-  MessageCircle,
-  Send,
-  Share2,
-  ShieldCheck,
-  Sparkles,
   Star,
   Trophy,
   Wallet
@@ -105,13 +99,88 @@ function TaskCard({ task }: { task: RewardTask }) {
   );
 }
 
-function formatTime(timestamp: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(timestamp));
+type SocialVisual = {
+  description: string;
+  accent: string;
+  icon: React.ReactNode;
+};
+
+function XLogo({ className = "h-7 w-7" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 1200 1227" aria-hidden="true" fill="currentColor">
+      <path d="M714.2 519.3 1160.9 0h-105.8L667.2 450.9 357.5 0H0l468.5 681.8L0 1226.4h105.8l415.6-483.2 331.6 483.2h357.5L714.2 519.3Zm-147.1 171-47.2-67.4L142.2 79.7h166.6l304.7 436 47.2 67.4 396.6 568.2H890.7L567.1 690.3Z" />
+    </svg>
+  );
+}
+
+function TelegramLogo({ className = "h-7 w-7" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 240 240" aria-hidden="true">
+      <circle cx="120" cy="120" r="120" fill="currentColor" opacity="0.16" />
+      <path
+        d="M181.7 70.6 158.8 178c-1.7 7.6-6.2 9.5-12.6 5.9l-35-25.8-16.9 16.3c-1.9 1.9-3.4 3.4-7 3.4l2.5-35.6 64.8-58.6c2.8-2.5-.6-3.9-4.4-1.4l-80.1 50.5-34.5-10.8c-7.5-2.3-7.6-7.5 1.6-11.1L172 58.8c6.3-2.3 11.8 1.5 9.7 11.8Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function XLikeIcon({ className = "h-7 w-7" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" fill="none">
+      <path d="M18 10h28a8 8 0 0 1 8 8v28a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V18a8 8 0 0 1 8-8Z" stroke="currentColor" strokeWidth="3" />
+      <path d="M39.5 19h5.1L34.9 30.1 46 45h-8.7l-6.8-8.9L22.7 45h-5.1l10.4-11.9L17.4 19h8.9l6.1 8.1L39.5 19Zm-1.8 22.4h2.8L24.8 22.4h-3l15.9 19Z" fill="currentColor" />
+      <path d="M32 51s-9-5.3-9-12.2c0-3.6 2.4-6.1 5.6-6.1 1.8 0 3.5.9 4.4 2.3.9-1.4 2.6-2.3 4.4-2.3 3.2 0 5.6 2.5 5.6 6.1C43 45.7 32 51 32 51Z" fill="currentColor" opacity="0.28" />
+    </svg>
+  );
+}
+
+function XRepostIcon({ className = "h-7 w-7" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" fill="none">
+      <path d="M18 10h28a8 8 0 0 1 8 8v28a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V18a8 8 0 0 1 8-8Z" stroke="currentColor" strokeWidth="3" />
+      <path d="M39.5 19h5.1L34.9 30.1 46 45h-8.7l-6.8-8.9L22.7 45h-5.1l10.4-11.9L17.4 19h8.9l6.1 8.1L39.5 19Zm-1.8 22.4h2.8L24.8 22.4h-3l15.9 19Z" fill="currentColor" />
+      <path d="M21 49h21.5a5.5 5.5 0 0 0 5.5-5.5V40" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      <path d="m42 34 6 6-6 6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M43 15H21.5a5.5 5.5 0 0 0-5.5 5.5V24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      <path d="m22 30-6-6 6-6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function socialVisual(taskId: string): SocialVisual {
+  switch (taskId) {
+    case "follow-x":
+      return {
+        description: "Follow the official Velora AI account for public updates and ecosystem announcements.",
+        accent: "from-slate-900 via-slate-800 to-emerald-950 text-white light:from-slate-950 light:via-slate-800 light:to-emerald-900",
+        icon: <XLogo />
+      };
+    case "join-telegram":
+      return {
+        description: "Join the Velora Telegram community for product updates and builder conversations.",
+        accent: "from-sky-500 via-cyan-500 to-emerald-500 text-white",
+        icon: <TelegramLogo />
+      };
+    case "like-content":
+      return {
+        description: "Open the Velora post on X, like the content, then verify the task manually.",
+        accent: "from-zinc-950 via-slate-900 to-yellow-900 text-white light:from-slate-950 light:via-slate-800 light:to-amber-700",
+        icon: <XLikeIcon />
+      };
+    case "share-content":
+      return {
+        description: "Share or repost the Velora content on X, then return here to verify completion.",
+        accent: "from-emerald-600 via-teal-600 to-slate-950 text-white",
+        icon: <XRepostIcon />
+      };
+    default:
+      return {
+        description: "Complete this community task and verify it to claim XP.",
+        accent: "from-emerald-500 to-yellow-400 text-slate-950",
+        icon: <XLogo />
+      };
+  }
 }
 
 export function RewardsCenterExperience() {
@@ -256,16 +325,44 @@ export function RewardsCenterExperience() {
 
         <Panel title="Social Tasks" eyebrow="Community actions">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {rewards.socialTasks.map((task, index) => {
-              const icons = [Sparkles, MessageCircle, Send, Heart, Share2];
-              const Icon = icons[index] ?? Sparkles;
+            {rewards.socialTasks.map((task) => {
+              const visual = socialVisual(task.id);
               const status = task.completed ? "Completed" : task.opened ? "Pending Verification" : "Not Started";
               return (
-                <motion.div key={task.id} whileHover={{ y: -3 }} className="rounded-lg border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white light:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
-                  <Icon className={cx("h-5 w-5", task.completed ? "text-emerald-300 light:text-emerald-700" : "text-yellow-300 light:text-amber-600")} />
-                  <h3 className="mt-4 font-bold text-white light:text-slate-950">{task.title}</h3>
-                  <p className="mt-2 text-sm text-slate-400 light:text-slate-600">+{task.reward.toLocaleString()} XP</p>
-                  <p className="mt-3 text-xs font-bold text-slate-500 light:text-slate-600">{status}</p>
+                <motion.div
+                  key={task.id}
+                  whileHover={{ y: -5, scale: 1.01 }}
+                  className="group relative overflow-hidden rounded-xl border border-emerald-400/20 bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.22)] transition light:border-black light:bg-white light:shadow-[0_18px_44px_rgba(15,23,42,0.1)]"
+                >
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent opacity-70" />
+                  <div className="absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl transition group-hover:bg-yellow-400/15" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={cx("grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br shadow-[0_14px_34px_rgba(16,185,129,0.16)]", visual.accent)}>
+                        {visual.icon}
+                      </div>
+                      <span className="rounded-full border border-yellow-400/35 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300 shadow-[0_8px_26px_rgba(234,179,8,0.12)] light:text-amber-700">
+                        +{task.reward.toLocaleString()} XP
+                      </span>
+                    </div>
+                    <h3 className="mt-5 text-base font-black text-white light:text-slate-950">{task.title}</h3>
+                    <p className="mt-2 min-h-[72px] text-sm leading-6 text-slate-400 light:text-slate-600">{visual.description}</p>
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 light:border-black light:bg-slate-50">
+                      <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 light:text-slate-600">Status</span>
+                      <span
+                        className={cx(
+                          "rounded-full px-2.5 py-1 text-xs font-black",
+                          task.completed
+                            ? "bg-emerald-400/12 text-emerald-300 light:text-emerald-700"
+                            : task.opened
+                              ? "bg-yellow-400/12 text-yellow-300 light:text-amber-700"
+                              : "bg-white/[0.06] text-slate-300 light:bg-slate-100 light:text-slate-700"
+                        )}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                  </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {!task.opened && !task.completed ? (
                       <RewardButton
@@ -291,7 +388,7 @@ export function RewardsCenterExperience() {
                     ) : null}
                     {task.completed ? (
                       <RewardButton disabled>
-                        Completed <CheckCircle2 className="ml-1 inline h-4 w-4" />
+                      Completed <CheckCircle2 className="ml-1 inline h-4 w-4" />
                       </RewardButton>
                     ) : null}
                   </div>
@@ -343,29 +440,6 @@ export function RewardsCenterExperience() {
               );
             })}
           </div>
-        </Panel>
-
-        <Panel title="Recent Rewards" eyebrow="Newest XP activity first">
-          {rewards.recentActivity.length ? (
-            <div className="space-y-3">
-              {rewards.recentActivity.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-full border border-yellow-400/35 bg-yellow-400/10 text-yellow-300 light:text-amber-600">
-                      <Star className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-white light:text-slate-950">+{item.amount.toLocaleString()} XP - {item.title}</p>
-                      <p className="mt-1 text-xs text-slate-500 light:text-slate-600">{formatTime(item.timestamp)}</p>
-                    </div>
-                  </div>
-                  <ShieldCheck className="h-5 w-5 text-emerald-300 light:text-emerald-700" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400 light:border-black light:bg-white light:text-slate-600">No rewards activity yet.</div>
-          )}
         </Panel>
       </div>
     </AppShell>
