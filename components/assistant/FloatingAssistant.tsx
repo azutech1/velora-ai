@@ -2,10 +2,10 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Bot, CheckCircle2, Coins, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Coins, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 
-type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "unknown";
+type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "unknown";
 
 type ParsedCommand = {
   actionType: AssistantAction;
@@ -29,11 +29,14 @@ type ChatMessage = {
 const examples = [
   "Send 10 USDC to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
   "Swap 20 USDC to EURC",
+  "Swap EURC to USDC",
   "Bridge 50 USDC to Base",
   "Show my wallet balance",
   "Show my XP",
-  "Show my recent transactions"
+  "Claim daily reward preview"
 ];
+
+const thinkingSteps = ["Analyzing request...", "Detecting action...", "Reading token and amount...", "Preparing preview..."];
 
 const tokenPattern = /\b(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)\b/i;
 const amountTokenPattern = /(\d+(?:\.\d+)?)\s*(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)/i;
@@ -115,6 +118,14 @@ function parseCommand(input: string): ParsedCommand {
   }
 
   if (/\b(xp|reward|rewards|level|streak)\b/i.test(command)) {
+    if (/\b(claim|daily|check.?in)\b/i.test(command)) {
+      return {
+        actionType: "dailyReward",
+        status: "Ready for confirmation",
+        confidence: "high"
+      };
+    }
+
     return {
       actionType: "rewards",
       status: "Ready for confirmation",
@@ -141,13 +152,15 @@ function actionLabel(action: AssistantAction) {
       return "Wallet Balance";
     case "rewards":
       return "Rewards";
+    case "dailyReward":
+      return "Daily Reward";
     default:
       return "Unknown";
   }
 }
 
 function ActionIcon({ action }: { action: AssistantAction }) {
-  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" ? Wallet : action === "rewards" ? Sparkles : Bot;
+  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" ? Wallet : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
   return (
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
       <Icon className="h-5 w-5" />
@@ -164,7 +177,42 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function ConfirmationPreview({ parsed }: { parsed: ParsedCommand }) {
+function commandSummary(parsed: ParsedCommand) {
+  const amountText = parsed.amount && parsed.token ? `${parsed.amount} ${parsed.token}` : parsed.token;
+
+  switch (parsed.actionType) {
+    case "send":
+      return `send ${amountText ?? "funds"} to ${parsed.destinationAddress ?? "a wallet address"}`;
+    case "swap":
+      return `swap ${amountText ?? "tokens"} to ${parsed.receiveToken ?? "another token"}`;
+    case "bridge":
+      return `bridge ${amountText ?? "tokens"} from ${parsed.sourceChain ?? "your current network"} to ${parsed.destinationChain ?? "another network"}`;
+    case "balance":
+      return parsed.token ? `show your ${parsed.token} balance` : "show your wallet balance";
+    case "rewards":
+      return "show your XP balance";
+    case "dailyReward":
+      return "preview a daily reward claim";
+    default:
+      return "complete this request";
+  }
+}
+
+function naturalResponse(parsed: ParsedCommand) {
+  return `I understood that you want to ${commandSummary(parsed)}. I prepared a safe preview below. No funds will move until you confirm with your wallet.`;
+}
+
+function ConfirmationPreview({
+  parsed,
+  onEdit,
+  onCancel,
+  onLooksCorrect
+}: {
+  parsed: ParsedCommand;
+  onEdit: () => void;
+  onCancel: () => void;
+  onLooksCorrect: () => void;
+}) {
   const action = actionLabel(parsed.actionType);
   const isUnknown = parsed.actionType === "unknown";
 
@@ -197,9 +245,21 @@ function ConfirmationPreview({ parsed }: { parsed: ParsedCommand }) {
         <DetailRow label="Status" value={parsed.status} />
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={onEdit} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-400/40 hover:text-orange-200 light:border-black light:text-slate-800 light:hover:text-orange-700">
+          <Edit3 className="h-3.5 w-3.5" /> Edit
+        </button>
+        <button type="button" onClick={onCancel} className="rounded-xl border border-red-400/25 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-500/10 light:text-red-700">
+          Cancel
+        </button>
+        <button type="button" onClick={onLooksCorrect} className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white shadow-[0_12px_30px_rgba(249,115,22,0.22)]">
+          Looks Correct
+        </button>
+      </div>
+
       <div className="mt-4 flex items-start gap-3 rounded-xl border border-orange-400/25 bg-orange-500/10 p-3 text-xs font-semibold leading-5 text-orange-100 light:border-orange-500/40 light:bg-orange-50 light:text-orange-800">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>Velora AI will never move funds without wallet confirmation. This phase only parses commands and prepares a preview.</span>
+        <span>Velora AI never moves funds automatically. Every transaction will require wallet confirmation. This phase only parses commands and prepares a preview.</span>
       </div>
     </motion.div>
   );
@@ -208,32 +268,123 @@ function ConfirmationPreview({ parsed }: { parsed: ParsedCommand }) {
 export function FloatingAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState(thinkingSteps[0]);
+  const [activePreview, setActivePreview] = useState<ParsedCommand | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "I am online. Type a wallet, swap, bridge, balance, or XP command and I will prepare a safe preview."
+      content: "I am online. Type a wallet, swap, bridge, balance, or XP command and I will prepare a safe preview. Velora AI never moves funds automatically. Every transaction will require wallet confirmation."
     }
   ]);
 
-  const latestPreview = useMemo(() => [...messages].reverse().find((message) => message.parsed)?.parsed, [messages]);
+  const visibleExamples = useMemo(() => examples.slice(0, 4), []);
 
-  function submitCommand(event: FormEvent<HTMLFormElement>) {
+  async function runThinkingAnimation() {
+    setIsThinking(true);
+    for (const step of thinkingSteps) {
+      setThinkingStep(step);
+      await new Promise((resolve) => window.setTimeout(resolve, 330));
+    }
+    setIsThinking(false);
+  }
+
+  async function submitCommand(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const command = input.trim();
-    if (!command) return;
-    const parsed = parseCommand(command);
+    if (!command || isThinking) return;
+    setActivePreview(null);
     setMessages((current) => [
       ...current,
-      { id: `user-${Date.now()}`, role: "user", content: command },
+      { id: `user-${Date.now()}`, role: "user", content: command }
+    ]);
+    setInput("");
+    await runThinkingAnimation();
+
+    const parsed = parseCommand(command);
+    if (parsed.actionType === "unknown") {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "This command is not supported yet. Try send, swap, bridge, wallet balance, or XP balance."
+        }
+      ]);
+      return;
+    }
+
+    if (parsed.confidence === "low") {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "I need a little more detail before preparing a preview. Please include the action, token, amount, and destination if needed."
+        }
+      ]);
+      return;
+    }
+
+    setActivePreview(parsed);
+    setMessages((current) => [
+      ...current,
       {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: parsed.actionType === "unknown" ? "I need a little more detail before preparing a preview." : "I understood your request.",
+        content: naturalResponse(parsed),
         parsed
       }
     ]);
-    setInput("");
+  }
+
+  function handleEditPreview() {
+    if (!activePreview) return;
+    setInput(commandSummary(activePreview));
+    setActivePreview(null);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "No problem. Edit the request and send it again when it looks right."
+      }
+    ]);
+  }
+
+  function handleCancelPreview() {
+    setActivePreview(null);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "Preview canceled. Nothing was executed."
+      }
+    ]);
+  }
+
+  function handleLooksCorrect() {
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "Looks good. In a future phase, this is where Velora AI will ask for wallet confirmation before any transaction can run."
+      }
+    ]);
+  }
+
+  function handleVoicePlaceholder() {
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "Voice input coming soon."
+      }
+    ]);
   }
 
   return (
@@ -285,10 +436,23 @@ export function FloatingAssistant() {
                   </div>
                 ))}
 
-                {latestPreview ? <ConfirmationPreview parsed={latestPreview} /> : null}
+                {isThinking ? (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
+                    <div className="flex max-w-[86%] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 light:border-black light:bg-white light:text-slate-800">
+                      <span className="flex gap-1">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:120ms]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:240ms]" />
+                      </span>
+                      {thinkingStep}
+                    </div>
+                  </motion.div>
+                ) : null}
+
+                {activePreview ? <ConfirmationPreview parsed={activePreview} onEdit={handleEditPreview} onCancel={handleCancelPreview} onLooksCorrect={handleLooksCorrect} /> : null}
 
                 <div className="grid gap-2">
-                  {examples.slice(0, 4).map((example) => (
+                  {visibleExamples.map((example) => (
                     <button
                       key={example}
                       type="button"
@@ -308,18 +472,19 @@ export function FloatingAssistant() {
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     placeholder="Type a message..."
+                    disabled={isThinking}
                     className="min-h-11 flex-1 bg-transparent px-3 text-sm text-white outline-none placeholder:text-slate-500 light:text-slate-950"
                   />
-                  <button type="button" className="hidden items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 sm:inline-flex light:border-black light:text-slate-700">
+                  <button type="button" onClick={handleVoicePlaceholder} className="hidden items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 sm:inline-flex light:border-black light:text-slate-700">
                     <Mic className="h-4 w-4" /> Voice
                   </button>
-                  <button type="submit" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.28)]" aria-label="Send assistant message">
+                  <button type="submit" disabled={isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.28)] disabled:cursor-not-allowed disabled:opacity-70" aria-label="Send assistant message">
                     <ArrowRight className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-400 light:text-slate-600">
                   <CheckCircle2 className="h-4 w-4 text-mint" />
-                  No signing, no wallet popups, no fund movement in this phase.
+                  Velora AI never moves funds automatically. Every transaction will require wallet confirmation.
                 </div>
               </form>
             </motion.aside>
