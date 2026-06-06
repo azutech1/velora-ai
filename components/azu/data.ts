@@ -1,5 +1,6 @@
 import {
   Activity,
+  MessageCircle,
   Gift,
   Shield,
   Bot,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Payments", href: "/send", icon: Send },
   { label: "Bridge & Swap", href: "/trade", icon: Repeat2 },
+  { label: "AI Assistant", href: "/assistant", icon: MessageCircle },
   { label: "Faucet", href: "/faucet", icon: Droplets },
   { label: "Activity", href: "/activity", icon: Activity },
   { label: "AI Automation", href: "/automation", icon: Cpu },
