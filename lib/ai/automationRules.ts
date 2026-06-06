@@ -25,6 +25,7 @@ export type AutomationLog = {
   ruleId: string;
   event: string;
   detail: string;
+  resultStatus?: string;
   status: AutomationLogStatus;
   timestamp: string;
 };

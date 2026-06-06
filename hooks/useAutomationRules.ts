@@ -15,6 +15,7 @@ export function useAutomationRules() {
   const { recordActivity } = useActivityRecorder();
   const [rules, setRules] = useState<AutomationRule[]>(initialAutomationRules);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>(initialApprovalRequests);
+  const [logs, setLogs] = useState(initialAutomationLogs);
   const [selectedRuleId, setSelectedRuleId] = useState<string>(initialAutomationRules[0]?.id ?? "");
 
   const selectedRule = useMemo(() => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0], [rules, selectedRuleId]);
@@ -94,18 +95,132 @@ export function useAutomationRules() {
     });
   }
 
+  function getSimulationResult(rule: AutomationRule) {
+    switch (rule.id) {
+      case "auto-bridge-gas":
+        return {
+          event: "Rule triggered",
+          detail: "Gas estimate condition matched. Bridge quote prepared for manual review.",
+          resultStatus: "Ready for review",
+          activityTitle: "Automation bridge simulation completed",
+          approvalTitle: "Review prepared bridge quote",
+          approvalDescription: "Gas estimate condition matched. Review the prepared USDC bridge quote before any wallet action.",
+          logStatus: "success" as const
+        };
+      case "rebalance-treasury":
+        return {
+          event: "Approval requested",
+          detail: "Treasury rebalance recommendation prepared. Manual approval required before execution.",
+          resultStatus: "Pending approval",
+          activityTitle: "Treasury rebalance simulation completed",
+          approvalTitle: "Review treasury rebalance recommendation",
+          approvalDescription: "Treasury rebalance recommendation prepared for USDC, EURC, and USDT. Manual approval is required before execution.",
+          logStatus: "pending" as const
+        };
+      case "recurring-payment":
+        return {
+          event: "Payment prepared",
+          detail: "Recurring USDC payment draft prepared for wallet review.",
+          resultStatus: "Ready",
+          activityTitle: "Recurring payment simulation completed",
+          approvalTitle: "Review recurring payment draft",
+          approvalDescription: "Recurring USDC payment draft prepared for wallet review. No funds will move without approval.",
+          logStatus: "success" as const
+        };
+      case "eurc-rate":
+        return {
+          event: "Quote prepared",
+          detail: "EURC/USDC quote improved above target. Swap quote prepared for review.",
+          resultStatus: "Ready",
+          activityTitle: "Swap quote simulation completed",
+          approvalTitle: "Review prepared EURC/USDC swap quote",
+          approvalDescription: "EURC/USDC quote improved above target. Review the prepared swap quote before any wallet action.",
+          logStatus: "success" as const
+        };
+      case "route-risk":
+        return {
+          event: "Risk rule triggered",
+          detail: "High route risk detected. Risky route paused until manual review.",
+          resultStatus: "Paused",
+          activityTitle: "Route risk simulation completed",
+          approvalTitle: "Review paused risky route",
+          approvalDescription: "High route risk was detected. Review the route before enabling any related action.",
+          logStatus: "pending" as const
+        };
+      default:
+        return {
+          event: "Rule triggered",
+          detail: `${rule.name} triggered and created an approval-first review item.`,
+          resultStatus: "Ready for review",
+          activityTitle: "Automation simulation completed",
+          approvalTitle: `Review ${rule.name}`,
+          approvalDescription: `${rule.name} triggered in simulation. Review is required before any prepared action.`,
+          logStatus: "pending" as const
+        };
+    }
+  }
+
   function triggerRule(ruleId: string) {
     const rule = rules.find((item) => item.id === ruleId);
-    if (!rule) return;
+    if (!rule) {
+      throw new Error("Automation rule not found.");
+    }
+    const result = getSimulationResult(rule);
+    const now = new Date();
+    const logId = `simulation-${ruleId}-${now.getTime()}`;
+
+    setLogs((current) => [
+      {
+        id: logId,
+        ruleId,
+        event: result.event,
+        detail: result.detail,
+        resultStatus: result.resultStatus,
+        status: result.logStatus,
+        timestamp: "Just now"
+      },
+      ...current
+    ]);
+
+    if (rule.requireManualApproval) {
+      const approvalId = `approval-${logId}`;
+      setApprovals((current) => [
+        {
+          id: approvalId,
+          ruleId,
+          title: result.approvalTitle,
+          description: result.approvalDescription,
+          riskLevel: rule.riskLevel,
+          requestedAt: "Just now",
+          status: "pending"
+        },
+        ...current
+      ]);
+      setRules((current) =>
+        current.map((item) =>
+          item.id === ruleId
+            ? {
+                ...item,
+                status: "pending approval",
+                approvalsPending: item.approvalsPending + 1,
+                lastRun: "Simulation just now"
+              }
+            : item
+        )
+      );
+    } else {
+      setRules((current) => current.map((item) => (item.id === ruleId ? { ...item, lastRun: "Simulation just now" } : item)));
+    }
+
     recordActivity({
       actionType: "automation_triggered",
-      title: "Automation rule triggered",
-      description: `${rule.name} triggered and created an approval-first review item.`,
+      title: result.activityTitle,
+      description: result.detail,
       feature: "automation",
       token: rule.allowedTokens[0],
       network: rule.allowedChains[0],
       status: "pending",
-      metadata: { ruleId }
+      metadata: { ruleId, simulation: true, logId }
     });
   }
 
@@ -126,7 +241,7 @@ export function useAutomationRules() {
   return {
     rules,
     approvals,
-    logs: initialAutomationLogs,
+    logs,
     overview,
     selectedRule,
     setSelectedRuleId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -9,6 +9,7 @@ import {
   Clock,
   Eye,
   LockKeyhole,
+  Loader2,
   PauseCircle,
   PlayCircle,
   Plus,
@@ -150,6 +151,8 @@ function AdminAutomationDashboard() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [conditionId, setConditionId] = useState(ruleBuilderConditions[0].id);
   const [actionId, setActionId] = useState(ruleBuilderActions[0].id);
+  const [simulatingRuleId, setSimulatingRuleId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const conditionLabel = useMemo(() => ruleBuilderConditions.find((condition) => condition.id === conditionId)?.label ?? ruleBuilderConditions[0].label, [conditionId]);
   const actionLabel = useMemo(() => ruleBuilderActions.find((action) => action.id === actionId)?.label ?? ruleBuilderActions[0].label, [actionId]);
@@ -159,9 +162,39 @@ function AdminAutomationDashboard() {
     setBuilderOpen(false);
   }
 
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  async function handleSimulateRule(ruleId: string) {
+    setSimulatingRuleId(ruleId);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 650));
+      triggerRule(ruleId);
+      setToast({ type: "success", text: "Simulation completed." });
+    } catch {
+      setToast({ type: "error", text: "Simulation failed. Please try again." });
+    } finally {
+      setSimulatingRuleId(null);
+    }
+  }
+
   return (
     <AppShell title="AI Automation" eyebrow="Admin testing">
-      <div className="space-y-6">
+      <div className="relative space-y-6">
+        {toast ? (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed right-6 top-6 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-white/10 bg-[#101827] px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)] light:border-black light:bg-white"
+          >
+            {toast.type === "success" ? <Check className="h-5 w-5 text-mint" /> : <AlertTriangle className="h-5 w-5 text-red-300" />}
+            <p className="text-sm font-semibold text-white light:text-slate-950">{toast.text}</p>
+          </motion.div>
+        ) : null}
         <Panel
           title="Automation control center"
           eyebrow="Approval-first financial rules"
@@ -251,8 +284,13 @@ function AdminAutomationDashboard() {
                     <button onClick={() => setSelectedRuleId(rule.id)} className="inline-flex items-center gap-2 rounded-lg border border-cyan/20 px-3 py-2 text-xs font-semibold text-cyan hover:bg-cyan/10">
                       <Eye className="h-4 w-4" /> View details
                     </button>
-                    <button onClick={() => triggerRule(rule.id)} className="inline-flex items-center gap-2 rounded-lg border border-mint/20 px-3 py-2 text-xs font-semibold text-mint hover:bg-mint/10">
-                      <Workflow className="h-4 w-4" /> Simulate trigger
+                    <button
+                      onClick={() => handleSimulateRule(rule.id)}
+                      disabled={simulatingRuleId === rule.id}
+                      className="inline-flex items-center gap-2 rounded-lg border border-mint/20 px-3 py-2 text-xs font-semibold text-mint hover:bg-mint/10 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {simulatingRuleId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
+                      {simulatingRuleId === rule.id ? "Simulating..." : "Simulate trigger"}
                     </button>
                   </div>
                 </motion.div>
@@ -307,6 +345,11 @@ function AdminAutomationDashboard() {
                   <p className="font-semibold text-white">{log.event}</p>
                 </div>
                 <p className="mt-2 text-sm leading-5 text-slate-400">{log.detail}</p>
+                {log.resultStatus ? (
+                  <span className="mt-3 inline-flex rounded-full border border-orange-400/25 bg-orange-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-orange-200">
+                    {log.resultStatus}
+                  </span>
+                ) : null}
                 <p className="mt-3 text-xs text-slate-500">{log.timestamp}</p>
               </div>
             ))}
