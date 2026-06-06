@@ -8,6 +8,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
+import { FloatingAssistant } from "@/components/assistant/FloatingAssistant";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { recordAdminAnalyticsEvent } from "@/lib/admin/analytics";
 import { Logo, LogoMark } from "./brand";
@@ -237,6 +238,8 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
           </motion.div>
         )}
       </AnimatePresence>
+
+      {isAdmin ? <FloatingAssistant /> : null}
     </main>
   );
 }
