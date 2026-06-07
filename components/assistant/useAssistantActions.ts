@@ -137,6 +137,26 @@ function formatProviderFailure(failureReasons: Record<string, string>) {
   return firstReason;
 }
 
+function formatSwapProviderFailure(failureReasons: Record<string, string>) {
+  const fallbackReason = failureReasons["LI.FI fallback"] || failureReasons["LI.FI Swap"];
+  if (fallbackReason) {
+    if (/quote without wallet transaction|without wallet transaction|no executable|transaction request/i.test(fallbackReason)) {
+      return "Swap Preparation Failed: Provider returned a quote but no executable transaction.";
+    }
+    if (/route unavailable|no route|not supported|unsupported/i.test(fallbackReason)) {
+      return "Swap Preparation Failed: Route unavailable for this token pair.";
+    }
+    if (/wrong chain|wrong network/i.test(fallbackReason)) return "Please switch to the correct network.";
+    if (/insufficient/i.test(fallbackReason)) return "Insufficient balance.";
+    if (!/network connection|failed to fetch|fetch failed/i.test(fallbackReason)) return `Swap Preparation Failed: ${fallbackReason}`;
+  }
+
+  const values = Object.values(failureReasons).filter(Boolean);
+  const nonNetworkReason = values.find((reason) => !/unsupported|not configured|network connection|failed to fetch|fetch failed/i.test(reason));
+  if (nonNetworkReason) return `Swap Preparation Failed: ${nonNetworkReason}`;
+  return "Swap Preparation Failed: All swap providers are currently unavailable.";
+}
+
 function cleanMetadata(values: Record<string, string | number | boolean | null | undefined>) {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Record<string, string | number | boolean | null>;
 }
@@ -393,7 +413,12 @@ export function useAssistantActions() {
           executionFailures
         });
         if (!routeResult.route) {
-          throw new Error(formatProviderFailure({ ...routeResult.diagnostics.failureReasons, ...executionFailures }));
+          Object.assign(executionFailures, routeResult.diagnostics.failureReasons);
+          console.warn("[Velora Assistant Swap] no executable route from router, preparing direct fallback", {
+            diagnostics: routeResult.diagnostics,
+            executionFailures
+          });
+          break;
         }
 
         selectedRoute = routeResult.route;
@@ -534,11 +559,11 @@ export function useAssistantActions() {
             fallbackError,
             executionFailures
           });
-          throw new Error(formatProviderFailure({ ...executionFailures, "LI.FI fallback": fallbackReason }));
+          throw new Error(formatSwapProviderFailure({ ...executionFailures, "LI.FI fallback": fallbackReason }));
         }
       }
 
-      if (!selectedRoute || !result) throw new Error(formatProviderFailure(executionFailures));
+      if (!selectedRoute || !result) throw new Error(formatSwapProviderFailure(executionFailures));
       const txHash = result.txHash;
       const explorerLink = explorerTxUrl(getChainById(ARC_CHAIN_ID)?.explorer ?? "", txHash);
       activity.recordActivity({
