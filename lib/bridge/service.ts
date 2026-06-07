@@ -26,6 +26,8 @@ type CircleBridgeStep = {
   name?: string;
   state?: string;
   txHash?: string;
+  hash?: string;
+  transactionHash?: string;
   explorerUrl?: string;
 };
 
@@ -33,6 +35,10 @@ type CircleBridgeResult = {
   state?: "pending" | "success" | "error";
   provider?: string;
   steps?: CircleBridgeStep[];
+  txHash?: string;
+  hash?: string;
+  transactionHash?: string;
+  [key: string]: unknown;
 };
 
 type CircleBridgeStage =
@@ -74,15 +80,40 @@ function formatDecimalAmount(value: number) {
   return value.toFixed(6).replace(/\.?0+$/, "");
 }
 
-function selectPrimarySourceTxHash(steps: CircleBridgeStep[] = []) {
-  const successfulSteps = steps.filter((step) => step.state === "success" && step.txHash && EVM_TX_HASH.test(step.txHash));
+function getStepHash(step: CircleBridgeStep) {
+  return [step.txHash, step.transactionHash, step.hash].find((value) => value && EVM_TX_HASH.test(value));
+}
+
+function collectEvmHashes(value: unknown, seen = new Set<unknown>()): string[] {
+  if (!value || seen.has(value)) return [];
+  if (typeof value === "string") return EVM_TX_HASH.test(value) ? [value] : [];
+  if (typeof value !== "object") return [];
+  seen.add(value);
+
+  const hashes: string[] = [];
+  for (const entry of Object.values(value as Record<string, unknown>)) {
+    hashes.push(...collectEvmHashes(entry, seen));
+  }
+  return Array.from(new Set(hashes));
+}
+
+function selectPrimarySourceTxHash(result: CircleBridgeResult) {
+  const steps = result.steps ?? [];
+  const successfulSteps = steps.filter((step) => step.state === "success" && getStepHash(step));
   const sourceStep =
     successfulSteps.find((step) => {
       const name = (step.name ?? "").toLowerCase();
       return (name.includes("burn") || name.includes("deposit") || name.includes("bridge") || name.includes("transfer") || name.includes("spend")) && !name.includes("approve");
     }) ?? successfulSteps.find((step) => !(step.name ?? "").toLowerCase().includes("approve"));
 
-  return (sourceStep ?? successfulSteps[0])?.txHash as Hex | undefined;
+  const preferredHash = sourceStep ? getStepHash(sourceStep) : getStepHash(successfulSteps[0] ?? {});
+  if (preferredHash) return preferredHash as Hex;
+
+  const directHash = [result.txHash, result.transactionHash, result.hash].find((value) => value && EVM_TX_HASH.test(value));
+  if (directHash) return directHash as Hex;
+
+  const nestedHash = collectEvmHashes(result).find(Boolean);
+  return nestedHash as Hex | undefined;
 }
 
 function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler) {
@@ -270,11 +301,20 @@ export async function executeCircleBridgeRoute(request: {
     invocationMeta: {
       callers: [{ type: "app", name: "Velora", version: "public-beta" }]
     }
-  })) as CircleBridgeResult;
+  })) as unknown as CircleBridgeResult;
 
-  const txHash = selectPrimarySourceTxHash(result.steps);
+  console.info("[Velora Bridge] Circle bridge result", {
+    fromChainId: request.fromChainId,
+    toChainId: request.toChainId,
+    state: result.state,
+    provider: result.provider,
+    steps: result.steps,
+    raw: result
+  });
+
+  const txHash = selectPrimarySourceTxHash(result);
   if (!txHash || !EVM_TX_HASH.test(txHash)) {
-    throw new Error("Transaction hash unavailable.");
+    throw new Error("Transaction submitted but hash missing.");
   }
 
   if (result.state !== "success") {

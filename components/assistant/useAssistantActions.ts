@@ -15,7 +15,7 @@ import { erc20UsdcAbi } from "@/lib/contracts/usdc";
 import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
-import { findExecutableRoute, type RouteRequest, type RouteTransactionRequest } from "@/lib/routes/router";
+import { findExecutableRoute, type ExecutableRoute, type RouteProvider, type RouteRequest, type RouteTransactionRequest } from "@/lib/routes/router";
 import { explorerTxUrl } from "@/lib/utils/format";
 import { ARC_CHAIN_ID } from "@/lib/web3/chains";
 import type { ParsedCommand } from "./types";
@@ -72,8 +72,14 @@ function getChainByAssistantName(name?: string, fallbackChainId: number = ARC_CH
 }
 
 function formatProviderFailure(failureReasons: Record<string, string>) {
-  const firstReason = Object.values(failureReasons).find(Boolean);
-  return firstReason ?? "No route available for this request.";
+  const values = Object.values(failureReasons).filter(Boolean);
+  const firstReason = values.find((reason) => !/unsupported|not configured/i.test(reason)) ?? values[0];
+  if (!firstReason) return "No route available for this request.";
+  if (/network connection|failed to fetch|fetch failed/i.test(firstReason)) return "Provider unavailable. Please try again.";
+  if (/quote without wallet transaction|no executable|transaction request/i.test(firstReason)) return "Provider returned a quote but no executable transaction.";
+  if (/insufficient/i.test(firstReason)) return "Insufficient balance.";
+  if (/wrong chain|wrong network/i.test(firstReason)) return "Please switch to the correct network.";
+  return firstReason;
 }
 
 function cleanMetadata(values: Record<string, string | number | boolean | null | undefined>) {
@@ -83,6 +89,22 @@ function cleanMetadata(values: Record<string, string | number | boolean | null |
 function estimatedOutputLabel(value?: string | null, token?: string) {
   if (!value || !token) return null;
   return `${value} ${token}`;
+}
+
+function isWalletRejected(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /user rejected|rejected|denied|cancelled|canceled/i.test(message);
+}
+
+function normalizeAssistantError(actionType: ParsedCommand["actionType"], error: unknown) {
+  const raw = error instanceof Error ? error.message : "Request failed.";
+  if (isWalletRejected(error)) return "Transaction rejected by user.";
+  if (/transaction submitted but hash missing|hash missing|hash unavailable/i.test(raw)) return "Transaction submitted but hash missing.";
+  if (/network connection|failed to fetch|fetch failed/i.test(raw)) return actionType === "swap" ? "Swap Preparation Failed: Provider unavailable. Please try again." : "Bridge Preparation Failed: Provider unavailable. Please try again.";
+  if (/insufficient balance/i.test(raw)) return "Insufficient balance.";
+  if (/wrong network|correct network|wrong chain/i.test(raw)) return "Please switch to the correct network.";
+  if (/no route|route unavailable|unsupported/i.test(raw)) return actionType === "swap" ? "Swap Preparation Failed: Route unavailable." : "Bridge Preparation Failed: Route unavailable.";
+  return raw;
 }
 
 async function requestLifiQuote(params: {
@@ -251,40 +273,90 @@ export function useAssistantActions() {
         slippage: 0.5,
         balance
       };
-      console.info("[Velora Assistant Swap] route request", request);
-      const routeResult = await findExecutableSwapRoute(
-        request,
-        createSwapServiceProviders({
-          appKitSwap,
-          fetchLifiQuote: () =>
-            requestLifiQuote({
-              fromChain: ARC_CHAIN_ID,
-              toChain: ARC_CHAIN_ID,
-              fromToken: fromAddress,
-              toToken: toAddress,
-              fromAmount: parseUnits(parsed.amount ?? "0", from.decimals).toString(),
-              fromAddress: address,
-              slippage: 0.5
-            }),
-          lifiEnabled: true,
-          arcChainId: ARC_CHAIN_ID
-        })
-      );
-      console.info("[Velora Assistant Swap] route result", routeResult);
-      if (!routeResult.route) throw new Error(formatProviderFailure(routeResult.diagnostics.failureReasons));
-      setProgress(
-        "waitingWalletConfirmation",
-        `Route ready via ${routeResult.route.providerName}${estimatedOutputLabel(routeResult.route.quote.toAmount, to.symbol) ? ` for about ${estimatedOutputLabel(routeResult.route.quote.toAmount, to.symbol)}` : ""}. Confirm in wallet.`
-      );
-      const result = await routeResult.route.execute({
-        sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, ARC_CHAIN_ID)
+      const providers = createSwapServiceProviders({
+        appKitSwap,
+        fetchLifiQuote: () =>
+          requestLifiQuote({
+            fromChain: ARC_CHAIN_ID,
+            toChain: ARC_CHAIN_ID,
+            fromToken: fromAddress,
+            toToken: toAddress,
+            fromAmount: parseUnits(parsed.amount ?? "0", from.decimals).toString(),
+            fromAddress: address,
+            slippage: 0.5
+          }),
+        lifiEnabled: true,
+        arcChainId: ARC_CHAIN_ID
       });
+      const failedProviders = new Set<string>();
+      const executionFailures: Record<string, string> = {};
+      let selectedRoute: ExecutableRoute | null = null;
+      let result: Awaited<ReturnType<ExecutableRoute["execute"]>> | null = null;
+
+      while (failedProviders.size < providers.length) {
+        const availableProviders: RouteProvider[] = providers.filter((provider) => !failedProviders.has(provider.providerName));
+        console.info("[Velora Assistant Swap] route request", {
+          request,
+          skippedProviders: Array.from(failedProviders),
+          availableProviders: availableProviders.map((provider) => provider.providerName)
+        });
+        const routeResult = await findExecutableSwapRoute(request, availableProviders);
+        console.info("[Velora Assistant Swap] route result", {
+          diagnostics: routeResult.diagnostics,
+          route: routeResult.route,
+          executionFailures
+        });
+        if (!routeResult.route) {
+          throw new Error(formatProviderFailure({ ...routeResult.diagnostics.failureReasons, ...executionFailures }));
+        }
+
+        selectedRoute = routeResult.route;
+        setProgress(
+          "waitingWalletConfirmation",
+          `Route ready via ${selectedRoute.providerName}${estimatedOutputLabel(selectedRoute.quote.toAmount, to.symbol) ? ` for about ${estimatedOutputLabel(selectedRoute.quote.toAmount, to.symbol)}` : ""}. Confirm in wallet.`
+        );
+
+        let lastError: unknown = null;
+        const maxAttempts = selectedRoute.executionMode === "provider" ? 2 : 1;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          try {
+            console.info("[Velora Assistant Swap] executing route", {
+              provider: selectedRoute.providerName,
+              attempt,
+              executionMode: selectedRoute.executionMode,
+              quote: selectedRoute.quote,
+              transactionRequest: selectedRoute.transactionRequest
+            });
+            result = await selectedRoute.execute({
+              sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, ARC_CHAIN_ID)
+            });
+            lastError = null;
+            break;
+          } catch (error) {
+            lastError = error;
+            console.error("[Velora Assistant Swap] route execution failed", {
+              provider: selectedRoute.providerName,
+              attempt,
+              error
+            });
+            if (isWalletRejected(error)) throw error;
+          }
+        }
+
+        if (result) break;
+        const reason = lastError instanceof Error ? lastError.message : "Provider execution failed.";
+        executionFailures[selectedRoute.providerName] = reason;
+        failedProviders.add(selectedRoute.providerName);
+        setProgress("preparingTransaction", `${selectedRoute.providerName} failed. Trying another route...`);
+      }
+
+      if (!selectedRoute || !result) throw new Error(formatProviderFailure(executionFailures));
       const txHash = result.txHash;
       const explorerLink = explorerTxUrl(getChainById(ARC_CHAIN_ID)?.explorer ?? "", txHash);
       activity.recordActivity({
         actionType: "swap_completed",
         title: "Swap completed",
-        description: `Swapped ${parsed.amount} ${from.symbol} to ${result.receivedAmount ?? routeResult.route.quote.toAmount ?? parsed.receiveToken} ${to.symbol}`,
+        description: `Swapped ${parsed.amount} ${from.symbol} to ${result.receivedAmount ?? selectedRoute.quote.toAmount ?? parsed.receiveToken} ${to.symbol}`,
         feature: "swap",
         token: from.symbol,
         amount: parsed.amount,
@@ -295,8 +367,8 @@ export function useAssistantActions() {
           fromToken: from.symbol,
           toToken: to.symbol,
           fromAmount: parsed.amount,
-          toAmount: result.receivedAmount ?? routeResult.route.quote.toAmount ?? null,
-          routeProvider: routeResult.route.providerName,
+          toAmount: result.receivedAmount ?? selectedRoute.quote.toAmount ?? null,
+          routeProvider: selectedRoute.providerName,
           source: "velora_ai_assistant"
         })
       });
@@ -306,9 +378,9 @@ export function useAssistantActions() {
         txHash,
         explorerLink,
         details: [
-          { label: "Provider", value: routeResult.route.providerName },
+          { label: "Provider", value: selectedRoute.providerName },
           { label: "Sold", value: `${parsed.amount} ${from.symbol}` },
-          { label: "Estimated received", value: `${result.receivedAmount ?? routeResult.route.quote.toAmount ?? "Confirmed"} ${to.symbol}` }
+          { label: "Estimated received", value: `${result.receivedAmount ?? selectedRoute.quote.toAmount ?? "Confirmed"} ${to.symbol}` }
         ]
       };
     },
@@ -365,6 +437,12 @@ export function useAssistantActions() {
             }
           }),
         sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, fromChain.chainId)
+      });
+      console.info("[Velora Assistant Bridge] execution result", {
+        provider: routeResult.route.providerName,
+        txHash: result.txHash,
+        confirmationStatus: result.confirmationStatus,
+        raw: result.raw
       });
       const txHash = result.txHash;
       const explorerLink = explorerTxUrl(fromChain.explorer, txHash);
@@ -458,8 +536,7 @@ export function useAssistantActions() {
         setProgress("completed", "Completed");
         return result;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Request failed.";
-        const normalized = /user rejected|rejected/i.test(message) ? "Transaction rejected by user." : message;
+        const normalized = normalizeAssistantError(parsed.actionType, error);
         setProgress("failed", normalized);
         activity.recordActivity({
           actionType: "ai_action_failed",
