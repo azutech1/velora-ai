@@ -62,6 +62,8 @@ type TraceLike = {
   explorerUrl?: unknown;
 };
 
+type AssistantLifiQuote = Awaited<ReturnType<typeof requestLifiQuote>>;
+
 function getTraceCandidate(value: unknown): TraceLike | null {
   if (!value || typeof value !== "object") return null;
   const record = value as { trace?: unknown; cause?: unknown };
@@ -144,6 +146,13 @@ function estimatedOutputLabel(value?: string | null, token?: string) {
   return `${value} ${token}`;
 }
 
+function formatRawTokenAmount(value: string | null | undefined, decimals: number) {
+  if (!value) return null;
+  const numeric = Number(value) / 10 ** decimals;
+  if (!Number.isFinite(numeric)) return null;
+  return numeric.toFixed(6).replace(/\.?0+$/, "");
+}
+
 function isWalletRejected(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /user rejected|rejected|denied|cancelled|canceled/i.test(message);
@@ -167,6 +176,11 @@ function isProviderNetworkError(error: unknown) {
 
 function isAppKitBackedProvider(providerName: string) {
   return providerName === "Arc Native" || providerName === "Circle StableFX";
+}
+
+function isExecutableLifiQuote(quote: AssistantLifiQuote) {
+  const transactionRequest = quote.transactionRequest as RouteTransactionRequest | null | undefined;
+  return Boolean(transactionRequest?.to && transactionRequest.data);
 }
 
 async function requestLifiQuote(params: {
@@ -344,18 +358,19 @@ export function useAssistantActions() {
         slippage: 0.5,
         balance
       };
+      const fetchAssistantLifiQuote = () =>
+        requestLifiQuote({
+          fromChain: getChainById(ARC_CHAIN_ID)?.lifiChainId ?? ARC_CHAIN_ID,
+          toChain: getChainById(ARC_CHAIN_ID)?.lifiChainId ?? ARC_CHAIN_ID,
+          fromToken: fromAddress,
+          toToken: toAddress,
+          fromAmount: parseUnits(parsed.amount ?? "0", from.decimals).toString(),
+          fromAddress: address,
+          slippage: 0.5
+        });
       const providers = createSwapServiceProviders({
         appKitSwap,
-        fetchLifiQuote: () =>
-          requestLifiQuote({
-            fromChain: ARC_CHAIN_ID,
-            toChain: ARC_CHAIN_ID,
-            fromToken: fromAddress,
-            toToken: toAddress,
-            fromAmount: parseUnits(parsed.amount ?? "0", from.decimals).toString(),
-            fromAddress: address,
-            slippage: 0.5
-          }),
+        fetchLifiQuote: fetchAssistantLifiQuote,
         lifiEnabled: true,
         arcChainId: ARC_CHAIN_ID
       });
@@ -456,6 +471,71 @@ export function useAssistantActions() {
           executionFailures["Circle StableFX"] = executionFailures["Circle StableFX"] ?? reason;
         }
         setProgress("preparingTransaction", `${selectedRoute.providerName} failed. Trying another route...`);
+      }
+
+      if (!selectedRoute || !result) {
+        try {
+          setProgress("preparingTransaction", "Native providers unavailable. Trying LI.FI fallback...");
+          const fallbackQuote = await fetchAssistantLifiQuote();
+          const transactionRequest = fallbackQuote.transactionRequest as RouteTransactionRequest | null | undefined;
+          console.info("[Velora Assistant Swap] direct LI.FI fallback response", {
+            quote: fallbackQuote,
+            transactionRequest,
+            transactionRequestExists: isExecutableLifiQuote(fallbackQuote),
+            priorExecutionFailures: executionFailures
+          });
+          if (!isExecutableLifiQuote(fallbackQuote) || !transactionRequest) {
+            throw new Error("LI.FI fallback returned a quote without wallet transaction data.");
+          }
+          const requestChainId = transactionRequest.chainId ?? ARC_CHAIN_ID;
+          if (requestChainId !== chainId) {
+            throw new Error(`LI.FI fallback transaction is for chain ${requestChainId}, but wallet is on chain ${chainId}.`);
+          }
+          const txHash = await sendTransactionRequest(transactionRequest, ARC_CHAIN_ID);
+          const receivedAmount = formatRawTokenAmount(fallbackQuote.toAmount, to.decimals) ?? fallbackQuote.toAmount ?? undefined;
+          result = {
+            txHash,
+            receivedAmount,
+            confirmationStatus: "confirmed",
+            raw: {
+              fallbackFromProviders: executionFailures,
+              quote: fallbackQuote
+            }
+          };
+          selectedRoute = {
+            routeType: "swap",
+            providerName: fallbackQuote.provider ?? "LI.FI Swap",
+            quote: {
+              provider: fallbackQuote.provider ?? "LI.FI Swap",
+              toAmount: receivedAmount,
+              toAmountMin: formatRawTokenAmount(fallbackQuote.toAmountMin, to.decimals) ?? fallbackQuote.toAmountMin,
+              feeEstimateUsd: fallbackQuote.feeEstimateUsd,
+              gasEstimateUsd: fallbackQuote.gasEstimateUsd,
+              approvalAddress: fallbackQuote.approvalAddress,
+              raw: fallbackQuote
+            },
+            transactionRequest,
+            executionMode: "transactionRequest",
+            diagnostics: {
+              providersTried: providers.map((provider) => provider.providerName),
+              selectedProvider: fallbackQuote.provider ?? "LI.FI Swap",
+              failureReasons: executionFailures,
+              quoteOnlyProviders: {},
+              executable: true,
+              routeType: "swap",
+              chainId: ARC_CHAIN_ID,
+              tokenPair: `${from.symbol}/${to.symbol}`
+            },
+            execute: async () => result as NonNullable<typeof result>
+          };
+        } catch (fallbackError) {
+          const fallbackReason = fallbackError instanceof Error ? fallbackError.message : "LI.FI fallback failed.";
+          console.error("[Velora Assistant Swap] direct LI.FI fallback failed", {
+            fallbackError,
+            executionFailures
+          });
+          throw new Error(formatProviderFailure({ ...executionFailures, "LI.FI fallback": fallbackReason }));
+        }
       }
 
       if (!selectedRoute || !result) throw new Error(formatProviderFailure(executionFailures));
