@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { isAddress, parseUnits, type Address, type Hex } from "viem";
+import { erc20Abi, isAddress, parseUnits, type Address, type Hex } from "viem";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
@@ -203,6 +203,12 @@ function isExecutableLifiQuote(quote: AssistantLifiQuote) {
   return Boolean(transactionRequest?.to && transactionRequest.data);
 }
 
+function getApprovalSpender(quote: { approvalAddress?: string | null; transactionRequest?: unknown }) {
+  const transactionRequest = quote.transactionRequest as RouteTransactionRequest | null | undefined;
+  const spender = quote.approvalAddress ?? transactionRequest?.to ?? null;
+  return spender && isAddress(spender) ? spender : null;
+}
+
 async function requestLifiQuote(params: {
   fromChain: number;
   toChain: number;
@@ -273,7 +279,11 @@ export function useAssistantActions() {
       setProgress("transactionSubmitted", "Transaction submitted");
       setProgress("confirmingOnchain", "Confirming onchain");
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      if (receipt.status !== "success") throw new Error("Contract call failed.");
+      if (receipt.status !== "success") {
+        const error = new Error("Contract call failed.");
+        (error as Error & { cause?: { trace: { txHash: Hex } } }).cause = { trace: { txHash } };
+        throw error;
+      }
       return txHash;
     },
     [address, chainId, publicClient, setProgress, walletClient]
@@ -301,6 +311,41 @@ export function useAssistantActions() {
     if (balance <= BigInt(0)) throw new Error("Insufficient gas.");
     return balance;
   }, [address, publicClient]);
+
+  const ensureTokenAllowance = useCallback(
+    async (options: { tokenAddress: Address; spender: Address | null; amount: string; decimals: number; tokenSymbol: string }) => {
+      if (!options.spender) return null;
+      if (!walletClient || !publicClient || !address) throw new Error("Connect wallet first.");
+      const requiredAmount = parseUnits(options.amount, options.decimals);
+      if (requiredAmount <= BigInt(0)) return null;
+      const allowance = (await publicClient.readContract({
+        address: options.tokenAddress,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, options.spender]
+      })) as bigint;
+      if (allowance >= requiredAmount) return null;
+
+      setProgress("waitingWalletConfirmation", `Approve ${options.tokenSymbol} spending in wallet.`);
+      const approvalHash = await walletClient.writeContract({
+        account: address,
+        address: options.tokenAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [options.spender, requiredAmount]
+      });
+      setProgress("transactionSubmitted", "Approval submitted");
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      if (receipt.status !== "success") {
+        const error = new Error("Token approval failed.");
+        (error as Error & { cause?: { trace: { txHash: Hex } } }).cause = { trace: { txHash: approvalHash } };
+        throw error;
+      }
+      setProgress("preparingTransaction", "Token approved. Preparing swap transaction...");
+      return approvalHash;
+    },
+    [address, publicClient, setProgress, walletClient]
+  );
 
   const executeSend = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
@@ -438,6 +483,18 @@ export function useAssistantActions() {
               quote: selectedRoute.quote,
               transactionRequest: selectedRoute.transactionRequest
             });
+            if (selectedRoute.executionMode === "transactionRequest") {
+              const spender = getApprovalSpender(selectedRoute.quote);
+              if (spender) {
+                await ensureTokenAllowance({
+                  tokenAddress: fromAddress,
+                  spender,
+                  amount: parsed.amount,
+                  decimals: from.decimals,
+                  tokenSymbol: from.symbol
+                });
+              }
+            }
             result = await selectedRoute.execute({
               sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, ARC_CHAIN_ID)
             });
@@ -516,6 +573,13 @@ export function useAssistantActions() {
           if (requestChainId !== chainId) {
             throw new Error(`LI.FI fallback transaction is for chain ${requestChainId}, but wallet is on chain ${chainId}.`);
           }
+          const approvalHash = await ensureTokenAllowance({
+            tokenAddress: fromAddress,
+            spender: getApprovalSpender(fallbackQuote),
+            amount: parsed.amount,
+            decimals: from.decimals,
+            tokenSymbol: from.symbol
+          });
           const txHash = await sendTransactionRequest(transactionRequest, ARC_CHAIN_ID);
           const receivedAmount = formatRawTokenAmount(fallbackQuote.toAmount, to.decimals) ?? fallbackQuote.toAmount ?? undefined;
           result = {
@@ -524,6 +588,7 @@ export function useAssistantActions() {
             confirmationStatus: "confirmed",
             raw: {
               fallbackFromProviders: executionFailures,
+              approvalHash,
               quote: fallbackQuote
             }
           };
@@ -597,7 +662,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, publicClient, sendTransactionRequest, setProgress]
+    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenAllowance, ensureTokenBalance, portfolio.positions, publicClient, sendTransactionRequest, setProgress]
   );
 
   const executeBridge = useCallback(
