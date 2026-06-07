@@ -161,6 +161,15 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     relatedCommands: ["Show my wallet balance", "Bridge 10 USDC from Arc to Base"]
   },
   {
+    id: "why-arc",
+    category: "Arc Knowledge",
+    title: "Why Build on Arc",
+    topics: ["why build on arc", "why arc", "arc ecosystem basics", "arc basics"],
+    answer:
+      "Arc is designed around stablecoin-native financial applications. Velora builds on Arc because the product is focused on USDC and EURC workflows: wallet activity, swaps, bridge routes, rewards, and AI-assisted approval-first actions.",
+    relatedCommands: ["Show my portfolio", "Swap 20 USDC to EURC"]
+  },
+  {
     id: "stablecoins",
     category: "Circle Knowledge",
     title: "Stablecoins",
@@ -213,6 +222,24 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     answer:
       "Circle AppKit and BridgeKit provide developer tools for wallet-connected stablecoin flows. Velora uses these tools where they can produce real wallet-confirmed transactions and traceable bridge lifecycle data.",
     relatedCommands: ["Bridge 10 USDC from Arc to Base"]
+  },
+  {
+    id: "agent-wallets",
+    category: "Circle Knowledge",
+    title: "Agent Wallets",
+    topics: ["agent wallets", "what are agent wallets", "agent wallet", "ai wallet"],
+    answer:
+      "Agent Wallets are a design direction for AI-assisted wallet experiences where software can prepare recommendations or requests while users remain in control. In Velora, every transaction remains approval-first and requires wallet confirmation.",
+    relatedCommands: ["How does Velora AI work?", "Send 10 USDC to 0x..."]
+  },
+  {
+    id: "scam-safety",
+    category: "Security Rules",
+    title: "Scam Warnings",
+    topics: ["scam", "phishing", "wallet safety", "safe wallet", "security", "suspicious link"],
+    answer:
+      "Be careful with links, fake support accounts, surprise airdrop claims, and requests for wallet secrets. Velora AI will never ask for your seed phrase, private key, password, or API keys. Always verify the site URL, token, network, amount, and recipient before confirming in your wallet.",
+    relatedCommands: ["Show my wallet balance"]
   }
 ];
 

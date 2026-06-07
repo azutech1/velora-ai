@@ -167,6 +167,41 @@ function cleanMetadata(values: Record<string, string | number | boolean | null |
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Record<string, string | number | boolean | null>;
 }
 
+type AssistantAutomationRule = {
+  id: string;
+  command: string;
+  type: string;
+  status: "active";
+  createdAt: string;
+};
+
+function automationStorageKey(address: string) {
+  return `velora:assistant-automation:${address.toLowerCase()}`;
+}
+
+function automationTypeFromCommand(command: string) {
+  if (/receive.*usdc|usdc.*receive/i.test(command)) return "Wallet alert";
+  if (/claim.*xp|daily|reward/i.test(command)) return "Rewards reminder";
+  if (/campaign|arc.*release|new.*arc/i.test(command)) return "Ecosystem update alert";
+  if (/bridge.*route|route.*available/i.test(command)) return "Bridge route alert";
+  return "General alert";
+}
+
+function readAutomationRules(address: string): AssistantAutomationRule[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(automationStorageKey(address)) ?? "[]") as AssistantAutomationRule[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAutomationRules(address: string, rules: AssistantAutomationRule[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(automationStorageKey(address), JSON.stringify(rules));
+}
+
 function estimatedOutputLabel(value?: string | null, token?: string) {
   if (!value || !token) return null;
   return `${value} ${token}`;
@@ -850,31 +885,39 @@ export function useAssistantActions() {
   );
 
   const readBalances = useCallback((): AssistantActionResult => {
-    if (!isConnected) throw new Error("Connect wallet first.");
+    if (!isConnected || !address) throw new Error("Connect wallet first.");
     if (!portfolio.arcConnected) throw new Error("Please switch to the correct network.");
+    const chain = getChainById(chainId);
     return {
-      title: "Wallet Balance",
-      message: `Your Arc portfolio value is ${portfolio.totalValueLabel}.`,
+      title: "Portfolio Summary",
+      message: `Your connected wallet ${address.slice(0, 6)}...${address.slice(-4)} is on ${chain?.name ?? "the current network"} with an estimated portfolio value of ${portfolio.totalValueLabel}.`,
       details: [
+        { label: "Wallet", value: address },
+        { label: "Connected network", value: chain?.name ?? `Chain ${chainId}` },
         { label: "Total value", value: portfolio.totalValueLabel },
-        ...portfolio.positions.map((position) => ({ label: position.token.symbol, value: `${position.balanceLabel} ${position.token.symbol}` }))
+        ...portfolio.positions.map((position) => ({ label: `${position.token.symbol} balance`, value: `${position.balanceLabel} ${position.token.symbol}` }))
       ]
     };
-  }, [isConnected, portfolio.arcConnected, portfolio.positions, portfolio.totalValueLabel]);
+  }, [address, chainId, isConnected, portfolio.arcConnected, portfolio.positions, portfolio.totalValueLabel]);
 
   const readRewards = useCallback((): AssistantActionResult => {
     if (!isConnected) throw new Error("Connect wallet first.");
+    const nextAchievement = rewards.achievements.find((achievement) => !achievement.claimed);
+    const claimedAchievements = rewards.achievements.filter((achievement) => achievement.claimed);
     return {
-      title: "XP Balance",
-      message: `You have ${rewards.xp.toLocaleString()} XP and are Level ${rewards.level.level}.`,
+      title: "Rewards Summary",
+      message: `You have ${rewards.xp.toLocaleString()} XP, a ${rewards.currentStreak}-day streak, and you need ${rewards.level.remaining.toLocaleString()} XP to reach Level ${rewards.level.nextLevel}.`,
       details: [
         { label: "XP", value: `${rewards.xp.toLocaleString()} XP` },
         { label: "Level", value: `${rewards.level.level}` },
         { label: "Current streak", value: `${rewards.currentStreak} Days` },
-        { label: "Next milestone", value: `${rewards.level.remaining.toLocaleString()} XP to Level ${rewards.level.nextLevel}` }
+        { label: "Next level", value: `${rewards.level.remaining.toLocaleString()} XP to Level ${rewards.level.nextLevel}` },
+        { label: "Next achievement", value: nextAchievement ? `${nextAchievement.title} (${Math.max(0, nextAchievement.requirement - rewards.xp).toLocaleString()} XP remaining)` : "All current XP achievements claimed" },
+        { label: "Claimed achievements", value: claimedAchievements.length ? claimedAchievements.map((achievement) => achievement.title).join(", ") : "None claimed yet" },
+        { label: "Early Pioneer Badge", value: rewards.earlyPioneerBadge.claimed ? "Claimed" : rewards.earlyPioneerBadge.readyToClaim ? "Ready to claim" : `${rewards.earlyPioneerBadge.progress}% complete` }
       ]
     };
-  }, [isConnected, rewards.currentStreak, rewards.level, rewards.xp]);
+  }, [isConnected, rewards.achievements, rewards.currentStreak, rewards.earlyPioneerBadge, rewards.level, rewards.xp]);
 
   const readProfile = useCallback((): AssistantActionResult => {
     if (!isConnected || !address) throw new Error("Connect wallet first.");
@@ -893,22 +936,64 @@ export function useAssistantActions() {
     };
   }, [address, chainId, isConnected, portfolio.totalValueLabel, rewards.currentStreak, rewards.level.level, rewards.xp]);
 
-  const readTransactionHistory = useCallback((): AssistantActionResult => {
+  const readTransactionHistory = useCallback((parsed?: ParsedCommand): AssistantActionResult => {
     if (!isConnected) throw new Error("Connect wallet first.");
+    const question = parsed?.question ?? "";
+    const requestedFeature = /swap/i.test(question) ? "swap" : /bridge/i.test(question) ? "bridge" : /\b(send|sent)\b/i.test(question) ? "send" : null;
     const recentActivities = activity.activities
       .filter((record) => ["swap", "bridge", "send", "faucet", "agent_payments"].includes(record.feature))
+      .filter((record) => (requestedFeature ? record.feature === requestedFeature : true))
       .slice(0, 5);
     return {
-      title: "Recent Transactions",
-      message: recentActivities.length ? `I found ${recentActivities.length} recent wallet activity records.` : "No wallet transaction activity is recorded yet.",
+      title: requestedFeature ? `${requestedFeature[0].toUpperCase()}${requestedFeature.slice(1)} History` : "Recent Transactions",
+      message: recentActivities.length ? `I found ${recentActivities.length} recent ${requestedFeature ?? "wallet"} activity records.` : `No ${requestedFeature ?? "wallet"} transaction activity is recorded yet.`,
       details: recentActivities.length
         ? recentActivities.map((record) => ({
-            label: record.title,
+            label: `${record.title} - ${new Date(record.timestamp).toLocaleDateString()}`,
             value: `${record.amount ? `${record.amount} ${record.token ?? ""} - ` : ""}${record.status}${record.txHash ? ` - ${record.txHash.slice(0, 10)}...${record.txHash.slice(-6)}` : ""}`
           }))
         : [{ label: "Status", value: "No wallet activity yet" }]
     };
   }, [activity.activities, isConnected]);
+
+  const createAutomationAlert = useCallback(
+    (parsed: ParsedCommand): AssistantActionResult => {
+      if (!isConnected || !address) throw new Error("Connect wallet first.");
+      const command = parsed.question ?? "Assistant alert";
+      const createdAt = new Date().toISOString();
+      const rule: AssistantAutomationRule = {
+        id: `assistant_alert_${Date.now()}`,
+        command,
+        type: automationTypeFromCommand(command),
+        status: "active",
+        createdAt
+      };
+      const rules = [rule, ...readAutomationRules(address)].slice(0, 25);
+      writeAutomationRules(address, rules);
+      activity.recordActivity({
+        actionType: "ai_automation_created",
+        title: "Assistant alert created",
+        description: rule.command,
+        feature: "automation",
+        status: "info",
+        metadata: cleanMetadata({
+          alertType: rule.type,
+          source: "velora_ai_assistant"
+        })
+      });
+      return {
+        title: "Alert Created",
+        message: `${rule.type} created. This is notification-only and will never move funds automatically.`,
+        details: [
+          { label: "Alert", value: rule.command },
+          { label: "Type", value: rule.type },
+          { label: "Status", value: "Active" },
+          { label: "Created", value: new Date(createdAt).toLocaleString() }
+        ]
+      };
+    },
+    [activity, address, isConnected]
+  );
 
   const openFaucetWorkflow = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
@@ -984,7 +1069,8 @@ export function useAssistantActions() {
         else if (parsed.actionType === "balance") result = readBalances();
         else if (parsed.actionType === "rewards") result = readRewards();
         else if (parsed.actionType === "profile") result = readProfile();
-        else if (parsed.actionType === "transactionHistory") result = readTransactionHistory();
+        else if (parsed.actionType === "transactionHistory") result = readTransactionHistory(parsed);
+        else if (parsed.actionType === "automation") result = createAutomationAlert(parsed);
         else if (parsed.actionType === "faucet") result = openFaucetWorkflow(parsed);
         else if (parsed.actionType === "knowledge") result = answerKnowledgeQuestion(parsed);
         else if (parsed.actionType === "dailyReward") {
@@ -1029,7 +1115,7 @@ export function useAssistantActions() {
         setIsRunning(false);
       }
     },
-    [activity, answerKnowledgeQuestion, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
+    [activity, answerKnowledgeQuestion, createAutomationAlert, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
   );
 
   return useMemo(

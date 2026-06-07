@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
@@ -13,6 +13,19 @@ type ChatMessage = {
   content: string;
   parsed?: ParsedCommand;
   result?: AssistantActionResult;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
 };
 
 const examples = [
@@ -59,23 +72,26 @@ function findChainAfter(command: string, keyword: "from" | "to") {
 function classifyIntent(command: string): { intentType: AssistantIntent; confidence: "high" | "medium" | "low" } {
   const text = command.trim();
   if (!text) return { intentType: "unknown", confidence: "low" };
-  if (/^(what|why|explain|tell me|describe)\b/i.test(text) || /\b(what is|stablecoin|arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|private key|seed phrase|airdrop|token launch)\b/i.test(text)) {
-    return { intentType: "knowledge", confidence: "high" };
-  }
-  if (/^how\b/i.test(text) || /\b(connect wallet|switch to arc|arc testnet|use rewards center|claim daily xp|daily check.?in|complete social tasks|view profile|transaction history|gas fees|testnet eth|how to)\b/i.test(text)) {
-    return { intentType: "help", confidence: "high" };
-  }
-  if (/\b(show|check|view|display)\b.*\b(balance|balances|wallet|portfolio)\b/i.test(text) || /^\s*(balance|balances)\s*$/i.test(text)) {
+  if (/\b(show|check|view|display)\b.*\b(balance|balances|wallet|portfolio|assets)\b/i.test(text) || /\b(how much)\b.*\b(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)\b/i.test(text) || /\b(what assets do i own|wallet summary|show my portfolio|show my balances)\b/i.test(text) || /^\s*(balance|balances|portfolio)\s*$/i.test(text)) {
     return { intentType: "balance", confidence: "high" };
   }
-  if (/\b(show|check|view|display)\b.*\b(xp|reward|rewards|level|streak)\b/i.test(text)) {
+  if (/\b(show|check|view|display|how much)\b.*\b(xp|reward|rewards|level|streak|achievement|achievements|milestone)\b/i.test(text)) {
     return { intentType: "rewards", confidence: "high" };
   }
   if (/\b(show|check|view|display|open)\b.*\b(profile|badges)\b/i.test(text)) {
     return { intentType: "profile", confidence: "high" };
   }
-  if (/\b(show|check|view|display)\b.*\b(transaction|transactions|history|activity)\b/i.test(text)) {
+  if (/\b(show|check|view|display)\b.*\b(transaction|transactions|history|activity)\b/i.test(text) || /\b(swap history|bridge history|send history|last 5 transactions|recent transactions)\b/i.test(text)) {
     return { intentType: "transaction-history", confidence: "high" };
+  }
+  if (/\b(notify me|remind me|alert me|create alert|set alert)\b/i.test(text)) {
+    return { intentType: "automation", confidence: "high" };
+  }
+  if (/^(what|why|explain|tell me|describe)\b/i.test(text) || /\b(what is|stablecoin|arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|private key|seed phrase|airdrop|token launch)\b/i.test(text)) {
+    return { intentType: "knowledge", confidence: "high" };
+  }
+  if (/^how\b/i.test(text) || /\b(connect wallet|switch to arc|arc testnet|use rewards center|claim daily xp|daily check.?in|complete social tasks|view profile|transaction history|gas fees|testnet eth|how to)\b/i.test(text)) {
+    return { intentType: "help", confidence: "high" };
   }
   if (/\b(send|pay|transfer)\b/i.test(text)) return { intentType: "send", confidence: "high" };
   if (/\b(swap|exchange|convert)\b/i.test(text)) return { intentType: "swap", confidence: "high" };
@@ -193,7 +209,18 @@ function parseCommand(input: string): ParsedCommand {
     return {
       intentType: "transaction-history",
       actionType: "transactionHistory",
+      question: command,
       status: "Ready to show transaction history",
+      confidence: "high"
+    };
+  }
+
+  if (intent.intentType === "automation") {
+    return {
+      intentType: "automation",
+      actionType: "automation",
+      question: command,
+      status: "Ready to create alert",
       confidence: "high"
     };
   }
@@ -228,13 +255,15 @@ function actionLabel(action: AssistantAction) {
       return "Profile";
     case "transactionHistory":
       return "Transaction History";
+    case "automation":
+      return "Automation Alert";
     default:
       return "Unknown";
   }
 }
 
 function ActionIcon({ action }: { action: AssistantAction }) {
-  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" || action === "profile" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" || action === "transactionHistory" ? BookOpen : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
+  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" || action === "profile" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" || action === "transactionHistory" ? BookOpen : action === "automation" || action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
   return (
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
       <Icon className="h-5 w-5" />
@@ -275,6 +304,8 @@ function commandSummary(parsed: ParsedCommand) {
       return "show your profile summary";
     case "transactionHistory":
       return "show your recent transaction history";
+    case "automation":
+      return `create an alert for "${parsed.question ?? "this request"}"`;
     default:
       return "complete this request";
   }
@@ -285,7 +316,16 @@ function naturalResponse(parsed: ParsedCommand) {
 }
 
 function shouldAnswerDirectly(parsed: ParsedCommand) {
-  return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history"].includes(parsed.intentType ?? "");
+  return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history", "automation"].includes(parsed.intentType ?? "");
+}
+
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const speechWindow = window as typeof window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
 function ConfirmationPreview({
@@ -442,8 +482,10 @@ export function FloatingAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(thinkingSteps[0]);
   const [activePreview, setActivePreview] = useState<ParsedCommand | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -578,15 +620,56 @@ export function FloatingAssistant() {
     ]);
   }
 
-  function handleVoicePlaceholder() {
-    setMessages((current) => [
-      ...current,
-      {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: "Voice input coming soon."
+  function handleVoiceInput() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+    if (!SpeechRecognition) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "Voice input is not supported in this browser yet. You can still type the command."
+        }
+      ]);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setInput(transcript);
+        setMessages((current) => [
+          ...current,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: `Voice captured: "${transcript}". Review it, then send when ready.`
+          }
+        ]);
       }
-    ]);
+    };
+    recognition.onerror = () => {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "Voice input failed. Please try again or type the command."
+        }
+      ]);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
   }
 
   return (
@@ -680,8 +763,8 @@ export function FloatingAssistant() {
                     disabled={isThinking}
                     className="min-h-11 flex-1 bg-transparent px-3 text-sm text-white outline-none placeholder:text-slate-500 light:text-slate-950"
                   />
-                  <button type="button" onClick={handleVoicePlaceholder} className="hidden items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 sm:inline-flex light:border-black light:text-slate-700">
-                    <Mic className="h-4 w-4" /> Voice
+                  <button type="button" onClick={handleVoiceInput} className="hidden items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 sm:inline-flex light:border-black light:text-slate-700">
+                    <Mic className="h-4 w-4" /> {isListening ? "Listening" : "Voice"}
                   </button>
                   <button type="submit" disabled={isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.28)] disabled:cursor-not-allowed disabled:opacity-70" aria-label="Send assistant message">
                     <ArrowRight className="h-5 w-5" />
