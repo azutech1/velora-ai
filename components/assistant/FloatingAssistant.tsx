@@ -63,7 +63,10 @@ function parseCommand(input: string): ParsedCommand {
   const amount = amountToken?.[1];
   const destinationAddress = command.match(addressPattern)?.[1];
 
-  if (/^(what|how|why|explain|tell me|describe)\b/i.test(command) || /\b(arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai)\b/i.test(command)) {
+  if (
+    /^(what|how|why|explain|tell me|describe)\b/i.test(command) ||
+    /\b(arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|connect wallet|switch to arc|arc testnet|transaction history|view profile|social tasks|rewards center|gas fees|testnet eth|private key|seed phrase|airdrop|token launch)\b/i.test(command)
+  ) {
     return {
       actionType: "knowledge",
       question: command,

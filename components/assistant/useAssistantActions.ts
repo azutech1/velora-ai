@@ -925,7 +925,10 @@ export function useAssistantActions() {
     return {
       title: entry.title,
       message: entry.answer,
-      details: entry.relatedCommands?.length ? [{ label: "Try next", value: entry.relatedCommands.join(" | ") }] : undefined
+      details: [
+        { label: "Category", value: entry.category },
+        ...(entry.relatedCommands?.length ? [{ label: "Try next", value: entry.relatedCommands.join(" | ") }] : [])
+      ]
     };
   }, []);
 
