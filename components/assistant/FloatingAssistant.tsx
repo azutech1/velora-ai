@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
-import type { AssistantAction, ParsedCommand } from "./types";
+import type { AssistantAction, AssistantIntent, ParsedCommand } from "./types";
 
 type ChatMessage = {
   id: string;
@@ -56,27 +56,56 @@ function findChainAfter(command: string, keyword: "from" | "to") {
   return normalizeChain(match?.[1]);
 }
 
+function classifyIntent(command: string): { intentType: AssistantIntent; confidence: "high" | "medium" | "low" } {
+  const text = command.trim();
+  if (!text) return { intentType: "unknown", confidence: "low" };
+  if (/^(what|why|explain|tell me|describe)\b/i.test(text) || /\b(what is|stablecoin|arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|private key|seed phrase|airdrop|token launch)\b/i.test(text)) {
+    return { intentType: "knowledge", confidence: "high" };
+  }
+  if (/^how\b/i.test(text) || /\b(connect wallet|switch to arc|arc testnet|use rewards center|claim daily xp|daily check.?in|complete social tasks|view profile|transaction history|gas fees|testnet eth|how to)\b/i.test(text)) {
+    return { intentType: "help", confidence: "high" };
+  }
+  if (/\b(show|check|view|display)\b.*\b(balance|balances|wallet|portfolio)\b/i.test(text) || /^\s*(balance|balances)\s*$/i.test(text)) {
+    return { intentType: "balance", confidence: "high" };
+  }
+  if (/\b(show|check|view|display)\b.*\b(xp|reward|rewards|level|streak)\b/i.test(text)) {
+    return { intentType: "rewards", confidence: "high" };
+  }
+  if (/\b(show|check|view|display|open)\b.*\b(profile|badges)\b/i.test(text)) {
+    return { intentType: "profile", confidence: "high" };
+  }
+  if (/\b(show|check|view|display)\b.*\b(transaction|transactions|history|activity)\b/i.test(text)) {
+    return { intentType: "transaction-history", confidence: "high" };
+  }
+  if (/\b(send|pay|transfer)\b/i.test(text)) return { intentType: "send", confidence: "high" };
+  if (/\b(swap|exchange|convert)\b/i.test(text)) return { intentType: "swap", confidence: "high" };
+  if (/\b(bridge|move cross-chain|cross chain)\b/i.test(text)) return { intentType: "bridge", confidence: "high" };
+  if (/\b(faucet|testnet funds|test funds)\b/i.test(text)) return { intentType: "faucet", confidence: "high" };
+  if (/\b(wallet|token|network|arc|circle|velora|usdc|eurc|bridge|swap|reward)\b/i.test(text)) return { intentType: "unknown", confidence: "medium" };
+  return { intentType: "unknown", confidence: "low" };
+}
+
 function parseCommand(input: string): ParsedCommand {
   const command = input.trim();
+  const intent = classifyIntent(command);
   const amountToken = command.match(amountTokenPattern);
   const token = amountToken?.[2]?.toUpperCase() ?? command.match(tokenPattern)?.[1]?.toUpperCase();
   const amount = amountToken?.[1];
   const destinationAddress = command.match(addressPattern)?.[1];
 
-  if (
-    /^(what|how|why|explain|tell me|describe)\b/i.test(command) ||
-    /\b(arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|connect wallet|switch to arc|arc testnet|transaction history|view profile|social tasks|rewards center|gas fees|testnet eth|private key|seed phrase|airdrop|token launch)\b/i.test(command)
-  ) {
+  if (intent.intentType === "knowledge" || intent.intentType === "help") {
     return {
+      intentType: intent.intentType,
       actionType: "knowledge",
       question: command,
       status: "Ready for answer",
-      confidence: "high"
+      confidence: intent.confidence
     };
   }
 
-  if (/\b(faucet|testnet funds|test funds)\b/i.test(command)) {
+  if (intent.intentType === "faucet") {
     return {
+      intentType: "faucet",
       actionType: "faucet",
       token,
       destinationAddress,
@@ -85,8 +114,9 @@ function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  if (/\b(send|pay|transfer)\b/i.test(command)) {
+  if (intent.intentType === "send") {
     return {
+      intentType: "send",
       actionType: "send",
       amount,
       token,
@@ -96,9 +126,10 @@ function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  if (/\b(swap|exchange|convert)\b/i.test(command)) {
+  if (intent.intentType === "swap") {
     const receiveToken = command.match(/\b(?:to|for)\s+(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)\b/i)?.[1]?.toUpperCase();
     return {
+      intentType: "swap",
       actionType: "swap",
       amount,
       token,
@@ -108,8 +139,9 @@ function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  if (/\b(bridge|move cross-chain|cross chain)\b/i.test(command)) {
+  if (intent.intentType === "bridge") {
     return {
+      intentType: "bridge",
       actionType: "bridge",
       amount,
       token,
@@ -120,8 +152,9 @@ function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  if (/\b(balance|balances|wallet)\b/i.test(command)) {
+  if (intent.intentType === "balance") {
     return {
+      intentType: "balance",
       actionType: "balance",
       token,
       status: "Ready for confirmation",
@@ -129,9 +162,10 @@ function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  if (/\b(xp|reward|rewards|level|streak)\b/i.test(command)) {
+  if (intent.intentType === "rewards") {
     if (/\b(claim|daily|check.?in)\b/i.test(command)) {
       return {
+        intentType: "rewards",
         actionType: "dailyReward",
         status: "Ready for confirmation",
         confidence: "high"
@@ -139,16 +173,36 @@ function parseCommand(input: string): ParsedCommand {
     }
 
     return {
+      intentType: "rewards",
       actionType: "rewards",
       status: "Ready for confirmation",
       confidence: "high"
     };
   }
 
+  if (intent.intentType === "profile") {
+    return {
+      intentType: "profile",
+      actionType: "profile",
+      status: "Ready to show profile",
+      confidence: "high"
+    };
+  }
+
+  if (intent.intentType === "transaction-history") {
+    return {
+      intentType: "transaction-history",
+      actionType: "transactionHistory",
+      status: "Ready to show transaction history",
+      confidence: "high"
+    };
+  }
+
   return {
+    intentType: intent.intentType,
     actionType: "unknown",
     status: "Needs more detail",
-    confidence: "low"
+    confidence: intent.confidence
   };
 }
 
@@ -170,13 +224,17 @@ function actionLabel(action: AssistantAction) {
       return "Faucet";
     case "knowledge":
       return "Knowledge";
+    case "profile":
+      return "Profile";
+    case "transactionHistory":
+      return "Transaction History";
     default:
       return "Unknown";
   }
 }
 
 function ActionIcon({ action }: { action: AssistantAction }) {
-  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" ? BookOpen : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
+  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" || action === "profile" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" || action === "transactionHistory" ? BookOpen : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
   return (
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
       <Icon className="h-5 w-5" />
@@ -213,6 +271,10 @@ function commandSummary(parsed: ParsedCommand) {
       return `open the official faucet workflow${parsed.token ? ` for ${parsed.token}` : ""}`;
     case "knowledge":
       return `answer "${parsed.question ?? "your question"}"`;
+    case "profile":
+      return "show your profile summary";
+    case "transactionHistory":
+      return "show your recent transaction history";
     default:
       return "complete this request";
   }
@@ -220,6 +282,10 @@ function commandSummary(parsed: ParsedCommand) {
 
 function naturalResponse(parsed: ParsedCommand) {
   return `I understood that you want to ${commandSummary(parsed)}. I prepared a safe preview below. No funds will move until you confirm with your wallet.`;
+}
+
+function shouldAnswerDirectly(parsed: ParsedCommand) {
+  return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history"].includes(parsed.intentType ?? "");
 }
 
 function ConfirmationPreview({
@@ -416,7 +482,7 @@ export function FloatingAssistant() {
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: "This command is not supported yet. Try send, swap, bridge, faucet, wallet balance, XP balance, or an Arc/Circle knowledge question."
+          content: "I'm not sure whether you're asking for information or trying to perform an action. Could you clarify?"
         }
       ]);
       return;
@@ -429,6 +495,21 @@ export function FloatingAssistant() {
           id: `assistant-${Date.now()}`,
           role: "assistant",
           content: "I need a little more detail before preparing a preview. Please include the action, token, amount, and destination if needed."
+        }
+      ]);
+      return;
+    }
+
+    if (shouldAnswerDirectly(parsed)) {
+      const result = await assistantActions.executeAssistantAction(parsed);
+      if (!result) return;
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: result.message,
+          result
         }
       ]);
       return;

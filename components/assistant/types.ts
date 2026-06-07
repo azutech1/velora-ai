@@ -1,6 +1,9 @@
-export type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "faucet" | "knowledge" | "unknown";
+export type AssistantIntent = "knowledge" | "help" | "balance" | "rewards" | "profile" | "transaction-history" | "send" | "swap" | "bridge" | "faucet" | "unknown";
+
+export type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "faucet" | "knowledge" | "profile" | "transactionHistory" | "unknown";
 
 export type ParsedCommand = {
+  intentType?: AssistantIntent;
   actionType: AssistantAction;
   amount?: string;
   token?: string;

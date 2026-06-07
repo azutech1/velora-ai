@@ -225,6 +225,8 @@ function assistantFailureTitle(actionType: ParsedCommand["actionType"]) {
   if (actionType === "send") return "Send Failed";
   if (actionType === "faucet") return "Faucet Unavailable";
   if (actionType === "knowledge") return "Answer Unavailable";
+  if (actionType === "profile") return "Profile Unavailable";
+  if (actionType === "transactionHistory") return "Transaction History Unavailable";
   return "Request Failed";
 }
 
@@ -874,6 +876,40 @@ export function useAssistantActions() {
     };
   }, [isConnected, rewards.currentStreak, rewards.level, rewards.xp]);
 
+  const readProfile = useCallback((): AssistantActionResult => {
+    if (!isConnected || !address) throw new Error("Connect wallet first.");
+    const chain = getChainById(chainId);
+    return {
+      title: "Profile Summary",
+      message: `Your connected profile is ${address.slice(0, 6)}...${address.slice(-4)} on ${chain?.name ?? "the current network"}.`,
+      details: [
+        { label: "Wallet", value: address },
+        { label: "Network", value: chain?.name ?? `Chain ${chainId}` },
+        { label: "Portfolio", value: portfolio.totalValueLabel },
+        { label: "XP", value: `${rewards.xp.toLocaleString()} XP` },
+        { label: "Level", value: `${rewards.level.level}` },
+        { label: "Current streak", value: `${rewards.currentStreak} Days` }
+      ]
+    };
+  }, [address, chainId, isConnected, portfolio.totalValueLabel, rewards.currentStreak, rewards.level.level, rewards.xp]);
+
+  const readTransactionHistory = useCallback((): AssistantActionResult => {
+    if (!isConnected) throw new Error("Connect wallet first.");
+    const recentActivities = activity.activities
+      .filter((record) => ["swap", "bridge", "send", "faucet", "agent_payments"].includes(record.feature))
+      .slice(0, 5);
+    return {
+      title: "Recent Transactions",
+      message: recentActivities.length ? `I found ${recentActivities.length} recent wallet activity records.` : "No wallet transaction activity is recorded yet.",
+      details: recentActivities.length
+        ? recentActivities.map((record) => ({
+            label: record.title,
+            value: `${record.amount ? `${record.amount} ${record.token ?? ""} - ` : ""}${record.status}${record.txHash ? ` - ${record.txHash.slice(0, 10)}...${record.txHash.slice(-6)}` : ""}`
+          }))
+        : [{ label: "Status", value: "No wallet activity yet" }]
+    };
+  }, [activity.activities, isConnected]);
+
   const openFaucetWorkflow = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
       const targetWallet = parsed.destinationAddress ?? address;
@@ -947,6 +983,8 @@ export function useAssistantActions() {
         else if (parsed.actionType === "bridge") result = await executeBridge(parsed);
         else if (parsed.actionType === "balance") result = readBalances();
         else if (parsed.actionType === "rewards") result = readRewards();
+        else if (parsed.actionType === "profile") result = readProfile();
+        else if (parsed.actionType === "transactionHistory") result = readTransactionHistory();
         else if (parsed.actionType === "faucet") result = openFaucetWorkflow(parsed);
         else if (parsed.actionType === "knowledge") result = answerKnowledgeQuestion(parsed);
         else if (parsed.actionType === "dailyReward") {
@@ -991,7 +1029,7 @@ export function useAssistantActions() {
         setIsRunning(false);
       }
     },
-    [activity, answerKnowledgeQuestion, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readRewards, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
+    [activity, answerKnowledgeQuestion, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
   );
 
   return useMemo(
