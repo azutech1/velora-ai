@@ -173,6 +173,25 @@ function formatRawTokenAmount(value: string | null | undefined, decimals: number
   return numeric.toFixed(6).replace(/\.?0+$/, "");
 }
 
+function isLifiRoute(providerName?: string | null, raw?: unknown) {
+  return Boolean(providerName?.toLowerCase().includes("li.fi") || (raw && typeof raw === "object" && "transactionRequest" in raw));
+}
+
+function readableSwapOutputAmount(options: {
+  providerName?: string | null;
+  raw?: unknown;
+  receivedAmount?: string | null;
+  quoteAmount?: string | null;
+  decimals: number;
+}) {
+  const value = options.receivedAmount ?? options.quoteAmount ?? null;
+  if (!value) return null;
+  if (isLifiRoute(options.providerName, options.raw)) {
+    return formatRawTokenAmount(value, options.decimals) ?? value;
+  }
+  return value;
+}
+
 function isWalletRejected(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /user rejected|rejected|denied|cancelled|canceled/i.test(message);
@@ -467,9 +486,15 @@ export function useAssistantActions() {
         }
 
         selectedRoute = routeResult.route;
+        const readableRouteOutput = readableSwapOutputAmount({
+          providerName: selectedRoute.providerName,
+          raw: selectedRoute.quote.raw,
+          quoteAmount: selectedRoute.quote.toAmount,
+          decimals: to.decimals
+        });
         setProgress(
           "waitingWalletConfirmation",
-          `Route ready via ${selectedRoute.providerName}${estimatedOutputLabel(selectedRoute.quote.toAmount, to.symbol) ? ` for about ${estimatedOutputLabel(selectedRoute.quote.toAmount, to.symbol)}` : ""}. Confirm in wallet.`
+          `Route ready via ${selectedRoute.providerName}${estimatedOutputLabel(readableRouteOutput, to.symbol) ? ` for about ${estimatedOutputLabel(readableRouteOutput, to.symbol)}` : ""}. Confirm in wallet.`
         );
 
         let lastError: unknown = null;
@@ -631,10 +656,17 @@ export function useAssistantActions() {
       if (!selectedRoute || !result) throw new Error(formatSwapProviderFailure(executionFailures));
       const txHash = result.txHash;
       const explorerLink = explorerTxUrl(getChainById(ARC_CHAIN_ID)?.explorer ?? "", txHash);
+      const receivedAmount = readableSwapOutputAmount({
+        providerName: selectedRoute.providerName,
+        raw: selectedRoute.quote.raw,
+        receivedAmount: result.receivedAmount,
+        quoteAmount: selectedRoute.quote.toAmount,
+        decimals: to.decimals
+      });
       activity.recordActivity({
         actionType: "swap_completed",
         title: "Swap completed",
-        description: `Swapped ${parsed.amount} ${from.symbol} to ${result.receivedAmount ?? selectedRoute.quote.toAmount ?? parsed.receiveToken} ${to.symbol}`,
+        description: `Swapped ${parsed.amount} ${from.symbol} to ${receivedAmount ?? parsed.receiveToken} ${to.symbol}`,
         feature: "swap",
         token: from.symbol,
         amount: parsed.amount,
@@ -645,7 +677,7 @@ export function useAssistantActions() {
           fromToken: from.symbol,
           toToken: to.symbol,
           fromAmount: parsed.amount,
-          toAmount: result.receivedAmount ?? selectedRoute.quote.toAmount ?? null,
+          toAmount: receivedAmount,
           routeProvider: selectedRoute.providerName,
           source: "velora_ai_assistant"
         })
@@ -658,7 +690,7 @@ export function useAssistantActions() {
         details: [
           { label: "Provider", value: selectedRoute.providerName },
           { label: "Sold", value: `${parsed.amount} ${from.symbol}` },
-          { label: "Estimated received", value: `${result.receivedAmount ?? selectedRoute.quote.toAmount ?? "Confirmed"} ${to.symbol}` }
+          { label: "Estimated received", value: `${receivedAmount ?? "Confirmed"} ${to.symbol}` }
         ]
       };
     },
