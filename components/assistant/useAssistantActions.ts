@@ -107,6 +107,15 @@ function normalizeAssistantError(actionType: ParsedCommand["actionType"], error:
   return raw;
 }
 
+function isProviderNetworkError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /network connection|failed to fetch|fetch failed|service createswap failed/i.test(message);
+}
+
+function isAppKitBackedProvider(providerName: string) {
+  return providerName === "Arc Native" || providerName === "Circle StableFX";
+}
+
 async function requestLifiQuote(params: {
   fromChain: number;
   toChain: number;
@@ -199,6 +208,13 @@ export function useAssistantActions() {
     [address, publicClient]
   );
 
+  const ensureGasBalance = useCallback(async () => {
+    if (!publicClient || !address) throw new Error("Connect wallet first.");
+    const balance = await publicClient.getBalance({ address });
+    if (balance <= BigInt(0)) throw new Error("Insufficient gas.");
+    return balance;
+  }, [address, publicClient]);
+
   const executeSend = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
       if (parsed.token !== "USDC") throw new Error("Phase 2 send currently supports USDC only.");
@@ -209,6 +225,7 @@ export function useAssistantActions() {
       const usdcAddress = getTokenAddress("USDC", ARC_CHAIN_ID);
       if (!usdcAddress) throw new Error("USDC is not configured for Arc Testnet.");
       await ensureTokenBalance(usdcAddress, parsed.amount, 6);
+      await ensureGasBalance();
       const preview = await usdc.previewSendUSDC(parsed.destinationAddress, parsed.amount);
       if (!preview.valid) throw new Error(preview.reason);
       setProgress("waitingWalletConfirmation", "Waiting for wallet confirmation");
@@ -244,7 +261,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, chainId, ensureTokenBalance, setProgress, transactions, usdc]
+    [activity, chainId, ensureGasBalance, ensureTokenBalance, setProgress, transactions, usdc]
   );
 
   const executeSwap = useCallback(
@@ -259,6 +276,7 @@ export function useAssistantActions() {
       if (!fromAddress || !toAddress) throw new Error("Route unavailable for this token pair.");
       setProgress("checkingBalance", "Checking balance");
       await ensureTokenBalance(fromAddress, parsed.amount, from.decimals);
+      await ensureGasBalance();
       const balance = portfolio.positions.find((position) => position.token.symbol === from.symbol)?.balance ?? null;
       setProgress("preparingTransaction", "Preparing swap route");
       const request: RouteRequest = {
@@ -347,6 +365,12 @@ export function useAssistantActions() {
         const reason = lastError instanceof Error ? lastError.message : "Provider execution failed.";
         executionFailures[selectedRoute.providerName] = reason;
         failedProviders.add(selectedRoute.providerName);
+        if (isProviderNetworkError(lastError) && isAppKitBackedProvider(selectedRoute.providerName)) {
+          failedProviders.add("Arc Native");
+          failedProviders.add("Circle StableFX");
+          executionFailures["Arc Native"] = executionFailures["Arc Native"] ?? reason;
+          executionFailures["Circle StableFX"] = executionFailures["Circle StableFX"] ?? reason;
+        }
         setProgress("preparingTransaction", `${selectedRoute.providerName} failed. Trying another route...`);
       }
 
@@ -384,7 +408,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, appKitSwap, chainId, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
   );
 
   const executeBridge = useCallback(
@@ -401,6 +425,7 @@ export function useAssistantActions() {
       if (!fromAddress || !toAddress) throw new Error("Destination chain not supported.");
       setProgress("checkingBalance", "Checking balance");
       await ensureTokenBalance(fromAddress, parsed.amount, 6);
+      await ensureGasBalance();
       const balance = fromChain.chainId === ARC_CHAIN_ID ? portfolio.positions.find((position) => position.token.symbol === "USDC")?.balance ?? null : null;
       setProgress("preparingTransaction", "Preparing bridge route");
       const request: RouteRequest = {
@@ -476,7 +501,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, chainId, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, address, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
   );
 
   const readBalances = useCallback((): AssistantActionResult => {

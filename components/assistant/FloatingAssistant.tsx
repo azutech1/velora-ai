@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Bot, CheckCircle2, Coins, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Coins, Copy, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, ParsedCommand } from "./types";
@@ -257,6 +257,15 @@ function ConfirmationPreview({
 }
 
 function ResultCard({ result }: { result: AssistantActionResult }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyHash() {
+    if (!result.txHash || typeof navigator === "undefined") return;
+    await navigator.clipboard?.writeText(result.txHash);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 light:border-orange-500/35 light:bg-orange-50">
       <div className="flex items-start gap-3">
@@ -279,11 +288,16 @@ function ResultCard({ result }: { result: AssistantActionResult }) {
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 light:border-black light:bg-white">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Transaction hash</p>
           <p className="mt-1 break-all text-xs font-bold text-slate-300 light:text-slate-700">{result.txHash}</p>
-          {result.explorerLink ? (
-            <a href={result.explorerLink} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white">
-              View Transaction <ArrowRight className="h-3.5 w-3.5" />
-            </a>
-          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {result.explorerLink ? (
+              <a href={result.explorerLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white">
+                View Transaction <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            ) : null}
+            <button type="button" onClick={copyHash} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-400/40 hover:text-orange-200 light:border-black light:text-slate-800">
+              <Copy className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy Hash"}
+            </button>
+          </div>
         </div>
       ) : null}
     </motion.div>
