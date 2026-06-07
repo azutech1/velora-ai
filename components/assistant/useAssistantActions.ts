@@ -13,6 +13,8 @@ import { APP_CHAINS, getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
 import { erc20UsdcAbi } from "@/lib/contracts/usdc";
 import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
+import { CIRCLE_FAUCET_URL } from "@/lib/faucet/tokens";
+import { findAssistantKnowledgeAnswer } from "@/lib/assistant/knowledge";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
 import { findExecutableRoute, type ExecutableRoute, type RouteProvider, type RouteRequest, type RouteTransactionRequest } from "@/lib/routes/router";
@@ -204,9 +206,10 @@ function isWalletRejected(error: unknown) {
 function normalizeAssistantError(actionType: ParsedCommand["actionType"], error: unknown) {
   const raw = error instanceof Error ? error.message : "Request failed.";
   if (isWalletRejected(error)) return "Transaction rejected by user.";
-  if (/approval completed.*bridge transaction hash/i.test(raw)) return raw;
+  if (/approval completed.*bridge/i.test(raw)) return raw;
   if (/approval failed|token approval failed/i.test(raw)) return "Approval failed.";
-  if (/bridge transaction hash missing/i.test(raw)) return "Bridge transaction failed: bridge transaction hash missing.";
+  if (/bridge transaction hash missing/i.test(raw)) return "Bridge provider did not submit a source transaction. Please retry the bridge.";
+  if (/bridge provider did not submit|bridge submission failed/i.test(raw)) return raw;
   if (/destination confirmation timeout|destination settlement/i.test(raw)) return "Waiting for destination confirmation.";
   if (/transaction submitted but hash missing|hash missing|hash unavailable/i.test(raw)) return "Transaction submitted but hash missing.";
   if (/network connection|failed to fetch|fetch failed/i.test(raw)) return actionType === "swap" ? "Swap Preparation Failed: Provider unavailable. Please try again." : "Bridge Preparation Failed: Provider unavailable. Please try again.";
@@ -214,6 +217,15 @@ function normalizeAssistantError(actionType: ParsedCommand["actionType"], error:
   if (/wrong network|correct network|wrong chain/i.test(raw)) return "Please switch to the correct network.";
   if (/no route|route unavailable|unsupported/i.test(raw)) return actionType === "swap" ? "Swap Preparation Failed: Route unavailable." : "Bridge Preparation Failed: Route unavailable.";
   return raw;
+}
+
+function assistantFailureTitle(actionType: ParsedCommand["actionType"]) {
+  if (actionType === "swap") return "Swap Failed";
+  if (actionType === "bridge") return "Bridge Failed";
+  if (actionType === "send") return "Send Failed";
+  if (actionType === "faucet") return "Faucet Unavailable";
+  if (actionType === "knowledge") return "Answer Unavailable";
+  return "Request Failed";
 }
 
 function isProviderNetworkError(error: unknown) {
@@ -862,13 +874,69 @@ export function useAssistantActions() {
     };
   }, [isConnected, rewards.currentStreak, rewards.level, rewards.xp]);
 
+  const openFaucetWorkflow = useCallback(
+    (parsed: ParsedCommand): AssistantActionResult => {
+      const targetWallet = parsed.destinationAddress ?? address;
+      if (!targetWallet || !isAddress(targetWallet)) {
+        throw new Error("Connect wallet first or include a valid wallet address.");
+      }
+      const requestedAsset = parsed.token ?? "USDC";
+      if (typeof window === "undefined") {
+        throw new Error("Faucet workflow is unavailable in this environment.");
+      }
+      const popup = window.open(CIRCLE_FAUCET_URL, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        throw new Error("Faucet popup was blocked. Please allow popups and try again.");
+      }
+      activity.recordActivity({
+        actionType: "faucet_claim",
+        title: "Faucet opened",
+        description: `Opened Circle faucet for ${requestedAsset}.`,
+        feature: "faucet",
+        token: requestedAsset,
+        network: "Arc Testnet",
+        status: "pending",
+        metadata: cleanMetadata({
+          walletAddress: targetWallet,
+          faucetUrl: CIRCLE_FAUCET_URL,
+          source: "velora_ai_assistant"
+        })
+      });
+      return {
+        title: "Faucet Workflow Opened",
+        message: `I opened the official Circle faucet for ${requestedAsset}. Complete the request there to receive supported testnet assets.`,
+        details: [
+          { label: "Faucet", value: "Circle Faucet" },
+          { label: "Requested asset", value: requestedAsset },
+          { label: "Wallet", value: targetWallet },
+          { label: "URL", value: CIRCLE_FAUCET_URL }
+        ]
+      };
+    },
+    [activity, address]
+  );
+
+  const answerKnowledgeQuestion = useCallback((parsed: ParsedCommand): AssistantActionResult => {
+    const question = parsed.question ?? "";
+    const entry = findAssistantKnowledgeAnswer(question);
+    if (!entry) {
+      throw new Error("This knowledge question is not supported yet. Try asking about Arc, USDC, CCTP, Gateway, AppKit, or Velora AI.");
+    }
+    return {
+      title: entry.title,
+      message: entry.answer,
+      details: entry.relatedCommands?.length ? [{ label: "Try next", value: entry.relatedCommands.join(" | ") }] : undefined
+    };
+  }, []);
+
   const executeAssistantAction = useCallback(
     async (parsed: ParsedCommand) => {
       if (isRunning) return null;
       setIsRunning(true);
       setProgress("validating", "Validating request");
       try {
-        if (!isConnected) throw new Error("Connect wallet first.");
+        const requiresWallet = !["knowledge", "faucet"].includes(parsed.actionType);
+        if (requiresWallet && !isConnected) throw new Error("Connect wallet first.");
         setProgress("checkingWallet", "Checking wallet");
         let result: AssistantActionResult;
         if (parsed.actionType === "send") result = await executeSend(parsed);
@@ -876,6 +944,8 @@ export function useAssistantActions() {
         else if (parsed.actionType === "bridge") result = await executeBridge(parsed);
         else if (parsed.actionType === "balance") result = readBalances();
         else if (parsed.actionType === "rewards") result = readRewards();
+        else if (parsed.actionType === "faucet") result = openFaucetWorkflow(parsed);
+        else if (parsed.actionType === "knowledge") result = answerKnowledgeQuestion(parsed);
         else if (parsed.actionType === "dailyReward") {
           result = {
             title: "Daily Reward Preview",
@@ -911,14 +981,14 @@ export function useAssistantActions() {
           })
         });
         return {
-          title: "Action Failed",
+          title: assistantFailureTitle(parsed.actionType),
           message: normalized
         };
       } finally {
         setIsRunning(false);
       }
     },
-    [activity, executeBridge, executeSend, executeSwap, isConnected, isRunning, readBalances, readRewards, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
+    [activity, answerKnowledgeQuestion, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readRewards, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
   );
 
   return useMemo(

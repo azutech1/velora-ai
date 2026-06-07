@@ -168,6 +168,30 @@ function selectObservedHash(events: CircleObservedEvent[], role: CircleBridgeHas
   return events.find((event) => event.role === role)?.hashes.find(Boolean);
 }
 
+function selectCircleBridgeHashes(result: CircleBridgeResult, observedEvents: CircleObservedEvent[]) {
+  const approvalTxHash = selectApprovalTxHash(result) ?? selectObservedHash(observedEvents, "approval") ?? null;
+  const observedSourceHash = selectObservedHash(observedEvents, "source") ?? selectObservedHash(observedEvents, "unknown") ?? null;
+  const primarySourceHash = selectPrimarySourceTxHash(result) ?? null;
+  const sourceTxHash = [primarySourceHash, observedSourceHash, ...collectEvmHashes(result), ...observedEvents.flatMap((event) => event.hashes)]
+    .find((hash) => hash && hash !== approvalTxHash) ?? null;
+  const destinationTxHash = selectDestinationTxHash(result) ?? selectObservedHash(observedEvents, "destination") ?? null;
+  const destinationExplorerLink = selectStepExplorerUrl(result, ["mint", "forward", "destination", "settlement"]);
+
+  return {
+    approvalTxHash,
+    sourceTxHash: sourceTxHash && EVM_TX_HASH.test(sourceTxHash) ? (sourceTxHash as Hex) : null,
+    destinationTxHash,
+    destinationExplorerLink
+  };
+}
+
+function getCircleFailedStepMessage(result: CircleBridgeResult) {
+  const failedStep = (result.steps ?? []).find((step) => step.state === "error");
+  if (!failedStep) return null;
+  const record = failedStep as CircleBridgeStep & { errorMessage?: string; error?: string; reason?: string };
+  return record.errorMessage ?? record.error ?? record.reason ?? null;
+}
+
 function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler, eventName = "") {
   if (!onStage) return;
   const text = `${eventName} ${JSON.stringify(payload ?? {})}`.toLowerCase();
@@ -389,16 +413,23 @@ export async function executeCircleBridgeRoute(request: {
   });
   request.onStage?.("approvalRequired", "Approval required.");
   request.onStage?.("waitingApprovalConfirmation", "Please confirm the approval in your wallet.");
-  const result = (await kit.bridge({
+  const bridgeParams = {
     from: { adapter, chain: fromChain },
     to: { adapter, chain: toChain, recipientAddress: request.walletAddress },
     amount: request.amount,
-    token: "USDC",
-    config: { transferSpeed: "FAST" },
+    token: "USDC" as const,
+    config: { transferSpeed: "FAST" as const },
     invocationMeta: {
       callers: [{ type: "app", name: "Velora", version: "public-beta" }]
     }
-  })) as unknown as CircleBridgeResult;
+  };
+  const retryContext = { from: adapter, to: adapter };
+  const invocationMeta = {
+    callers: [{ type: "app", name: "Velora", version: "public-beta" }]
+  };
+  let result = (await kit.bridge(bridgeParams)) as unknown as CircleBridgeResult;
+  const initialResult = result;
+  let retryResult: CircleBridgeResult | null = null;
 
   console.info("[Velora Bridge] Circle bridge result", {
     fromChainId: request.fromChainId,
@@ -409,11 +440,32 @@ export async function executeCircleBridgeRoute(request: {
     raw: result
   });
 
-  const approvalTxHash = selectApprovalTxHash(result) ?? selectObservedHash(observedEvents, "approval") ?? null;
-  const selectedSourceTxHash = selectPrimarySourceTxHash(result) ?? selectObservedHash(observedEvents, "source") ?? null;
-  const sourceTxHash = selectedSourceTxHash && selectedSourceTxHash !== approvalTxHash ? selectedSourceTxHash : selectObservedHash(observedEvents, "source") ?? null;
-  const destinationTxHash = selectDestinationTxHash(result) ?? selectObservedHash(observedEvents, "destination") ?? null;
-  const destinationExplorerLink = selectStepExplorerUrl(result, ["mint", "forward", "destination", "settlement"]);
+  let hashes = selectCircleBridgeHashes(result, observedEvents);
+  if (!hashes.sourceTxHash) {
+    request.onStage?.("preparingBridgeTransaction", "Approval completed. Preparing bridge transaction.");
+    try {
+      retryResult = (await kit.retry(result as unknown as Parameters<typeof kit.retry>[0], retryContext, invocationMeta)) as unknown as CircleBridgeResult;
+      console.info("[Velora Bridge] Circle bridge retry result", {
+        fromChainId: request.fromChainId,
+        toChainId: request.toChainId,
+        state: retryResult.state,
+        provider: retryResult.provider,
+        steps: retryResult.steps,
+        raw: retryResult
+      });
+      result = retryResult;
+      hashes = selectCircleBridgeHashes(result, observedEvents);
+    } catch (retryError) {
+      console.error("[Velora Bridge] Circle bridge retry failed", {
+        fromChainId: request.fromChainId,
+        toChainId: request.toChainId,
+        retryError,
+        initialResult: result
+      });
+    }
+  }
+
+  const { approvalTxHash, sourceTxHash, destinationTxHash, destinationExplorerLink } = hashes;
   console.info("[Velora Bridge] Circle bridge hash selection", {
     fromChainId: request.fromChainId,
     toChainId: request.toChainId,
@@ -421,13 +473,17 @@ export async function executeCircleBridgeRoute(request: {
     sourceTxHash,
     destinationTxHash,
     destinationExplorerLink,
-    observedEvents
+    observedEvents,
+    retryAttempted: Boolean(retryResult),
+    finalState: result.state
   });
   if (approvalTxHash && !sourceTxHash) {
-    throw new Error("Approval completed, but Circle BridgeKit did not return a bridge transaction hash. Please retry the bridge transaction.");
+    const failedStepMessage = getCircleFailedStepMessage(result);
+    throw new Error(failedStepMessage ? `Approval completed, but bridge submission failed: ${failedStepMessage}` : "Approval completed, but the bridge provider did not submit the bridge transaction. Please retry the bridge.");
   }
-  if (!sourceTxHash || !EVM_TX_HASH.test(sourceTxHash)) {
-    throw new Error("Bridge transaction hash missing.");
+  if (!sourceTxHash) {
+    const failedStepMessage = getCircleFailedStepMessage(result);
+    throw new Error(failedStepMessage ? `Bridge submission failed: ${failedStepMessage}` : "Bridge provider did not submit a source transaction. Please retry the bridge.");
   }
 
   if (result.state !== "success") {
@@ -443,7 +499,7 @@ export async function executeCircleBridgeRoute(request: {
     destinationExplorerLink,
     completionTime: result.state === "success" ? new Date().toISOString() : null,
     confirmationStatus: result.state === "success" ? ("confirmed" as const) : ("pending" as const),
-    raw: result
+    raw: retryResult ? { initialResult, retryResult } : result
   };
 }
 

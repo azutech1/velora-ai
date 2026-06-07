@@ -1,4 +1,4 @@
-export type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "unknown";
+export type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "faucet" | "knowledge" | "unknown";
 
 export type ParsedCommand = {
   actionType: AssistantAction;
@@ -8,6 +8,7 @@ export type ParsedCommand = {
   sourceChain?: string;
   destinationChain?: string;
   receiveToken?: string;
+  question?: string;
   status: string;
   confidence: "high" | "medium" | "low";
 };

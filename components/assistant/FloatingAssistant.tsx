@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Bot, CheckCircle2, Coins, Copy, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, ParsedCommand } from "./types";
@@ -20,9 +20,10 @@ const examples = [
   "Swap 20 USDC to EURC",
   "Swap EURC to USDC",
   "Bridge 50 USDC to Base",
+  "Claim Arc faucet",
   "Show my wallet balance",
   "Show my XP",
-  "Claim daily reward preview"
+  "What is Circle CCTP?"
 ];
 
 const thinkingSteps = ["Analyzing request...", "Detecting action...", "Reading token and amount...", "Preparing preview..."];
@@ -61,6 +62,25 @@ function parseCommand(input: string): ParsedCommand {
   const token = amountToken?.[2]?.toUpperCase() ?? command.match(tokenPattern)?.[1]?.toUpperCase();
   const amount = amountToken?.[1];
   const destinationAddress = command.match(addressPattern)?.[1];
+
+  if (/^(what|how|why|explain|tell me|describe)\b/i.test(command) || /\b(arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai)\b/i.test(command)) {
+    return {
+      actionType: "knowledge",
+      question: command,
+      status: "Ready for answer",
+      confidence: "high"
+    };
+  }
+
+  if (/\b(faucet|testnet funds|test funds)\b/i.test(command)) {
+    return {
+      actionType: "faucet",
+      token,
+      destinationAddress,
+      status: "Ready for faucet workflow",
+      confidence: "high"
+    };
+  }
 
   if (/\b(send|pay|transfer)\b/i.test(command)) {
     return {
@@ -143,13 +163,17 @@ function actionLabel(action: AssistantAction) {
       return "Rewards";
     case "dailyReward":
       return "Daily Reward";
+    case "faucet":
+      return "Faucet";
+    case "knowledge":
+      return "Knowledge";
     default:
       return "Unknown";
   }
 }
 
 function ActionIcon({ action }: { action: AssistantAction }) {
-  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" ? Wallet : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
+  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" ? BookOpen : action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
   return (
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
       <Icon className="h-5 w-5" />
@@ -182,6 +206,10 @@ function commandSummary(parsed: ParsedCommand) {
       return "show your XP balance";
     case "dailyReward":
       return "preview a daily reward claim";
+    case "faucet":
+      return `open the official faucet workflow${parsed.token ? ` for ${parsed.token}` : ""}`;
+    case "knowledge":
+      return `answer "${parsed.question ?? "your question"}"`;
     default:
       return "complete this request";
   }
@@ -227,6 +255,8 @@ function ConfirmationPreview({
         <DetailRow label="Amount" value={parsed.amount && parsed.token ? `${parsed.amount} ${parsed.token}` : parsed.token} />
         {parsed.actionType === "send" ? <DetailRow label="Destination" value={parsed.destinationAddress} /> : null}
         {parsed.actionType === "swap" ? <DetailRow label="Receive" value={parsed.receiveToken} /> : null}
+        {parsed.actionType === "faucet" ? <DetailRow label="Wallet" value={parsed.destinationAddress ?? "Connected wallet"} /> : null}
+        {parsed.actionType === "knowledge" ? <DetailRow label="Question" value={parsed.question} /> : null}
         {parsed.actionType === "bridge" ? (
           <>
             <DetailRow label="From" value={parsed.sourceChain} />
@@ -383,7 +413,7 @@ export function FloatingAssistant() {
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: "This command is not supported yet. Try send, swap, bridge, wallet balance, or XP balance."
+          content: "This command is not supported yet. Try send, swap, bridge, faucet, wallet balance, XP balance, or an Arc/Circle knowledge question."
         }
       ]);
       return;
