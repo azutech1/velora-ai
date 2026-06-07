@@ -156,8 +156,16 @@ function selectStepExplorerUrl(result: CircleBridgeResult, names: string[]) {
   return getStepByName(result, names)?.explorerUrl ?? null;
 }
 
+function safeDiagnosticText(value: unknown) {
+  try {
+    return JSON.stringify(value ?? {}, (_key, entry) => (typeof entry === "bigint" ? entry.toString() : entry));
+  } catch {
+    return String(value ?? "");
+  }
+}
+
 function classifyCircleBridgeEvent(eventName: string, payload: unknown): CircleBridgeHashRole {
-  const text = `${eventName} ${JSON.stringify(payload ?? {})}`.toLowerCase();
+  const text = `${eventName} ${safeDiagnosticText(payload)}`.toLowerCase();
   if (text.includes("approve") || text.includes("approval") || text.includes("allowance")) return "approval";
   if (text.includes("mint") || text.includes("destination") || text.includes("settlement") || text.includes("complete")) return "destination";
   if (text.includes("burn") || text.includes("bridge") || text.includes("deposit") || text.includes("transfer") || text.includes("message")) return "source";
@@ -194,7 +202,7 @@ function getCircleFailedStepMessage(result: CircleBridgeResult) {
 
 function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler, eventName = "") {
   if (!onStage) return;
-  const text = `${eventName} ${JSON.stringify(payload ?? {})}`.toLowerCase();
+  const text = `${eventName} ${safeDiagnosticText(payload)}`.toLowerCase();
   const state =
     typeof payload === "object" && payload
       ? String((payload as { values?: { state?: unknown }; state?: unknown }).values?.state ?? (payload as { state?: unknown }).state ?? "").toLowerCase()
