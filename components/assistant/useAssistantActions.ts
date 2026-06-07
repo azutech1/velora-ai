@@ -11,6 +11,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { useUSDC } from "@/hooks/useUSDC";
 import { APP_CHAINS, getChainById } from "@/lib/config/chains";
 import { getTokenAddress } from "@/lib/config/tokens";
+import { erc20UsdcAbi } from "@/lib/contracts/usdc";
 import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
@@ -77,6 +78,11 @@ function formatProviderFailure(failureReasons: Record<string, string>) {
 
 function cleanMetadata(values: Record<string, string | number | boolean | null | undefined>) {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Record<string, string | number | boolean | null>;
+}
+
+function estimatedOutputLabel(value?: string | null, token?: string) {
+  if (!value || !token) return null;
+  return `${value} ${token}`;
 }
 
 async function requestLifiQuote(params: {
@@ -155,12 +161,32 @@ export function useAssistantActions() {
     [address, chainId, publicClient, setProgress, walletClient]
   );
 
+  const ensureTokenBalance = useCallback(
+    async (tokenAddress: Address, amount: string, decimals: number) => {
+      if (!publicClient || !address) throw new Error("Connect wallet first.");
+      const required = parseUnits(amount, decimals);
+      const balance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: erc20UsdcAbi,
+        functionName: "balanceOf",
+        args: [address]
+      });
+      if (balance < required) throw new Error("Insufficient balance.");
+      return balance;
+    },
+    [address, publicClient]
+  );
+
   const executeSend = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
       if (parsed.token !== "USDC") throw new Error("Phase 2 send currently supports USDC only.");
       if (!parsed.destinationAddress || !isAddress(parsed.destinationAddress)) throw new Error("Invalid destination address.");
       if (!parsed.amount) throw new Error("Enter an amount.");
+      if (chainId !== ARC_CHAIN_ID) throw new Error("Please switch to the correct network.");
       setProgress("checkingBalance", "Checking balance");
+      const usdcAddress = getTokenAddress("USDC", ARC_CHAIN_ID);
+      if (!usdcAddress) throw new Error("USDC is not configured for Arc Testnet.");
+      await ensureTokenBalance(usdcAddress, parsed.amount, 6);
       const preview = await usdc.previewSendUSDC(parsed.destinationAddress, parsed.amount);
       if (!preview.valid) throw new Error(preview.reason);
       setProgress("waitingWalletConfirmation", "Waiting for wallet confirmation");
@@ -196,7 +222,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, setProgress, transactions, usdc]
+    [activity, chainId, ensureTokenBalance, setProgress, transactions, usdc]
   );
 
   const executeSwap = useCallback(
@@ -209,6 +235,8 @@ export function useAssistantActions() {
       const fromAddress = getTokenAddress(from.symbol, ARC_CHAIN_ID);
       const toAddress = getTokenAddress(to.symbol, ARC_CHAIN_ID);
       if (!fromAddress || !toAddress) throw new Error("Route unavailable for this token pair.");
+      setProgress("checkingBalance", "Checking balance");
+      await ensureTokenBalance(fromAddress, parsed.amount, from.decimals);
       const balance = portfolio.positions.find((position) => position.token.symbol === from.symbol)?.balance ?? null;
       setProgress("preparingTransaction", "Preparing swap route");
       const request: RouteRequest = {
@@ -244,6 +272,10 @@ export function useAssistantActions() {
       );
       console.info("[Velora Assistant Swap] route result", routeResult);
       if (!routeResult.route) throw new Error(formatProviderFailure(routeResult.diagnostics.failureReasons));
+      setProgress(
+        "waitingWalletConfirmation",
+        `Route ready via ${routeResult.route.providerName}${estimatedOutputLabel(routeResult.route.quote.toAmount, to.symbol) ? ` for about ${estimatedOutputLabel(routeResult.route.quote.toAmount, to.symbol)}` : ""}. Confirm in wallet.`
+      );
       const result = await routeResult.route.execute({
         sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, ARC_CHAIN_ID)
       });
@@ -280,7 +312,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, appKitSwap, chainId, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, address, appKitSwap, chainId, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
   );
 
   const executeBridge = useCallback(
@@ -295,6 +327,8 @@ export function useAssistantActions() {
       const fromAddress = getTokenAddress("USDC", fromChain.chainId);
       const toAddress = getTokenAddress("USDC", toChain.chainId);
       if (!fromAddress || !toAddress) throw new Error("Destination chain not supported.");
+      setProgress("checkingBalance", "Checking balance");
+      await ensureTokenBalance(fromAddress, parsed.amount, 6);
       const balance = fromChain.chainId === ARC_CHAIN_ID ? portfolio.positions.find((position) => position.token.symbol === "USDC")?.balance ?? null : null;
       setProgress("preparingTransaction", "Preparing bridge route");
       const request: RouteRequest = {
@@ -313,6 +347,10 @@ export function useAssistantActions() {
       const routeResult = await findExecutableRoute(request, createBridgeServiceProviders(requestLifiQuote, true));
       console.info("[Velora Assistant Bridge] route result", routeResult);
       if (!routeResult.route) throw new Error(formatProviderFailure(routeResult.diagnostics.failureReasons));
+      setProgress(
+        "waitingWalletConfirmation",
+        `Route ready via ${routeResult.route.providerName}${estimatedOutputLabel(routeResult.route.quote.toAmount, "USDC") ? ` for about ${estimatedOutputLabel(routeResult.route.quote.toAmount, "USDC")}` : ""}. Confirm in wallet.`
+      );
       const result = await routeResult.route.execute({
         executeProviderRoute: () =>
           executeCircleBridgeRoute({
@@ -360,7 +398,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, chainId, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, address, chainId, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
   );
 
   const readBalances = useCallback((): AssistantActionResult => {
