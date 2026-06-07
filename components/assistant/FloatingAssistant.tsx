@@ -4,26 +4,15 @@ import { FormEvent, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bot, CheckCircle2, Coins, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
-
-type AssistantAction = "send" | "swap" | "bridge" | "balance" | "rewards" | "dailyReward" | "unknown";
-
-type ParsedCommand = {
-  actionType: AssistantAction;
-  amount?: string;
-  token?: string;
-  destinationAddress?: string;
-  sourceChain?: string;
-  destinationChain?: string;
-  receiveToken?: string;
-  status: string;
-  confidence: "high" | "medium" | "low";
-};
+import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
+import type { AssistantAction, ParsedCommand } from "./types";
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   parsed?: ParsedCommand;
+  result?: AssistantActionResult;
 };
 
 const examples = [
@@ -206,12 +195,14 @@ function ConfirmationPreview({
   parsed,
   onEdit,
   onCancel,
-  onLooksCorrect
+  onLooksCorrect,
+  isRunning
 }: {
   parsed: ParsedCommand;
   onEdit: () => void;
   onCancel: () => void;
   onLooksCorrect: () => void;
+  isRunning: boolean;
 }) {
   const action = actionLabel(parsed.actionType);
   const isUnknown = parsed.actionType === "unknown";
@@ -252,20 +243,73 @@ function ConfirmationPreview({
         <button type="button" onClick={onCancel} className="rounded-xl border border-red-400/25 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-500/10 light:text-red-700">
           Cancel
         </button>
-        <button type="button" onClick={onLooksCorrect} className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white shadow-[0_12px_30px_rgba(249,115,22,0.22)]">
-          Looks Correct
+        <button type="button" onClick={onLooksCorrect} disabled={isRunning} className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white shadow-[0_12px_30px_rgba(249,115,22,0.22)] disabled:cursor-not-allowed disabled:opacity-70">
+          {isRunning ? "Working..." : "Looks Correct"}
         </button>
       </div>
 
       <div className="mt-4 flex items-start gap-3 rounded-xl border border-orange-400/25 bg-orange-500/10 p-3 text-xs font-semibold leading-5 text-orange-100 light:border-orange-500/40 light:bg-orange-50 light:text-orange-800">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>Velora AI never moves funds automatically. Every transaction will require wallet confirmation. This phase only parses commands and prepares a preview.</span>
+        <span>Velora AI never moves funds automatically. Every transaction will require wallet confirmation.</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function ResultCard({ result }: { result: AssistantActionResult }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 light:border-orange-500/35 light:bg-orange-50">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white">
+          <CheckCircle2 className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-black text-white light:text-slate-950">{result.title}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-300 light:text-slate-700">{result.message}</p>
+        </div>
+      </div>
+      {result.details?.length ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {result.details.map((detail) => (
+            <DetailRow key={detail.label} label={detail.label} value={detail.value} />
+          ))}
+        </div>
+      ) : null}
+      {result.txHash ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 light:border-black light:bg-white">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Transaction hash</p>
+          <p className="mt-1 break-all text-xs font-bold text-slate-300 light:text-slate-700">{result.txHash}</p>
+          {result.explorerLink ? (
+            <a href={result.explorerLink} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white">
+              View Transaction <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+    </motion.div>
+  );
+}
+
+function AssistantProgressCard({ label, message }: { label: string; message: string }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white">
+      <div className="flex items-center gap-3">
+        <span className="flex gap-1">
+          <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:120ms]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:240ms]" />
+        </span>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-300 light:text-orange-700">{label}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-200 light:text-slate-800">{message}</p>
+        </div>
       </div>
     </motion.div>
   );
 }
 
 export function FloatingAssistant() {
+  const assistantActions = useAssistantActions();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -365,13 +409,27 @@ export function FloatingAssistant() {
     ]);
   }
 
-  function handleLooksCorrect() {
+  async function handleLooksCorrect() {
+    if (!activePreview || assistantActions.isRunning) return;
+    const preview = activePreview;
     setMessages((current) => [
       ...current,
       {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: "Looks good. In a future phase, this is where Velora AI will ask for wallet confirmation before any transaction can run."
+        content: `${actionLabel(preview.actionType)} request accepted. I am validating it now.`
+      }
+    ]);
+    const result = await assistantActions.executeAssistantAction(preview);
+    if (!result) return;
+    setActivePreview(null);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: result.message,
+        result
       }
     ]);
   }
@@ -432,6 +490,7 @@ export function FloatingAssistant() {
                   <div key={message.id} className={cx("flex", message.role === "user" ? "justify-end" : "justify-start")}>
                     <div className={cx("max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-6", message.role === "user" ? "bg-gradient-to-r from-orange-500 to-red-500 font-semibold text-white" : "border border-white/10 bg-white/[0.04] text-slate-200 light:border-black light:bg-white light:text-slate-800")}>
                       {message.content}
+                      {message.result ? <ResultCard result={message.result} /> : null}
                     </div>
                   </div>
                 ))}
@@ -449,7 +508,9 @@ export function FloatingAssistant() {
                   </motion.div>
                 ) : null}
 
-                {activePreview ? <ConfirmationPreview parsed={activePreview} onEdit={handleEditPreview} onCancel={handleCancelPreview} onLooksCorrect={handleLooksCorrect} /> : null}
+                {assistantActions.isRunning ? <AssistantProgressCard label={assistantActions.progressLabel} message={assistantActions.progressMessage} /> : null}
+
+                {activePreview ? <ConfirmationPreview parsed={activePreview} onEdit={handleEditPreview} onCancel={handleCancelPreview} onLooksCorrect={handleLooksCorrect} isRunning={assistantActions.isRunning} /> : null}
 
                 <div className="grid gap-2">
                   {visibleExamples.map((example) => (
