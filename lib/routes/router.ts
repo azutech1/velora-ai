@@ -46,6 +46,10 @@ export type RouteQuote = {
 
 export type RouteExecutionResult = {
   txHash: Hex;
+  approvalTxHash?: Hex | null;
+  destinationTxHash?: Hex | null;
+  destinationExplorerLink?: string | null;
+  completionTime?: string | null;
   receivedAmount?: string;
   confirmationStatus?: "confirmed" | "pending";
   raw?: unknown;

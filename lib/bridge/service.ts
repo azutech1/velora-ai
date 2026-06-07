@@ -42,13 +42,32 @@ type CircleBridgeResult = {
 };
 
 type CircleBridgeStage =
+  | "approvalRequired"
+  | "waitingApprovalConfirmation"
+  | "approvalCompleted"
+  | "preparingBridgeTransaction"
+  | "bridgeTransactionSubmitted"
+  | "sendingCrossChainMessage"
+  | "waitingGateway"
+  | "waitingDestinationSettlement"
+  | "verifyingDestinationReceipt"
+  | "bridgeCompleted"
   | "waitingWalletConfirmation"
   | "sendingTransaction"
   | "waitingForBridgeMessage"
   | "waitingForDestinationConfirmation";
 
 type CircleBridgeStageHandler = (stage: CircleBridgeStage, message: string) => void;
-type CircleBridgePayloadHandler = (payload: unknown) => void;
+type CircleBridgePayloadHandler = (payload: unknown, eventName: string) => void;
+
+type CircleBridgeHashRole = "approval" | "source" | "destination" | "unknown";
+
+type CircleObservedEvent = {
+  eventName: string;
+  role: CircleBridgeHashRole;
+  hashes: Hex[];
+  payload: unknown;
+};
 
 const CIRCLE_BRIDGE_CHAIN_BY_ID: Record<number, CircleBridgeChain> = {
   5042002: "Arc_Testnet",
@@ -85,6 +104,21 @@ function getStepHash(step: CircleBridgeStep) {
   return [step.txHash, step.transactionHash, step.hash].find((value) => value && EVM_TX_HASH.test(value));
 }
 
+function normalizeStepName(value?: string) {
+  return (value ?? "").toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function getStepByName(result: CircleBridgeResult, names: string[]) {
+  const normalizedNames = names.map(normalizeStepName);
+  return (result.steps ?? []).find((step) => normalizedNames.includes(normalizeStepName(step.name)) && getStepHash(step));
+}
+
+function getSuccessfulStepHash(result: CircleBridgeResult, names: string[]) {
+  const normalizedNames = names.map(normalizeStepName);
+  const step = (result.steps ?? []).find((candidate) => candidate.state === "success" && normalizedNames.includes(normalizeStepName(candidate.name)) && getStepHash(candidate));
+  return step ? (getStepHash(step) as Hex) : undefined;
+}
+
 function collectEvmHashes(value: unknown, seen = new Set<unknown>()): string[] {
   if (!value || seen.has(value)) return [];
   if (typeof value === "string") return EVM_TX_HASH.test(value) ? [value] : [];
@@ -99,41 +133,62 @@ function collectEvmHashes(value: unknown, seen = new Set<unknown>()): string[] {
 }
 
 function selectPrimarySourceTxHash(result: CircleBridgeResult) {
-  const steps = result.steps ?? [];
-  const successfulSteps = steps.filter((step) => step.state === "success" && getStepHash(step));
-  const sourceStep =
-    successfulSteps.find((step) => {
-      const name = (step.name ?? "").toLowerCase();
-      return (name.includes("burn") || name.includes("deposit") || name.includes("bridge") || name.includes("transfer") || name.includes("spend")) && !name.includes("approve");
-    }) ?? successfulSteps.find((step) => !(step.name ?? "").toLowerCase().includes("approve"));
-
-  const preferredHash = sourceStep ? getStepHash(sourceStep) : getStepHash(successfulSteps[0] ?? {});
-  if (preferredHash) return preferredHash as Hex;
+  const sourceHash = getSuccessfulStepHash(result, ["burn", "bridge", "deposit", "transfer", "spend"]);
+  if (sourceHash) return sourceHash;
 
   const directHash = [result.txHash, result.transactionHash, result.hash].find((value) => value && EVM_TX_HASH.test(value));
   if (directHash) return directHash as Hex;
 
-  const nestedHash = collectEvmHashes(result).find(Boolean);
+  const approvalHash = getSuccessfulStepHash(result, ["approve", "approval"]);
+  const nestedHash = collectEvmHashes(result).find((hash) => hash !== approvalHash);
   return nestedHash as Hex | undefined;
 }
 
-function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler) {
+function selectApprovalTxHash(result: CircleBridgeResult) {
+  return getSuccessfulStepHash(result, ["approve", "approval"]);
+}
+
+function selectDestinationTxHash(result: CircleBridgeResult) {
+  return getSuccessfulStepHash(result, ["mint", "forward", "destination", "settlement"]);
+}
+
+function selectStepExplorerUrl(result: CircleBridgeResult, names: string[]) {
+  return getStepByName(result, names)?.explorerUrl ?? null;
+}
+
+function classifyCircleBridgeEvent(eventName: string, payload: unknown): CircleBridgeHashRole {
+  const text = `${eventName} ${JSON.stringify(payload ?? {})}`.toLowerCase();
+  if (text.includes("approve") || text.includes("approval") || text.includes("allowance")) return "approval";
+  if (text.includes("mint") || text.includes("destination") || text.includes("settlement") || text.includes("complete")) return "destination";
+  if (text.includes("burn") || text.includes("bridge") || text.includes("deposit") || text.includes("transfer") || text.includes("message")) return "source";
+  return "unknown";
+}
+
+function selectObservedHash(events: CircleObservedEvent[], role: CircleBridgeHashRole) {
+  return events.find((event) => event.role === role)?.hashes.find(Boolean);
+}
+
+function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHandler, eventName = "") {
   if (!onStage) return;
-  const text = JSON.stringify(payload ?? {}).toLowerCase();
-  if (text.includes("approve") || text.includes("wallet") || text.includes("signature")) {
-    onStage("waitingWalletConfirmation", "Confirm next step in Wallet.");
+  const text = `${eventName} ${JSON.stringify(payload ?? {})}`.toLowerCase();
+  const state =
+    typeof payload === "object" && payload
+      ? String((payload as { values?: { state?: unknown }; state?: unknown }).values?.state ?? (payload as { state?: unknown }).state ?? "").toLowerCase()
+      : "";
+  if (text.includes("approve") || text.includes("approval") || text.includes("allowance")) {
+    onStage(state === "success" ? "approvalCompleted" : "waitingApprovalConfirmation", state === "success" ? "Approval Completed" : "Approval required. Confirm approval in wallet.");
     return;
   }
-  if (text.includes("txhash") || text.includes("submitted") || text.includes("transaction")) {
-    onStage("sendingTransaction", "Your bridge transaction is processing. Please wait.");
+  if (text.includes("burn") || text.includes("bridge") || text.includes("deposit") || text.includes("transfer")) {
+    onStage(state === "success" ? "bridgeTransactionSubmitted" : "preparingBridgeTransaction", state === "success" ? "Bridge transaction submitted." : "Preparing bridge transaction.");
     return;
   }
   if (text.includes("attestation") || text.includes("message") || text.includes("cctp")) {
-    onStage("waitingForBridgeMessage", "Cross-chain message is processing.");
+    onStage("waitingGateway", "Waiting for Circle CCTP / Gateway.");
     return;
   }
   if (text.includes("mint") || text.includes("destination") || text.includes("complete")) {
-    onStage("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
+    onStage(state === "success" ? "bridgeCompleted" : "waitingDestinationSettlement", state === "success" ? "Bridge completed." : "Waiting for destination settlement.");
   }
 }
 
@@ -141,12 +196,17 @@ function attachCircleBridgeStageListener(kit: unknown, onStage?: CircleBridgeSta
   if (!onStage && !onPayload) return;
   const maybeEmitter = kit as { on?: (event: string, handler: (payload: unknown) => void) => void };
   if (typeof maybeEmitter.on !== "function") return;
-  const handlePayload = (payload: unknown) => {
-    onPayload?.(payload);
-    notifyCircleBridgeStage(payload, onStage);
+  const handlePayload = (eventName: string) => (payload: unknown) => {
+    onPayload?.(payload, eventName);
+    notifyCircleBridgeStage(payload, onStage, eventName);
   };
   const eventNames = [
     "*",
+    "approve",
+    "burn",
+    "fetchAttestation",
+    "mint",
+    "reAttest",
     "bridge.approve",
     "bridge.burn",
     "bridge.mint",
@@ -158,7 +218,7 @@ function attachCircleBridgeStageListener(kit: unknown, onStage?: CircleBridgeSta
   ];
   for (const eventName of eventNames) {
     try {
-      maybeEmitter.on(eventName, handlePayload);
+      maybeEmitter.on(eventName, handlePayload(eventName));
     } catch {
       // Some BridgeKit versions may not support every event alias.
     }
@@ -312,18 +372,23 @@ export async function executeCircleBridgeRoute(request: {
 
   const [{ BridgeKit }, adapter] = await Promise.all([import("@circle-fin/bridge-kit"), createCircleAdapter()]);
   const kit = new BridgeKit();
-  const observedEventHashes: Hex[] = [];
-  attachCircleBridgeStageListener(kit, request.onStage, (payload) => {
-    for (const hash of collectEvmHashes(payload)) {
-      observedEventHashes.push(hash as Hex);
+  const observedEvents: CircleObservedEvent[] = [];
+  attachCircleBridgeStageListener(kit, request.onStage, (payload, eventName) => {
+    const hashes = collectEvmHashes(payload) as Hex[];
+    if (hashes.length) {
+      observedEvents.push({ eventName, role: classifyCircleBridgeEvent(eventName, payload), hashes, payload });
     }
     console.info("[Velora Bridge] Circle bridge event", {
       fromChainId: request.fromChainId,
       toChainId: request.toChainId,
+      eventName,
+      role: classifyCircleBridgeEvent(eventName, payload),
+      hashes,
       payload
     });
   });
-  request.onStage?.("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
+  request.onStage?.("approvalRequired", "Approval required.");
+  request.onStage?.("waitingApprovalConfirmation", "Please confirm the approval in your wallet.");
   const result = (await kit.bridge({
     from: { adapter, chain: fromChain },
     to: { adapter, chain: toChain, recipientAddress: request.walletAddress },
@@ -344,24 +409,39 @@ export async function executeCircleBridgeRoute(request: {
     raw: result
   });
 
-  const txHash = selectPrimarySourceTxHash(result) ?? observedEventHashes.find(Boolean);
+  const approvalTxHash = selectApprovalTxHash(result) ?? selectObservedHash(observedEvents, "approval") ?? null;
+  const selectedSourceTxHash = selectPrimarySourceTxHash(result) ?? selectObservedHash(observedEvents, "source") ?? null;
+  const sourceTxHash = selectedSourceTxHash && selectedSourceTxHash !== approvalTxHash ? selectedSourceTxHash : selectObservedHash(observedEvents, "source") ?? null;
+  const destinationTxHash = selectDestinationTxHash(result) ?? selectObservedHash(observedEvents, "destination") ?? null;
+  const destinationExplorerLink = selectStepExplorerUrl(result, ["mint", "forward", "destination", "settlement"]);
   console.info("[Velora Bridge] Circle bridge hash selection", {
     fromChainId: request.fromChainId,
     toChainId: request.toChainId,
-    resultHash: selectPrimarySourceTxHash(result),
-    observedEventHashes,
-    selectedTxHash: txHash
+    approvalTxHash,
+    sourceTxHash,
+    destinationTxHash,
+    destinationExplorerLink,
+    observedEvents
   });
-  if (!txHash || !EVM_TX_HASH.test(txHash)) {
-    throw new Error("Transaction submitted but hash missing.");
+  if (approvalTxHash && !sourceTxHash) {
+    throw new Error("Approval completed, but Circle BridgeKit did not return a bridge transaction hash. Please retry the bridge transaction.");
+  }
+  if (!sourceTxHash || !EVM_TX_HASH.test(sourceTxHash)) {
+    throw new Error("Bridge transaction hash missing.");
   }
 
   if (result.state !== "success") {
-    request.onStage?.("waitingForDestinationConfirmation", "Waiting for destination confirmation.");
+    request.onStage?.("waitingDestinationSettlement", "Waiting for destination settlement.");
+  } else {
+    request.onStage?.("bridgeCompleted", "Bridge completed.");
   }
 
   return {
-    txHash,
+    txHash: sourceTxHash,
+    approvalTxHash,
+    destinationTxHash,
+    destinationExplorerLink,
+    completionTime: result.state === "success" ? new Date().toISOString() : null,
     confirmationStatus: result.state === "success" ? ("confirmed" as const) : ("pending" as const),
     raw: result
   };

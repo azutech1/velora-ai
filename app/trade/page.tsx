@@ -2183,7 +2183,37 @@ export default function TradePage() {
               toChainId: bridge.toNetwork.chainId,
               amount: bridge.amount,
               walletAddress: address as Address,
-              onStage: (stage, message) => setBridgeStage(stage, message)
+              onStage: (stage, message) => {
+                if (stage === "approvalRequired" || stage === "waitingApprovalConfirmation" || stage === "waitingWalletConfirmation") {
+                  setBridgeStage("waitingWalletConfirmation", message);
+                  return;
+                }
+                if (stage === "approvalCompleted" || stage === "preparingBridgeTransaction") {
+                  setBridgeStage("preparingRoute", message);
+                  return;
+                }
+                if (stage === "bridgeTransactionSubmitted" || stage === "sendingTransaction") {
+                  setBridgeStage("sendingTransaction", message);
+                  return;
+                }
+                if (
+                  stage === "sendingCrossChainMessage" ||
+                  stage === "waitingGateway" ||
+                  stage === "waitingDestinationSettlement" ||
+                  stage === "verifyingDestinationReceipt" ||
+                  stage === "waitingForBridgeMessage"
+                ) {
+                  setBridgeStage("waitingForBridgeMessage", message);
+                  return;
+                }
+                if (stage === "waitingForDestinationConfirmation") {
+                  setBridgeStage("waitingForDestinationConfirmation", message);
+                  return;
+                }
+                if (stage === "bridgeCompleted") {
+                  setBridgeStage("success", message, "success");
+                }
+              }
             }),
           sendTransaction: async (transactionRequest) => {
             if (!walletClient || !publicClient || !address) {

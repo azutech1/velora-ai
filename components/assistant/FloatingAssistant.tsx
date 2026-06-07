@@ -257,14 +257,28 @@ function ConfirmationPreview({
 }
 
 function ResultCard({ result }: { result: AssistantActionResult }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  async function copyHash() {
-    if (!result.txHash || typeof navigator === "undefined") return;
-    await navigator.clipboard?.writeText(result.txHash);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+  async function copyHash(key: string, value?: string | null) {
+    if (!value || typeof navigator === "undefined") return;
+    await navigator.clipboard?.writeText(value);
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 1400);
   }
+
+  const hashBlocks = [
+    result.approvalTxHash ? { key: "approval", label: "Approval transaction hash", value: result.approvalTxHash, link: undefined, actionLabel: "Copy Approval Hash" } : null,
+    result.txHash ? { key: "source", label: "Source transaction hash", value: result.txHash, link: result.explorerLink, actionLabel: "Copy Hash" } : null,
+    result.destinationTxHash
+      ? {
+          key: "destination",
+          label: "Destination transaction hash",
+          value: result.destinationTxHash,
+          link: result.destinationExplorerLink ?? undefined,
+          actionLabel: "Copy Destination Hash"
+        }
+      : null
+  ].filter(Boolean) as Array<{ key: string; label: string; value: string; link?: string; actionLabel: string }>;
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 light:border-orange-500/35 light:bg-orange-50">
@@ -284,22 +298,24 @@ function ResultCard({ result }: { result: AssistantActionResult }) {
           ))}
         </div>
       ) : null}
-      {result.txHash ? (
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 light:border-black light:bg-white">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Transaction hash</p>
-          <p className="mt-1 break-all text-xs font-bold text-slate-300 light:text-slate-700">{result.txHash}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {result.explorerLink ? (
-              <a href={result.explorerLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white">
-                View Transaction <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            ) : null}
-            <button type="button" onClick={copyHash} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-400/40 hover:text-orange-200 light:border-black light:text-slate-800">
-              <Copy className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy Hash"}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {hashBlocks.length
+        ? hashBlocks.map((hashBlock) => (
+            <div key={hashBlock.key} className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 light:border-black light:bg-white">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{hashBlock.label}</p>
+              <p className="mt-1 break-all text-xs font-bold text-slate-300 light:text-slate-700">{hashBlock.value}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {hashBlock.link ? (
+                  <a href={hashBlock.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white">
+                    {hashBlock.key === "destination" ? "View Destination" : "View Transaction"} <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                <button type="button" onClick={() => copyHash(hashBlock.key, hashBlock.value)} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-400/40 hover:text-orange-200 light:border-black light:text-slate-800">
+                  <Copy className="h-3.5 w-3.5" /> {copiedKey === hashBlock.key ? "Copied" : hashBlock.actionLabel}
+                </button>
+              </div>
+            </div>
+          ))
+        : null}
     </motion.div>
   );
 }

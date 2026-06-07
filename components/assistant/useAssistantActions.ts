@@ -36,7 +36,11 @@ export type AssistantActionResult = {
   title: string;
   message: string;
   txHash?: Hex;
+  approvalTxHash?: Hex | null;
+  destinationTxHash?: Hex | null;
   explorerLink?: string;
+  destinationExplorerLink?: string | null;
+  completionTime?: string | null;
   details?: Array<{ label: string; value: string }>;
 };
 
@@ -200,6 +204,10 @@ function isWalletRejected(error: unknown) {
 function normalizeAssistantError(actionType: ParsedCommand["actionType"], error: unknown) {
   const raw = error instanceof Error ? error.message : "Request failed.";
   if (isWalletRejected(error)) return "Transaction rejected by user.";
+  if (/approval completed.*bridge transaction hash/i.test(raw)) return raw;
+  if (/approval failed|token approval failed/i.test(raw)) return "Approval failed.";
+  if (/bridge transaction hash missing/i.test(raw)) return "Bridge transaction failed: bridge transaction hash missing.";
+  if (/destination confirmation timeout|destination settlement/i.test(raw)) return "Waiting for destination confirmation.";
   if (/transaction submitted but hash missing|hash missing|hash unavailable/i.test(raw)) return "Transaction submitted but hash missing.";
   if (/network connection|failed to fetch|fetch failed/i.test(raw)) return actionType === "swap" ? "Swap Preparation Failed: Provider unavailable. Please try again." : "Bridge Preparation Failed: Provider unavailable. Please try again.";
   if (/insufficient balance/i.test(raw)) return "Insufficient balance.";
@@ -742,9 +750,28 @@ export function useAssistantActions() {
             amount: parsed.amount ?? "0",
             walletAddress: address,
             onStage: (stage, message) => {
-              if (stage === "waitingWalletConfirmation") setProgress("waitingWalletConfirmation", message);
-              if (stage === "sendingTransaction") setProgress("transactionSubmitted", message);
-              if (stage === "waitingForBridgeMessage" || stage === "waitingForDestinationConfirmation") setProgress("confirmingOnchain", message);
+              console.info("[Velora Assistant Bridge] lifecycle stage", {
+                command: parsed,
+                sourceChain: fromChain.name,
+                destinationChain: toChain.name,
+                provider: routeResult.route?.providerName,
+                stage,
+                message
+              });
+              if (stage === "approvalRequired" || stage === "waitingApprovalConfirmation" || stage === "waitingWalletConfirmation") setProgress("waitingWalletConfirmation", message);
+              if (stage === "approvalCompleted" || stage === "preparingBridgeTransaction") setProgress("preparingTransaction", message);
+              if (stage === "bridgeTransactionSubmitted" || stage === "sendingTransaction") setProgress("transactionSubmitted", message);
+              if (
+                stage === "sendingCrossChainMessage" ||
+                stage === "waitingGateway" ||
+                stage === "waitingDestinationSettlement" ||
+                stage === "verifyingDestinationReceipt" ||
+                stage === "waitingForBridgeMessage" ||
+                stage === "waitingForDestinationConfirmation"
+              ) {
+                setProgress("confirmingOnchain", message);
+              }
+              if (stage === "bridgeCompleted") setProgress("completed", message);
             }
           }),
         sendTransaction: (transactionRequest) => sendTransactionRequest(transactionRequest, fromChain.chainId)
@@ -752,11 +779,16 @@ export function useAssistantActions() {
       console.info("[Velora Assistant Bridge] execution result", {
         provider: routeResult.route.providerName,
         txHash: result.txHash,
+        approvalTxHash: result.approvalTxHash,
+        destinationTxHash: result.destinationTxHash,
+        destinationExplorerLink: result.destinationExplorerLink,
+        completionTime: result.completionTime,
         confirmationStatus: result.confirmationStatus,
         raw: result.raw
       });
       const txHash = result.txHash;
       const explorerLink = explorerTxUrl(fromChain.explorer, txHash);
+      const destinationExplorerLink = result.destinationExplorerLink ?? (result.destinationTxHash ? explorerTxUrl(toChain.explorer, result.destinationTxHash) : null);
       activity.recordActivity({
         actionType: "bridge_completed",
         title: "Bridge completed",
@@ -771,19 +803,32 @@ export function useAssistantActions() {
           fromChain: fromChain.name,
           toChain: toChain.name,
           routeProvider: routeResult.route.providerName,
+          approvalTxHash: result.approvalTxHash ?? null,
+          destinationTxHash: result.destinationTxHash ?? null,
+          destinationExplorerLink,
+          completionTime: result.completionTime ?? null,
           source: "velora_ai_assistant"
         })
       });
       return {
-        title: result.confirmationStatus === "pending" ? "Bridge Submitted" : "Bridge Completed",
-        message: `${parsed.amount} USDC bridge from ${fromChain.name} to ${toChain.name} was submitted.`,
+        title: result.confirmationStatus === "pending" ? "Bridge in Progress" : "Bridge Completed",
+        message:
+          result.confirmationStatus === "pending"
+            ? `${parsed.amount} USDC bridge from ${fromChain.name} to ${toChain.name} is in progress.`
+            : `${parsed.amount} USDC bridge from ${fromChain.name} to ${toChain.name} completed.`,
         txHash,
+        approvalTxHash: result.approvalTxHash,
+        destinationTxHash: result.destinationTxHash,
         explorerLink,
+        destinationExplorerLink,
+        completionTime: result.completionTime,
         details: [
           { label: "Provider", value: routeResult.route.providerName },
           { label: "From", value: fromChain.name },
           { label: "To", value: toChain.name },
-          { label: "Amount", value: `${parsed.amount} USDC` }
+          { label: "Destination Wallet", value: address },
+          { label: "Amount", value: `${parsed.amount} USDC` },
+          ...(result.completionTime ? [{ label: "Completion Time", value: new Date(result.completionTime).toLocaleString() }] : [])
         ]
       };
     },
