@@ -45,13 +45,66 @@ const progressLabels: Record<AssistantProgressStep, string> = {
   validating: "Validating request",
   checkingWallet: "Checking wallet",
   checkingBalance: "Checking balance",
-  preparingTransaction: "Preparing transaction",
+  preparingTransaction: "Preparing route",
   waitingWalletConfirmation: "Waiting for wallet confirmation",
-  transactionSubmitted: "Transaction submitted",
-  confirmingOnchain: "Confirming onchain",
+  transactionSubmitted: "Submitted",
+  confirmingOnchain: "Confirming",
   completed: "Completed",
   failed: "Failed"
 };
+
+const EVM_TX_HASH = /^0x[a-fA-F0-9]{64}$/;
+
+type TraceLike = {
+  txHash?: unknown;
+  transactionHash?: unknown;
+  hash?: unknown;
+  explorerUrl?: unknown;
+};
+
+function getTraceCandidate(value: unknown): TraceLike | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as { trace?: unknown; cause?: unknown };
+  if (record.trace && typeof record.trace === "object") return record.trace as TraceLike;
+  const cause = record.cause as { trace?: unknown } | undefined;
+  if (cause?.trace && typeof cause.trace === "object") return cause.trace as TraceLike;
+  return null;
+}
+
+function collectEvmHashes(value: unknown, seen = new Set<unknown>()): Hex[] {
+  if (!value || seen.has(value)) return [];
+  if (typeof value === "string") return EVM_TX_HASH.test(value) ? [value as Hex] : [];
+  if (typeof value !== "object") return [];
+  seen.add(value);
+
+  const hashes: Hex[] = [];
+  const record = value as Record<string, unknown>;
+  const explicitValues = [record.txHash, record.transactionHash, record.hash];
+  for (const explicitValue of explicitValues) {
+    hashes.push(...collectEvmHashes(explicitValue, seen));
+  }
+  const trace = getTraceCandidate(value);
+  if (trace) {
+    hashes.push(...collectEvmHashes(trace.txHash, seen));
+    hashes.push(...collectEvmHashes(trace.transactionHash, seen));
+    hashes.push(...collectEvmHashes(trace.hash, seen));
+  }
+  for (const entry of Object.values(record)) {
+    hashes.push(...collectEvmHashes(entry, seen));
+  }
+  return Array.from(new Set(hashes));
+}
+
+function extractSubmittedTransaction(error: unknown) {
+  const trace = getTraceCandidate(error);
+  const traceHash = [trace?.txHash, trace?.transactionHash, trace?.hash].find((value) => typeof value === "string" && EVM_TX_HASH.test(value)) as Hex | undefined;
+  const nestedHash = collectEvmHashes(error).find(Boolean);
+  const explorerUrl = typeof trace?.explorerUrl === "string" ? trace.explorerUrl : null;
+  return {
+    txHash: traceHash ?? nestedHash,
+    explorerUrl
+  };
+}
 
 function parseOptionalBigInt(value?: string | number | bigint | null) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -352,11 +405,42 @@ export function useAssistantActions() {
             break;
           } catch (error) {
             lastError = error;
+            const submittedTransaction = extractSubmittedTransaction(error);
             console.error("[Velora Assistant Swap] route execution failed", {
               provider: selectedRoute.providerName,
               attempt,
-              error
+              error,
+              recoveredTxHash: submittedTransaction.txHash,
+              recoveredExplorerUrl: submittedTransaction.explorerUrl
             });
+            if (submittedTransaction.txHash) {
+              setProgress("transactionSubmitted", "Transaction submitted");
+              let confirmationStatus: "confirmed" | "pending" = "pending";
+              try {
+                setProgress("confirmingOnchain", "Confirming onchain");
+                const receipt = await publicClient?.waitForTransactionReceipt({ hash: submittedTransaction.txHash });
+                confirmationStatus = receipt?.status === "success" ? "confirmed" : "pending";
+              } catch (receiptError) {
+                console.warn("[Velora Assistant Swap] submitted transaction confirmation is pending", {
+                  provider: selectedRoute.providerName,
+                  txHash: submittedTransaction.txHash,
+                  receiptError
+                });
+              }
+              result = {
+                txHash: submittedTransaction.txHash,
+                receivedAmount: selectedRoute.quote.toAmount ?? undefined,
+                confirmationStatus,
+                raw: {
+                  recoveredFromErrorTrace: true,
+                  provider: selectedRoute.providerName,
+                  explorerUrl: submittedTransaction.explorerUrl,
+                  error
+                }
+              };
+              lastError = null;
+              break;
+            }
             if (isWalletRejected(error)) throw error;
           }
         }
@@ -385,7 +469,7 @@ export function useAssistantActions() {
         token: from.symbol,
         amount: parsed.amount,
         network: "Arc Testnet",
-        status: "success",
+        status: result.confirmationStatus === "pending" ? "pending" : "success",
         txHash,
         metadata: cleanMetadata({
           fromToken: from.symbol,
@@ -397,8 +481,8 @@ export function useAssistantActions() {
         })
       });
       return {
-        title: "Swap Completed",
-        message: `Swapped ${parsed.amount} ${from.symbol} to ${to.symbol}.`,
+        title: result.confirmationStatus === "pending" ? "Swap Submitted" : "Swap Completed",
+        message: result.confirmationStatus === "pending" ? `${parsed.amount} ${from.symbol} swap to ${to.symbol} was submitted.` : `Swapped ${parsed.amount} ${from.symbol} to ${to.symbol}.`,
         txHash,
         explorerLink,
         details: [
@@ -408,7 +492,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, publicClient, sendTransactionRequest, setProgress]
   );
 
   const executeBridge = useCallback(

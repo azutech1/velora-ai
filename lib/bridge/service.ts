@@ -48,6 +48,7 @@ type CircleBridgeStage =
   | "waitingForDestinationConfirmation";
 
 type CircleBridgeStageHandler = (stage: CircleBridgeStage, message: string) => void;
+type CircleBridgePayloadHandler = (payload: unknown) => void;
 
 const CIRCLE_BRIDGE_CHAIN_BY_ID: Record<number, CircleBridgeChain> = {
   5042002: "Arc_Testnet",
@@ -136,11 +137,32 @@ function notifyCircleBridgeStage(payload: unknown, onStage?: CircleBridgeStageHa
   }
 }
 
-function attachCircleBridgeStageListener(kit: unknown, onStage?: CircleBridgeStageHandler) {
-  if (!onStage) return;
+function attachCircleBridgeStageListener(kit: unknown, onStage?: CircleBridgeStageHandler, onPayload?: CircleBridgePayloadHandler) {
+  if (!onStage && !onPayload) return;
   const maybeEmitter = kit as { on?: (event: string, handler: (payload: unknown) => void) => void };
   if (typeof maybeEmitter.on !== "function") return;
-  maybeEmitter.on("*", (payload) => notifyCircleBridgeStage(payload, onStage));
+  const handlePayload = (payload: unknown) => {
+    onPayload?.(payload);
+    notifyCircleBridgeStage(payload, onStage);
+  };
+  const eventNames = [
+    "*",
+    "bridge.approve",
+    "bridge.burn",
+    "bridge.mint",
+    "bridge.deposit",
+    "bridge.transfer",
+    "bridge.complete",
+    "bridge.error",
+    "bridge.step"
+  ];
+  for (const eventName of eventNames) {
+    try {
+      maybeEmitter.on(eventName, handlePayload);
+    } catch {
+      // Some BridgeKit versions may not support every event alias.
+    }
+  }
 }
 
 async function createCircleAdapter() {
@@ -290,7 +312,17 @@ export async function executeCircleBridgeRoute(request: {
 
   const [{ BridgeKit }, adapter] = await Promise.all([import("@circle-fin/bridge-kit"), createCircleAdapter()]);
   const kit = new BridgeKit();
-  attachCircleBridgeStageListener(kit, request.onStage);
+  const observedEventHashes: Hex[] = [];
+  attachCircleBridgeStageListener(kit, request.onStage, (payload) => {
+    for (const hash of collectEvmHashes(payload)) {
+      observedEventHashes.push(hash as Hex);
+    }
+    console.info("[Velora Bridge] Circle bridge event", {
+      fromChainId: request.fromChainId,
+      toChainId: request.toChainId,
+      payload
+    });
+  });
   request.onStage?.("waitingWalletConfirmation", "Please confirm the transaction in your wallet.");
   const result = (await kit.bridge({
     from: { adapter, chain: fromChain },
@@ -312,7 +344,14 @@ export async function executeCircleBridgeRoute(request: {
     raw: result
   });
 
-  const txHash = selectPrimarySourceTxHash(result);
+  const txHash = selectPrimarySourceTxHash(result) ?? observedEventHashes.find(Boolean);
+  console.info("[Velora Bridge] Circle bridge hash selection", {
+    fromChainId: request.fromChainId,
+    toChainId: request.toChainId,
+    resultHash: selectPrimarySourceTxHash(result),
+    observedEventHashes,
+    selectedTxHash: txHash
+  });
   if (!txHash || !EVM_TX_HASH.test(txHash)) {
     throw new Error("Transaction submitted but hash missing.");
   }
