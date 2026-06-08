@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Bot, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronRight, Sparkles } from "lucide-react";
 import { AmbientBackground } from "@/components/azu/app-shell";
 import { HeroOrbit, Logo } from "@/components/azu/brand";
 import { featureCards } from "@/components/azu/data";
 import { SiteFooter } from "@/components/azu/footer";
+import { AssistantLogo } from "@/components/assistant/AssistantLogo";
 import { WalletConnectButton } from "@/components/web3/WalletConnectButton";
 
 export default function LandingPage() {
@@ -52,9 +53,7 @@ export default function LandingPage() {
         <section className="mx-auto mb-10 max-w-7xl overflow-hidden rounded-2xl border border-orange/25 bg-gradient-to-br from-orange/15 via-white/[0.04] to-red-500/10 p-6 shadow-[0_24px_80px_rgba(249,115,22,0.14)]">
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div className="flex items-start gap-4">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white">
-                <Bot className="h-6 w-6" />
-              </div>
+              <AssistantLogo size={48} priority />
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200">Powered by Velora AI</p>
                 <h2 className="mt-2 text-3xl font-black text-white">✨ Powered by Velora AI Assistant</h2>

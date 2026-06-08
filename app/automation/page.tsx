@@ -16,7 +16,6 @@ import {
   Route,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   ToggleLeft,
   ToggleRight,
   TrendingUp,
@@ -27,6 +26,7 @@ import {
   Zap
 } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
+import { AssistantLogo } from "@/components/assistant/AssistantLogo";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { useAutomationRules } from "@/hooks/useAutomationRules";
@@ -102,7 +102,7 @@ function AutomationComingSoon() {
 
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5 light:border-emerald-600/25 light:bg-emerald-50">
               <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
-                <Sparkles className="h-6 w-6" />
+                <AssistantLogo size={48} />
               </div>
               <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-emerald-300 light:text-emerald-700">Internal testing</p>
               <p className="mt-3 text-2xl font-black text-white light:text-slate-950">Approval-first workflows</p>

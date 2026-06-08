@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { ArrowRightLeft, BadgeCheck, Bot, Droplets, Flame, Network, Search, ShieldCheck, Trophy, Wallet } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, Droplets, Flame, Network, Search, ShieldCheck, Trophy, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
+import { AssistantLogo } from "@/components/assistant/AssistantLogo";
 import { OpenAssistantButton } from "@/components/assistant/OpenAssistantButton";
 import { TokenLogo } from "@/components/token/TokenLogo";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
@@ -132,9 +133,7 @@ export default function DashboardPage() {
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-orange/20 blur-3xl" />
           <div className="relative flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-start gap-4">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_16px_42px_rgba(249,115,22,0.28)]">
-                <Bot className="h-6 w-6" />
-              </div>
+              <AssistantLogo size={48} priority />
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">Talk to your wallet</p>
                 <h2 className="mt-1 text-2xl font-black text-white light:text-slate-950">🤖 Velora AI Assistant</h2>
