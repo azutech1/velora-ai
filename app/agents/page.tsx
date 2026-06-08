@@ -1,8 +1,7 @@
 "use client";
 
-import { BarChart3, Bot, CircleDollarSign, LockKeyhole, Route, ShieldAlert, WalletCards } from "lucide-react";
+import { BarChart3, Bot, CircleDollarSign, LockKeyhole, Route, ShieldAlert, Sparkles, WalletCards } from "lucide-react";
 import { AppShell } from "@/components/azu/app-shell";
-import { AssistantLogo } from "@/components/assistant/AssistantLogo";
 import { Panel } from "@/components/azu/ui";
 
 const agents = [
@@ -63,7 +62,7 @@ export default function AgentsPage() {
               </div>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
-              <AssistantLogo size={48} />
+              <Sparkles className="h-6 w-6 text-orange-300" />
               <p className="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Target rollout</p>
               <p className="mt-3 text-2xl font-black text-white">Within 1 month</p>
               <p className="mt-4 text-sm leading-6 text-slate-400">AI Agents will provide recommendations only. They will not move funds automatically.</p>

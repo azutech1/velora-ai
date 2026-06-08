@@ -10,7 +10,6 @@ import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { FloatingAssistant } from "@/components/assistant/FloatingAssistant";
 import { openVeloraAssistant } from "@/components/assistant/OpenAssistantButton";
-import { AssistantLogo } from "@/components/assistant/AssistantLogo";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { recordAdminAnalyticsEvent } from "@/lib/admin/analytics";
 import { Logo, LogoMark } from "./brand";
@@ -84,7 +83,7 @@ function Sidebar() {
                 onClick={openVeloraAssistant}
                 className="group flex w-full items-center gap-3 rounded-lg border border-orange/35 bg-orange/10 px-3 py-3 text-left text-sm font-semibold text-white shadow-[0_14px_34px_rgba(249,115,22,0.14)] transition hover:bg-orange/15"
               >
-                <AssistantLogo size={28} className="-ml-1" />
+                <item.icon className="h-4 w-4 text-orange" />
                 <span className="min-w-0 flex-1">{item.label}</span>
                 {item.badge ? <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
               </button>
@@ -225,7 +224,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
                         }}
                         className="flex w-full items-center gap-3 rounded-lg border border-orange/35 bg-orange/10 px-3 py-3 text-left text-sm font-semibold text-white"
                       >
-                        <AssistantLogo size={28} className="-ml-1" />
+                        <item.icon className="h-4 w-4 text-orange" />
                         <span className="min-w-0 flex-1">{item.label}</span>
                         {item.badge ? <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
                       </button>

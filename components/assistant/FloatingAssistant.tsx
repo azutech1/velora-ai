@@ -4,12 +4,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { isAddress } from "viem";
 import { useAccount } from "wagmi";
-import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, Pencil, Route, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Wallet, X } from "lucide-react";
+import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Pencil, Route, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, AssistantIntent, ParsedCommand } from "./types";
 import { useAssistantContacts, type AssistantContact } from "./useAssistantContacts";
-import { AssistantLogo } from "./AssistantLogo";
 
 type ChatMessage = {
   id: string;
@@ -830,7 +829,7 @@ export function FloatingAssistant() {
         className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-3 rounded-2xl border border-orange-400/30 bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 text-sm font-black text-white shadow-[0_18px_55px_rgba(249,115,22,0.35)] transition hover:scale-[1.02] light:border-orange-500/40"
         aria-label="Open Velora AI assistant"
       >
-        <AssistantLogo size={36} className="border-white/20 bg-black/35 shadow-[0_0_24px_rgba(20,184,166,0.24)]" />
+        <MessageCircle className="h-5 w-5" />
         <span className="hidden sm:inline">Velora AI</span>
       </button>
 
@@ -846,7 +845,9 @@ export function FloatingAssistant() {
             >
               <header className="flex items-center justify-between border-b border-white/10 px-5 py-4 light:border-black">
                 <div className="flex items-center gap-3">
-                  <AssistantLogo size={44} priority />
+                  <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white">
+                    <Bot className="h-5 w-5" />
+                  </div>
                   <div>
                     <h2 className="text-lg font-black text-white light:text-slate-950">Velora AI</h2>
                     <p className="flex items-center gap-2 text-xs font-semibold text-mint">
@@ -862,8 +863,7 @@ export function FloatingAssistant() {
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
                 {messages.map((message) => (
-                  <div key={message.id} className={cx("flex items-start gap-2", message.role === "user" ? "justify-end" : "justify-start")}>
-                    {message.role === "assistant" ? <AssistantLogo size={30} className="mt-1" /> : null}
+                  <div key={message.id} className={cx("flex", message.role === "user" ? "justify-end" : "justify-start")}>
                     <div className={cx("max-w-[86%] whitespace-pre-line rounded-2xl px-4 py-3 text-sm leading-6", message.role === "user" ? "bg-gradient-to-r from-orange-500 to-red-500 font-semibold text-white" : "border border-white/10 bg-white/[0.04] text-slate-200 light:border-black light:bg-white light:text-slate-800")}>
                       {message.content}
                       {message.result ? <ResultCard result={message.result} /> : null}
@@ -872,8 +872,7 @@ export function FloatingAssistant() {
                 ))}
 
                 {isThinking ? (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-2">
-                    <AssistantLogo size={30} className="mt-1" />
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                     <div className="flex max-w-[86%] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 light:border-black light:bg-white light:text-slate-800">
                       <span className="flex gap-1">
                         <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
