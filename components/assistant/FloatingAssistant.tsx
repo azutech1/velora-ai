@@ -91,7 +91,7 @@ function classifyIntent(command: string): { intentType: AssistantIntent; confide
   if (/\b(notify me|remind me|alert me|create alert|set alert)\b/i.test(text)) {
     return { intentType: "automation", confidence: "high" };
   }
-  if (/^(what|why|explain|tell me|describe)\b/i.test(text) || /\b(what is|stablecoin|arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|private key|seed phrase|airdrop|token launch)\b/i.test(text)) {
+  if (/^(what|who|where|when|why|explain|tell me|describe)\b/i.test(text) || /\b(what is|stablecoin|arc ecosystem|circle gateway|cctp|appkit|bridgekit|agent wallet|velora ai|private key|seed phrase|airdrop|token launch)\b/i.test(text)) {
     return { intentType: "knowledge", confidence: "high" };
   }
   if (/^how\b/i.test(text) || /\b(connect wallet|switch to arc|arc testnet|use rewards center|claim daily xp|daily check.?in|complete social tasks|view profile|transaction history|gas fees|testnet eth|how to)\b/i.test(text)) {

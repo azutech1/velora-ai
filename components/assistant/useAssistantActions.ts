@@ -14,7 +14,7 @@ import { getTokenAddress } from "@/lib/config/tokens";
 import { erc20UsdcAbi } from "@/lib/contracts/usdc";
 import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
 import { CIRCLE_FAUCET_URL } from "@/lib/faucet/tokens";
-import { findAssistantKnowledgeAnswer } from "@/lib/assistant/knowledge";
+import { ASSISTANT_SCOPE_RESPONSE, findAssistantKnowledgeAnswer } from "@/lib/assistant/knowledge";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
 import { findExecutableRoute, type ExecutableRoute, type RouteProvider, type RouteRequest, type RouteTransactionRequest } from "@/lib/routes/router";
@@ -1041,7 +1041,13 @@ export function useAssistantActions() {
     const question = parsed.question ?? "";
     const entry = findAssistantKnowledgeAnswer(question);
     if (!entry) {
-      throw new Error("This knowledge question is not supported yet. Try asking about Arc, USDC, CCTP, Gateway, AppKit, or Velora AI.");
+      return {
+        title: "Focused on Velora AI",
+        message: ASSISTANT_SCOPE_RESPONSE,
+        details: [
+          { label: "Scope", value: "Velora AI, Arc, Circle, stablecoins, and wallet actions" }
+        ]
+      };
     }
     return {
       title: entry.title,

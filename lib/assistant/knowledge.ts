@@ -21,6 +21,9 @@ export type AssistantKnowledgeEntry = {
   relatedCommands?: string[];
 };
 
+export const ASSISTANT_SCOPE_RESPONSE =
+  "I’m focused on Velora AI, Arc, Circle, stablecoins, and supported wallet actions. I can help you send, swap, bridge, claim faucet, check balances, view XP, or answer questions about Velora AI, Arc, and Circle.";
+
 const TRANSACTION_SAFETY_NOTE =
   "Velora AI never moves funds automatically. Always verify the recipient address, token, network, and route before confirming in your wallet.";
 
@@ -259,7 +262,19 @@ function keywordScore(question: string, topic: string) {
   const normalizedTopic = normalize(topic);
   if (!normalizedTopic) return 0;
   if (question.includes(normalizedTopic)) return Math.max(8, normalizedTopic.split(" ").length * 3);
-  return normalizedTopic.split(" ").filter((word) => word.length > 2 && question.includes(word)).length;
+  return normalizedTopic.split(" ").filter((word) => word.length > 3 && question.includes(word)).length;
+}
+
+export function isAssistantKnowledgeInScope(question: string) {
+  if (SENSITIVE_PATTERNS.some((pattern) => pattern.test(question))) return true;
+  if (TOKEN_PATTERNS.some((pattern) => pattern.test(question)) && /\b(velora|token|xp|airdrop)\b/i.test(question)) return true;
+  if (UPDATE_PATTERNS.some((pattern) => pattern.test(question)) && /\b(arc|circle|velora|ecosystem|campaign|event|launch)\b/i.test(question)) return true;
+
+  const normalizedQuestion = normalize(question);
+  return ASSISTANT_KNOWLEDGE.some((entry) => {
+    const score = entry.topics.reduce((total, topic) => total + keywordScore(normalizedQuestion, topic), 0);
+    return score >= 4 || entry.topics.some((topic) => normalizedQuestion.includes(normalize(topic)));
+  });
 }
 
 export function findAssistantKnowledgeAnswer(question: string) {
@@ -287,5 +302,5 @@ export function findAssistantKnowledgeAnswer(question: string) {
     }
   }
 
-  return best && best.score >= 2 ? best.entry : null;
+  return best && best.score >= 4 ? best.entry : null;
 }
