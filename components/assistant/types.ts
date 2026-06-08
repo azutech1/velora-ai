@@ -8,6 +8,7 @@ export type ParsedCommand = {
   amount?: string;
   token?: string;
   destinationAddress?: string;
+  contactName?: string;
   sourceChain?: string;
   destinationChain?: string;
   receiveToken?: string;

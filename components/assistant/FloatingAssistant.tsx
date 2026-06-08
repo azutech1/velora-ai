@@ -2,10 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { isAddress } from "viem";
+import { useAccount } from "wagmi";
+import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Pencil, Route, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, AssistantIntent, ParsedCommand } from "./types";
+import { useAssistantContacts, type AssistantContact } from "./useAssistantContacts";
 
 type ChatMessage = {
   id: string;
@@ -13,6 +16,18 @@ type ChatMessage = {
   content: string;
   parsed?: ParsedCommand;
   result?: AssistantActionResult;
+};
+
+type ContactCommand =
+  | { type: "save"; name: string; address: string }
+  | { type: "delete"; name: string }
+  | { type: "update"; name: string; address: string }
+  | { type: "show" };
+
+type PendingContactSave = {
+  name: string;
+  address: string;
+  overwrite: boolean;
 };
 
 const examples = [
@@ -31,6 +46,7 @@ const thinkingSteps = ["Analyzing request...", "Detecting action...", "Reading t
 const tokenPattern = /\b(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)\b/i;
 const amountTokenPattern = /(\d+(?:\.\d+)?)\s*(USDC|EURC|USDT|ETH|WETH|WBTC|BTC)/i;
 const addressPattern = /(0x[a-fA-F0-9]{40})/;
+const contactNamePattern = /[a-zA-Z][a-zA-Z0-9 _.-]{0,40}/;
 const chainAliases: Record<string, string> = {
   arc: "Arc Testnet",
   "arc testnet": "Arc Testnet",
@@ -118,12 +134,14 @@ function parseCommand(input: string): ParsedCommand {
   }
 
   if (intent.intentType === "send") {
+    const destinationName = command.match(/\bto\s+([^,.;]+)$/i)?.[1]?.trim();
     return {
       intentType: "send",
       actionType: "send",
       amount,
       token,
       destinationAddress,
+      contactName: destinationAddress ? undefined : destinationName,
       status: "Waiting for confirmation",
       confidence: amount && token && destinationAddress ? "high" : "medium"
     };
@@ -220,6 +238,22 @@ function parseCommand(input: string): ParsedCommand {
   };
 }
 
+function parseContactCommand(input: string): ContactCommand | null {
+  const command = input.trim();
+  const saveThis = command.match(new RegExp(`^save\\s+this\\s+address\\s+as\\s+(${contactNamePattern.source})\\s*:?\\s*${addressPattern.source}$`, "i"));
+  if (saveThis) return { type: "save", name: saveThis[1], address: saveThis[2] };
+  const addAs = command.match(new RegExp(`^add\\s+${addressPattern.source}\\s+as\\s+(${contactNamePattern.source})$`, "i"));
+  if (addAs) return { type: "save", name: addAs[2], address: addAs[1] };
+  const saveContact = command.match(new RegExp(`^save\\s+contact\\s+(${contactNamePattern.source})\\s+${addressPattern.source}$`, "i"));
+  if (saveContact) return { type: "save", name: saveContact[1], address: saveContact[2] };
+  const update = command.match(new RegExp(`^update\\s+(${contactNamePattern.source})\\s+address\\s+to\\s+${addressPattern.source}$`, "i"));
+  if (update) return { type: "update", name: update[1], address: update[2] };
+  const del = command.match(new RegExp(`^delete\\s+(${contactNamePattern.source})\\s+from\\s+contacts$`, "i"));
+  if (del) return { type: "delete", name: del[1] };
+  if (/^(show|view|list)\s+my\s+saved\s+contacts$/i.test(command) || /^saved\s+contacts$/i.test(command)) return { type: "show" };
+  return null;
+}
+
 function actionLabel(action: AssistantAction) {
   switch (action) {
     case "send":
@@ -267,12 +301,16 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function shortAddress(value: string) {
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 function commandSummary(parsed: ParsedCommand) {
   const amountText = parsed.amount && parsed.token ? `${parsed.amount} ${parsed.token}` : parsed.token;
 
   switch (parsed.actionType) {
     case "send":
-      return `send ${amountText ?? "funds"} to ${parsed.destinationAddress ?? "a wallet address"}`;
+      return `send ${amountText ?? "funds"} to ${parsed.contactName ?? parsed.destinationAddress ?? "a wallet address"}`;
     case "swap":
       return `swap ${amountText ?? "tokens"} to ${parsed.receiveToken ?? "another token"}`;
     case "bridge":
@@ -340,7 +378,8 @@ function ConfirmationPreview({
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <DetailRow label="Action" value={action} />
         <DetailRow label="Amount" value={parsed.amount && parsed.token ? `${parsed.amount} ${parsed.token}` : parsed.token} />
-        {parsed.actionType === "send" ? <DetailRow label="Destination" value={parsed.destinationAddress} /> : null}
+        {parsed.actionType === "send" && parsed.contactName ? <DetailRow label="Saved Contact" value={parsed.contactName} /> : null}
+        {parsed.actionType === "send" ? <DetailRow label="Destination Address" value={parsed.destinationAddress} /> : null}
         {parsed.actionType === "swap" ? <DetailRow label="Receive" value={parsed.receiveToken} /> : null}
         {parsed.actionType === "faucet" ? <DetailRow label="Wallet" value={parsed.destinationAddress ?? "Connected wallet"} /> : null}
         {parsed.actionType === "knowledge" ? <DetailRow label="Question" value={parsed.question} /> : null}
@@ -456,13 +495,17 @@ function AssistantProgressCard({ label, message }: { label: string; message: str
 }
 
 export function FloatingAssistant() {
+  const { address } = useAccount();
   const assistantActions = useAssistantActions();
+  const assistantContacts = useAssistantContacts(address);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [voiceNoticeOpen, setVoiceNoticeOpen] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(thinkingSteps[0]);
   const [activePreview, setActivePreview] = useState<ParsedCommand | null>(null);
+  const [pendingContactSave, setPendingContactSave] = useState<PendingContactSave | null>(null);
+  const [contactChoices, setContactChoices] = useState<{ parsed: ParsedCommand; contacts: AssistantContact[] } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -472,6 +515,7 @@ export function FloatingAssistant() {
   ]);
 
   const visibleExamples = useMemo(() => examples.slice(0, 4), []);
+  const visibleContacts = useMemo(() => assistantContacts.contacts.slice(0, 4), [assistantContacts.contacts]);
 
   useEffect(() => {
     function openAssistant() {
@@ -512,6 +556,12 @@ export function FloatingAssistant() {
     setInput("");
     await runThinkingAnimation();
 
+    const contactCommand = parseContactCommand(command);
+    if (contactCommand) {
+      handleContactCommand(contactCommand);
+      return;
+    }
+
     const parsed = parseCommand(command);
     if (parsed.actionType === "unknown") {
       setMessages((current) => [
@@ -525,7 +575,10 @@ export function FloatingAssistant() {
       return;
     }
 
-    if (parsed.confidence === "low") {
+    const resolvedParsed = resolveContactForParsedCommand(parsed);
+    if (!resolvedParsed) return;
+
+    if (resolvedParsed.confidence === "low") {
       setMessages((current) => [
         ...current,
         {
@@ -537,8 +590,8 @@ export function FloatingAssistant() {
       return;
     }
 
-    if (shouldAnswerDirectly(parsed)) {
-      const result = await assistantActions.executeAssistantAction(parsed);
+    if (shouldAnswerDirectly(resolvedParsed)) {
+      const result = await assistantActions.executeAssistantAction(resolvedParsed);
       if (!result) return;
       setMessages((current) => [
         ...current,
@@ -552,14 +605,163 @@ export function FloatingAssistant() {
       return;
     }
 
-    setActivePreview(parsed);
+    setActivePreview(resolvedParsed);
     setMessages((current) => [
       ...current,
       {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: naturalResponse(parsed),
-        parsed
+        content: naturalResponse(resolvedParsed),
+        parsed: resolvedParsed
+      }
+    ]);
+  }
+
+  function handleContactCommand(command: ContactCommand) {
+    if (command.type === "show") {
+      const content = assistantContacts.contacts.length
+        ? `Saved contacts:\n\n${assistantContacts.contacts.map((contact) => `${contact.name}: ${contact.address}`).join("\n")}`
+        : "No saved contacts yet. You can say: Save this address as Ali: 0x...";
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: "assistant", content }]);
+      return;
+    }
+
+    if (command.type === "delete") {
+      const result = assistantContacts.deleteContact(command.name);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "error" in result ? result.error ?? "Contact could not be deleted." : `Deleted ${result.contact.name} from your saved contacts.`
+        }
+      ]);
+      return;
+    }
+
+    if (command.type === "update") {
+      const result = assistantContacts.updateContact(command.name, command.address);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "error" in result ? result.error ?? "Contact could not be updated." : `Updated ${result.contact.name} to ${result.contact.address}.`
+        }
+      ]);
+      return;
+    }
+
+    if (!isAddress(command.address)) {
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: "assistant", content: "That is not a valid wallet address. Please provide a valid 0x address." }]);
+      return;
+    }
+
+    const duplicate = assistantContacts.findExact(command.name);
+    setPendingContactSave({ name: command.name.trim(), address: command.address, overwrite: Boolean(duplicate) });
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: duplicate
+          ? `I found an existing contact named ${duplicate.name}.\n\nCurrent address:\n${duplicate.address}\n\nNew address:\n${command.address}\n\nOverwrite this saved contact?`
+          : `I found this address:\n${command.address}\n\nSave it as:\n${command.name.trim()}?`
+      }
+    ]);
+  }
+
+  function resolveContactForParsedCommand(parsed: ParsedCommand) {
+    if (parsed.actionType !== "send" || parsed.destinationAddress || !parsed.contactName) return parsed;
+    const exact = assistantContacts.findExact(parsed.contactName);
+    if (exact) {
+      const resolved: ParsedCommand = {
+        ...parsed,
+        destinationAddress: exact.address,
+        contactName: exact.name,
+        confidence: parsed.amount && parsed.token ? "high" : parsed.confidence
+      };
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: `I found ${exact.name} in your saved contacts.\n\nName:\n${exact.name}\n\nAddress:\n${exact.address}`
+        }
+      ]);
+      return resolved;
+    }
+
+    const similar = assistantContacts.findSimilar(parsed.contactName);
+    if (similar.length > 1) {
+      setContactChoices({ parsed, contacts: similar });
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: `I found multiple contacts similar to "${parsed.contactName}". Choose the correct one before I prepare a send preview.`
+        }
+      ]);
+      return null;
+    }
+
+    if (similar.length === 1) {
+      const contact = similar[0];
+      setContactChoices({ parsed, contacts: similar });
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: `I found a similar saved contact: ${contact.name} (${contact.address}). Choose it if this is the intended recipient.`
+        }
+      ]);
+      return null;
+    }
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: `I could not find "${parsed.contactName}" in your saved contacts. Please provide the full wallet address or save this contact first.`
+      }
+    ]);
+    return null;
+  }
+
+  function confirmSaveContact() {
+    if (!pendingContactSave) return;
+    const result = assistantContacts.saveContact(pendingContactSave.name, pendingContactSave.address, pendingContactSave.overwrite);
+    setPendingContactSave(null);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "error" in result ? result.error ?? "Contact could not be saved." : `Saved ${result.contact.name} to your address book.\n\nAddress:\n${result.contact.address}`
+      }
+    ]);
+  }
+
+  function selectContactForSend(contact: AssistantContact) {
+    if (!contactChoices) return;
+    const resolved: ParsedCommand = {
+      ...contactChoices.parsed,
+      destinationAddress: contact.address,
+      contactName: contact.name,
+      confidence: contactChoices.parsed.amount && contactChoices.parsed.token ? "high" : contactChoices.parsed.confidence
+    };
+    setContactChoices(null);
+    setActivePreview(resolved);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: `I found ${contact.name} in your saved contacts.\n\nName:\n${contact.name}\n\nAddress:\n${contact.address}\n\n${naturalResponse(resolved)}`,
+        parsed: resolved
       }
     ]);
   }
@@ -686,6 +888,55 @@ export function FloatingAssistant() {
 
                 {activePreview ? <ConfirmationPreview parsed={activePreview} onEdit={handleEditPreview} onCancel={handleCancelPreview} onLooksCorrect={handleLooksCorrect} isRunning={assistantActions.isRunning} /> : null}
 
+                {pendingContactSave ? (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 light:border-emerald-600/25 light:bg-emerald-50">
+                    <div className="flex items-start gap-3">
+                      <ActionIcon action="profile" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300 light:text-emerald-700">Saved Contact</p>
+                        <h3 className="mt-1 text-base font-black text-white light:text-slate-950">{pendingContactSave.overwrite ? "Overwrite Contact?" : "Save Contact?"}</h3>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <DetailRow label="Name" value={pendingContactSave.name} />
+                      <DetailRow label="Address" value={pendingContactSave.address} />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" onClick={confirmSaveContact} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 text-xs font-black text-white shadow-[0_12px_30px_rgba(249,115,22,0.22)]">
+                        <UserPlus className="h-3.5 w-3.5" /> {pendingContactSave.overwrite ? "Overwrite Contact" : "Save Contact"}
+                      </button>
+                      <button type="button" onClick={() => setPendingContactSave(null)} className="rounded-xl border border-red-400/25 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-500/10 light:text-red-700">
+                        Cancel
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : null}
+
+                {contactChoices ? (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 light:border-black light:bg-orange-50">
+                    <p className="text-sm font-black text-white light:text-slate-950">Choose saved contact</p>
+                    <div className="mt-3 grid gap-2">
+                      {contactChoices.contacts.map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          onClick={() => selectContactForSend(contact)}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left text-xs font-semibold text-slate-300 transition hover:border-orange-400/40 hover:bg-orange-500/10 light:border-black light:bg-white light:text-slate-800"
+                        >
+                          <span>
+                            <span className="block font-black text-white light:text-slate-950">{contact.name}</span>
+                            <span className="mt-1 block break-all text-slate-400 light:text-slate-600">{contact.address}</span>
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-orange-300 light:text-orange-700" />
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => setContactChoices(null)} className="mt-3 rounded-xl border border-red-400/25 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-500/10 light:text-red-700">
+                      Cancel
+                    </button>
+                  </motion.div>
+                ) : null}
+
                 <div className="grid gap-2">
                   {visibleExamples.map((example) => (
                     <button
@@ -698,6 +949,45 @@ export function FloatingAssistant() {
                       <ArrowRight className="h-3.5 w-3.5 shrink-0 text-orange-300 light:text-orange-700" />
                     </button>
                   ))}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 light:border-black light:bg-white">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-white light:text-slate-950">Saved Contacts</p>
+                      <p className="mt-1 text-xs text-slate-400 light:text-slate-600">Use names in commands like “Send 10 USDC to Ali”.</p>
+                    </div>
+                    <UserPlus className="h-4 w-4 text-orange-300 light:text-orange-700" />
+                  </div>
+                  {visibleContacts.length ? (
+                    <div className="mt-3 grid gap-2">
+                      {visibleContacts.map((contact) => (
+                        <div key={contact.id} className="rounded-xl border border-white/10 bg-black/20 p-3 light:border-black light:bg-slate-50">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white light:text-slate-950">{contact.name}</p>
+                              <p className="mt-1 text-xs font-semibold text-slate-400 light:text-slate-600">{shortAddress(contact.address)}</p>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <button type="button" onClick={() => navigator.clipboard?.writeText(contact.address)} className="rounded-lg border border-white/10 p-2 text-slate-300 hover:text-orange-200 light:border-black light:text-slate-700" aria-label={`Copy ${contact.name} address`}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                              <button type="button" onClick={() => setInput(`Update ${contact.name} address to `)} className="rounded-lg border border-white/10 p-2 text-slate-300 hover:text-orange-200 light:border-black light:text-slate-700" aria-label={`Edit ${contact.name}`}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button type="button" onClick={() => setInput(`Delete ${contact.name} from contacts`)} className="rounded-lg border border-red-400/20 p-2 text-red-200 hover:bg-red-500/10 light:text-red-700" aria-label={`Delete ${contact.name}`}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-400 light:border-black light:bg-slate-50 light:text-slate-600">
+                      No contacts saved yet. Try: Save this address as Ali: 0x...
+                    </p>
+                  )}
                 </div>
               </div>
 
