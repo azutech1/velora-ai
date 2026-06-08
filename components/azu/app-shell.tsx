@@ -9,6 +9,7 @@ import { useAccount } from "wagmi";
 import { NetworkBadge } from "@/components/web3/NetworkBadge";
 import { DisconnectHint, WalletConnectButton } from "@/components/web3/WalletConnectButton";
 import { FloatingAssistant } from "@/components/assistant/FloatingAssistant";
+import { openVeloraAssistant } from "@/components/assistant/OpenAssistantButton";
 import { useAdminMode } from "@/hooks/useAdminMode";
 import { recordAdminAnalyticsEvent } from "@/lib/admin/analytics";
 import { Logo, LogoMark } from "./brand";
@@ -74,6 +75,20 @@ function Sidebar() {
       <nav className="mt-9 space-y-1.5">
         {primaryNavItems.map((item) => {
           const active = pathname === item.href;
+          if (item.href === "#assistant") {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={openVeloraAssistant}
+                className="group flex w-full items-center gap-3 rounded-lg border border-orange/35 bg-orange/10 px-3 py-3 text-left text-sm font-semibold text-white shadow-[0_14px_34px_rgba(249,115,22,0.14)] transition hover:bg-orange/15"
+              >
+                <item.icon className="h-4 w-4 text-orange" />
+                <span className="min-w-0 flex-1">{item.label}</span>
+                {item.badge ? <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
+              </button>
+            );
+          }
           return (
             <Link
               key={item.href}
@@ -85,6 +100,7 @@ function Sidebar() {
             >
               <item.icon className="h-4 w-4" />
               <span>{item.label}</span>
+              {item.badge ? <span className="ml-auto rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
             </Link>
           );
         })}
@@ -159,7 +175,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
                 </button>
                 <LogoMark size={42} className="hidden sm:grid" />
                 <div>
-                  <p className="text-sm text-slate-400">{eyebrow ?? "AI-native stablecoin operating system on Arc"}</p>
+                  <p className="text-sm text-slate-400">{eyebrow ?? "Velora AI Public Beta"}</p>
                   <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">{title}</h1>
                 </div>
               </div>
@@ -197,6 +213,23 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
               <nav className="mt-8 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
                 {primaryNavItems.map((item) => {
                   const active = pathname === item.href;
+                  if (item.href === "#assistant") {
+                    return (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          openVeloraAssistant();
+                        }}
+                        className="flex w-full items-center gap-3 rounded-lg border border-orange/35 bg-orange/10 px-3 py-3 text-left text-sm font-semibold text-white"
+                      >
+                        <item.icon className="h-4 w-4 text-orange" />
+                        <span className="min-w-0 flex-1">{item.label}</span>
+                        {item.badge ? <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
+                      </button>
+                    );
+                  }
                   return (
                     <Link
                       key={item.href}
@@ -208,7 +241,8 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
                       )}
                     >
                       <item.icon className="h-4 w-4" />
-                      {item.label}
+                      <span className="min-w-0 flex-1">{item.label}</span>
+                      {item.badge ? <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">{item.badge}</span> : null}
                     </Link>
                   );
                 })}
@@ -239,7 +273,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
         )}
       </AnimatePresence>
 
-      {isAdmin ? <FloatingAssistant /> : null}
+      <FloatingAssistant />
     </main>
   );
 }

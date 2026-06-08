@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Route, Send, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
@@ -13,19 +13,6 @@ type ChatMessage = {
   content: string;
   parsed?: ParsedCommand;
   result?: AssistantActionResult;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-type SpeechRecognitionLike = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
 };
 
 const examples = [
@@ -319,15 +306,6 @@ function shouldAnswerDirectly(parsed: ParsedCommand) {
   return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history", "automation"].includes(parsed.intentType ?? "");
 }
 
-function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
-  if (typeof window === "undefined") return null;
-  const speechWindow = window as typeof window & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
-}
-
 function ConfirmationPreview({
   parsed,
   onEdit,
@@ -482,19 +460,36 @@ export function FloatingAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [voiceNoticeOpen, setVoiceNoticeOpen] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(thinkingSteps[0]);
   const [activePreview, setActivePreview] = useState<ParsedCommand | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "I am online. Type a wallet, swap, bridge, balance, or XP command and I will prepare a safe preview. Velora AI never moves funds automatically. Every transaction will require wallet confirmation."
+      content: "Hi, I'm Velora AI 👋\n\nI can help you:\n\n• Send USDC\n• Swap USDC ↔ EURC\n• Bridge across networks\n• Claim faucet\n• Check balances\n• View rewards\n• Answer questions about Velora, Arc, and Circle\n\nTry:\n\n\"Swap 20 USDC to EURC\"\n\"Bridge 10 USDC to Base\"\n\"What is Velora AI?\""
     }
   ]);
 
   const visibleExamples = useMemo(() => examples.slice(0, 4), []);
+
+  useEffect(() => {
+    function openAssistant() {
+      setOpen(true);
+    }
+
+    window.addEventListener("velora:open-assistant", openAssistant);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("assistant") === "open") {
+      setOpen(true);
+      params.delete("assistant");
+      const nextQuery = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+    }
+
+    return () => window.removeEventListener("velora:open-assistant", openAssistant);
+  }, []);
 
   async function runThinkingAnimation() {
     setIsThinking(true);
@@ -621,55 +616,7 @@ export function FloatingAssistant() {
   }
 
   function handleVoiceInput() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-    const SpeechRecognition = getSpeechRecognitionConstructor();
-    if (!SpeechRecognition) {
-      setMessages((current) => [
-        ...current,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: "Voice input is not supported in this browser yet. You can still type the command."
-        }
-      ]);
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) {
-        setInput(transcript);
-        setMessages((current) => [
-          ...current,
-          {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: `Voice captured: "${transcript}". Review it, then send when ready.`
-          }
-        ]);
-      }
-    };
-    recognition.onerror = () => {
-      setMessages((current) => [
-        ...current,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: "Voice input failed. Please try again or type the command."
-        }
-      ]);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    setIsListening(true);
-    recognition.start();
+    setVoiceNoticeOpen(true);
   }
 
   return (
@@ -715,7 +662,7 @@ export function FloatingAssistant() {
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
                 {messages.map((message) => (
                   <div key={message.id} className={cx("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                    <div className={cx("max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-6", message.role === "user" ? "bg-gradient-to-r from-orange-500 to-red-500 font-semibold text-white" : "border border-white/10 bg-white/[0.04] text-slate-200 light:border-black light:bg-white light:text-slate-800")}>
+                    <div className={cx("max-w-[86%] whitespace-pre-line rounded-2xl px-4 py-3 text-sm leading-6", message.role === "user" ? "bg-gradient-to-r from-orange-500 to-red-500 font-semibold text-white" : "border border-white/10 bg-white/[0.04] text-slate-200 light:border-black light:bg-white light:text-slate-800")}>
                       {message.content}
                       {message.result ? <ResultCard result={message.result} /> : null}
                     </div>
@@ -755,6 +702,27 @@ export function FloatingAssistant() {
               </div>
 
               <form onSubmit={submitCommand} className="border-t border-white/10 p-4 light:border-black">
+                <AnimatePresence>
+                  {voiceNoticeOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="mb-3 rounded-2xl border border-orange-400/25 bg-gradient-to-br from-orange-500/15 via-white/[0.04] to-red-500/10 p-4 shadow-[0_18px_45px_rgba(249,115,22,0.16)] light:border-black light:bg-orange-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-white light:text-slate-950">🎤 Voice Assistant</p>
+                          <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-orange-300 light:text-orange-700">Coming Soon</p>
+                        </div>
+                        <button type="button" onClick={() => setVoiceNoticeOpen(false)} className="rounded-lg border border-white/10 p-1.5 text-slate-300 light:border-black light:text-slate-700" aria-label="Close voice assistant notice">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">Soon you&apos;ll be able to send funds, swap tokens, bridge assets, claim faucet, check rewards, and manage your wallet using voice commands.</p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
                 <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2 light:border-black light:bg-white">
                   <input
                     value={input}
@@ -763,8 +731,13 @@ export function FloatingAssistant() {
                     disabled={isThinking}
                     className="min-h-11 flex-1 bg-transparent px-3 text-sm text-white outline-none placeholder:text-slate-500 light:text-slate-950"
                   />
-                  <button type="button" onClick={handleVoiceInput} className="hidden items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 sm:inline-flex light:border-black light:text-slate-700">
-                    <Mic className="h-4 w-4" /> {isListening ? "Listening" : "Voice"}
+                  <button type="button" onClick={handleVoiceInput} className="group relative inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700 light:hover:text-orange-700">
+                    <Mic className="h-4 w-4" /> Voice
+                    <span className="pointer-events-none absolute bottom-full right-0 mb-2 hidden w-64 rounded-xl border border-orange-400/25 bg-slate-950 p-3 text-left text-xs leading-5 text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.36)] group-hover:block light:border-black light:bg-white light:text-slate-800">
+                      <span className="block font-black text-white light:text-slate-950">🎤 Voice Assistant</span>
+                      <span className="mt-1 block font-black uppercase tracking-[0.14em] text-orange-300 light:text-orange-700">Coming Soon</span>
+                      <span className="mt-2 block">Soon you&apos;ll use voice commands for sends, swaps, bridges, faucet, rewards, and wallet management.</span>
+                    </span>
                   </button>
                   <button type="submit" disabled={isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.28)] disabled:cursor-not-allowed disabled:opacity-70" aria-label="Send assistant message">
                     <ArrowRight className="h-5 w-5" />

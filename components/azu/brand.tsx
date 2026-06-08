@@ -51,7 +51,7 @@ export function HeroOrbit() {
       ))}
       <div className="absolute bottom-8 left-4 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xl sm:left-8">
         <p className="text-xs text-slate-400">Status</p>
-        <p className="text-xl font-bold text-white">Testnet Alpha</p>
+        <p className="text-xl font-bold text-white">Public Beta</p>
       </div>
       <div className="absolute right-2 top-12 rounded-lg border border-cyan/20 bg-white/[0.06] px-4 py-3 backdrop-blur-xl sm:right-4">
         <p className="text-xs text-slate-400">Network</p>

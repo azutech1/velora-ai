@@ -21,7 +21,7 @@ const sections = [
   {
     id: "status",
     title: "Status Page",
-    body: "Current product status: Testnet Alpha on Arc Testnet. Production status reporting for platform services, payments, and integrations is planned."
+    body: "Current product status: Velora AI Public Beta on Arc Testnet. Public status reporting for platform services, payments, and integrations is planned."
   },
   {
     id: "community",
@@ -31,7 +31,7 @@ const sections = [
   {
     id: "announcements",
     title: "Announcements",
-    body: "Product announcements, release notes, and integration updates will be published here as Velora AI moves through alpha milestones."
+    body: "Product announcements, release notes, and integration updates will be published here as Velora AI moves through public beta milestones."
   },
   {
     id: "support",
@@ -55,7 +55,7 @@ export default function DocsPage() {
             }
           >
             <p className="max-w-3xl text-sm leading-7 text-slate-400">
-              Velora AI is an AI-native stablecoin operating system on Arc. These docs provide a stable home for product, developer, community, and support resources as integrations move from alpha to production.
+              Velora AI Public Beta helps users experience AI-powered stablecoin actions on Arc. These docs provide a stable home for product, developer, community, and support resources as integrations expand.
             </p>
           </Panel>
         </div>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Award, BadgeCheck, Copy, Crown, Download, Flame, LogOut, RefreshCw, Sparkles, WalletCards } from "lucide-react";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
+import { AssistantHint } from "@/components/assistant/AssistantHint";
 import { MetricCard, Panel } from "@/components/azu/ui";
 import { cx } from "@/components/azu/utils";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
@@ -159,6 +160,8 @@ export default function ProfilePage() {
   return (
     <AppShell title="Profile" eyebrow="Wallet portfolio and Velora AI activity center">
       <div className="space-y-6">
+        <AssistantHint tip="Use Velora AI Assistant to understand platform features and your account activity." />
+
         {isConnected && isAdmin ? (
           <Panel title="Admin Tools" eyebrow="Creator wallet access">
             <div className="rounded-lg border border-mint/20 bg-mint/10 p-4 text-sm text-slate-300">

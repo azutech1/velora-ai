@@ -3,8 +3,8 @@ import { Web3Provider } from "@/components/web3/Web3Provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Velora AI | AI-Native Stablecoin OS on Arc",
-  description: "Velora AI is the AI-native stablecoin operating system on Arc.",
+  title: "Velora AI Public Beta | AI-Powered Stablecoin Actions on Arc",
+  description: "Velora AI Public Beta helps users send, swap, bridge, claim faucet, and check rewards with natural language on Arc.",
   applicationName: "Velora AI",
   icons: {
     icon: [
@@ -16,14 +16,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Velora AI",
-    description: "AI-native stablecoin operating system on Arc.",
+    description: "Experience AI-powered stablecoin actions on Arc.",
     siteName: "Velora AI",
     type: "website"
   },
   twitter: {
     card: "summary_large_image",
     title: "Velora AI",
-    description: "Smart stablecoin payments for the AI economy."
+    description: "Talk to your wallet with Velora AI Public Beta."
   }
 };
 

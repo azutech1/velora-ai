@@ -72,7 +72,7 @@ export default function SettingsPage() {
               <SettingRow label="Project" value="Velora AI" />
               <SettingRow label="Network" value="Arc Testnet" status="Ready" tone="ready" />
               <SettingRow label="Settlement asset" value="USDC" status="Ready" tone="ready" />
-              <SettingRow label="Status" value="Testnet Alpha" status="Active" tone="enabled" />
+              <SettingRow label="Status" value="Public Beta" status="Active" tone="enabled" />
             </div>
           </Panel>
 

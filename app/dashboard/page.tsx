@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { ArrowRightLeft, BadgeCheck, Droplets, Flame, Network, Search, ShieldCheck, Trophy, Wallet } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, Bot, Droplets, Flame, Network, Search, ShieldCheck, Trophy, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
+import { OpenAssistantButton } from "@/components/assistant/OpenAssistantButton";
 import { TokenLogo } from "@/components/token/TokenLogo";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
@@ -125,8 +126,34 @@ export default function DashboardPage() {
   const nextLevelName = pioneerSummary.nextLevel?.name ?? "Complete";
 
   return (
-    <AppShell title="Dashboard">
+    <AppShell title="Dashboard" eyebrow="Velora AI Public Beta">
       <div className="space-y-6">
+        <section className="relative overflow-hidden rounded-2xl border border-orange/25 bg-gradient-to-br from-orange/15 via-white/[0.04] to-red-500/10 p-5 shadow-[0_24px_80px_rgba(249,115,22,0.12)] light:border-black light:bg-orange-50 light:from-orange-50 light:via-white light:to-red-50">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-orange/20 blur-3xl" />
+          <div className="relative flex flex-wrap items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_16px_42px_rgba(249,115,22,0.28)]">
+                <Bot className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">Talk to your wallet</p>
+                <h2 className="mt-1 text-2xl font-black text-white light:text-slate-950">🤖 Velora AI Assistant</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300 light:text-slate-700">
+                  Send, Swap, Bridge, Claim Faucet, Check Rewards, and manage your wallet using natural language.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["Send 10 USDC", "Swap 20 USDC to EURC", "Bridge 10 USDC to Base", "Claim Faucet", "Show my wallet balance"].map((example) => (
+                    <span key={example} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 light:border-black light:bg-white light:text-slate-800">
+                      {example}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <OpenAssistantButton>Open AI Assistant</OpenAssistantButton>
+          </div>
+        </section>
+
         <Panel title="Portfolio Overview" eyebrow="Wallet balances">
           {!isConnected ? (
             <EmptyState message="Connect wallet to view your portfolio." />

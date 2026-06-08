@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Velora AI",
     short_name: "Velora AI",
-    description: "AI-native stablecoin operating system on Arc.",
+    description: "Experience AI-powered stablecoin actions on Arc.",
     start_url: "/",
     display: "standalone",
     background_color: "#05070D",

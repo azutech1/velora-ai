@@ -85,7 +85,7 @@ export function SiteFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.25fr_0.75fr_0.85fr_0.8fr]">
           <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35 }}>
             <Logo />
-            <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">AI-native stablecoin operating system on Arc.</p>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">Velora AI Public Beta. Experience AI-powered stablecoin actions on Arc.</p>
             <div className="mt-6 flex flex-wrap gap-3">
               {socialLinks.map((link) => (
                 <SmartLink
@@ -100,7 +100,7 @@ export function SiteFooter() {
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan">
-                <Shield className="h-3.5 w-3.5" /> Testnet Alpha
+                <Shield className="h-3.5 w-3.5" /> Public Beta
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan">
                 <Radio className="h-3.5 w-3.5" /> Arc Testnet

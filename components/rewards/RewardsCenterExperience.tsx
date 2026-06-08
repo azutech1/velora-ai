@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
+import { AssistantHint } from "@/components/assistant/AssistantHint";
 import { cx } from "@/components/azu/utils";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useRewardsCenter } from "@/hooks/useRewardsCenter";
@@ -385,6 +386,8 @@ export function RewardsCenterExperience() {
             </motion.div>
           ) : null}
         </AnimatePresence>
+
+        <AssistantHint tip={'Ask Velora AI: "Show my XP"'} />
 
         <section className="relative overflow-hidden rounded-2xl border border-orange-400/20 bg-gradient-to-br from-orange-500/14 via-white/[0.04] to-amber-400/12 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.26)] light:border-black light:bg-white light:from-orange-50 light:via-white light:to-amber-50 light:shadow-[0_24px_70px_rgba(15,23,42,0.1)]">
           <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-orange-500/16 blur-3xl" />

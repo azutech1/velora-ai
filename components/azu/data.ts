@@ -26,10 +26,12 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   secondary?: boolean;
+  badge?: string;
 };
 
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Velora AI Assistant", href: "#assistant", icon: Bot, badge: "NEW" },
   { label: "Payments", href: "/send", icon: Send },
   { label: "Bridge & Swap", href: "/trade", icon: Repeat2 },
   { label: "Faucet", href: "/faucet", icon: Droplets },

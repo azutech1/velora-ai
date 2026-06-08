@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, parseUnits, type Address, type Hex } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
+import { AssistantHint } from "@/components/assistant/AssistantHint";
 import { cx } from "@/components/azu/utils";
 import { NetworkLogo } from "@/components/token/NetworkLogo";
 import { TokenLogo } from "@/components/token/TokenLogo";
@@ -2354,6 +2355,9 @@ export default function TradePage() {
                   {item === "swap" ? "Swap" : "Bridge"}
                 </button>
               ))}
+            </div>
+            <div className="mb-5">
+              <AssistantHint tip={tab === "swap" ? "You can also swap using Velora AI Assistant." : 'Try: "Bridge 10 USDC to Base"'} />
             </div>
 
             {tab === "swap" ? (

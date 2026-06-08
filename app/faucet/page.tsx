@@ -4,6 +4,7 @@ import { ArrowUpRight, CheckCircle2, Droplets, Info, ShieldCheck, Wallet } from 
 import { useAccount } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { Panel } from "@/components/azu/ui";
+import { AssistantHint } from "@/components/assistant/AssistantHint";
 import { FaucetEligibility } from "@/components/faucet/FaucetEligibility";
 import { useArcNetwork } from "@/hooks/useArcNetwork";
 import { CIRCLE_FAUCET_URL, FAUCET_SAFETY_TEXT } from "@/lib/faucet/tokens";
@@ -18,6 +19,7 @@ export default function FaucetPage() {
     <AppShell title="Faucet" eyebrow="Official Arc testnet access">
       <div className="space-y-6">
         <FaucetEligibility isConnected={isConnected} isArc={isArc} />
+        <AssistantHint tip={'Ask Velora AI: "Claim faucet"'} />
 
         <Panel title="Get Arc Testnet Assets" eyebrow="Testnet Access">
           <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
