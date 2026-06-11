@@ -31,17 +31,17 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Velora AI Assistant", href: "#assistant", icon: Bot, badge: "NEW" },
   { label: "Payments", href: "/send", icon: Send },
   { label: "Bridge & Swap", href: "/trade", icon: Repeat2 },
   { label: "Faucet", href: "/faucet", icon: Droplets },
-  { label: "Activity", href: "/activity", icon: Activity },
+  { label: "Velora AI Assistant", href: "#assistant", icon: Bot, badge: "NEW" },
   { label: "AI Automation", href: "/automation", icon: Cpu },
   { label: "AI Agents", href: "/agents", icon: Bot },
   { label: "Agent Payments", href: "/agent-payments", icon: ReceiptText },
   { label: "Velora Token", href: "/token", icon: Coins },
   { label: "Rewards Center", href: "/rewards", icon: Gift },
   { label: "Profile", href: "/profile", icon: UserCircle },
+  { label: "Activity", href: "/activity", icon: Activity },
   { label: "Admin", href: "/admin", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings, secondary: true }
 ];

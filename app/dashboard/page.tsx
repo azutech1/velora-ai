@@ -139,10 +139,10 @@ export default function DashboardPage() {
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">Talk to your wallet</p>
                 <h2 className="mt-1 text-2xl font-black text-white light:text-slate-950">🤖 Velora AI Assistant</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300 light:text-slate-700">
-                  Send, Swap, Bridge, Claim Faucet, Check Rewards, and manage your wallet using natural language.
+                  Send, Swap, Bridge, Check Rewards, and manage your wallet using natural language.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {["Send 10 USDC", "Swap 20 USDC to EURC", "Bridge 10 USDC to Base", "Claim Faucet", "Show my wallet balance"].map((example) => (
+                  {["Send 10 USDC", "Swap 20 USDC to EURC", "Bridge 10 USDC to Base", "Show my wallet balance"].map((example) => (
                     <span key={example} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200 light:border-black light:bg-white light:text-slate-800">
                       {example}
                     </span>

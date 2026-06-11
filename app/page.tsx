@@ -64,7 +64,7 @@ export default function LandingPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Use natural language to:</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {["Send funds", "Swap stablecoins", "Bridge assets", "Claim faucet", "Check rewards", "Explore Arc ecosystem tools"].map((item) => (
+                {["Send funds", "Swap stablecoins", "Bridge assets", "Check rewards", "Explore Arc ecosystem tools"].map((item) => (
                   <div key={item} className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-bold text-white">
                     {item}
                   </div>

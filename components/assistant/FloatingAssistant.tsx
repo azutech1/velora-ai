@@ -35,7 +35,6 @@ const examples = [
   "Swap 20 USDC to EURC",
   "Swap EURC to USDC",
   "Bridge 50 USDC to Base",
-  "Claim Arc faucet",
   "Show my wallet balance",
   "Show my XP",
   "What is Circle CCTP?"
@@ -510,7 +509,7 @@ export function FloatingAssistant() {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi, I'm Velora AI 👋\n\nI can help you:\n\n• Send USDC\n• Swap USDC ↔ EURC\n• Bridge across networks\n• Claim faucet\n• Check balances\n• View rewards\n• Answer questions about Velora, Arc, and Circle\n\nTry:\n\n\"Swap 20 USDC to EURC\"\n\"Bridge 10 USDC to Base\"\n\"What is Velora AI?\""
+      content: "Hi, I'm Velora AI 👋\n\nI can help you:\n\n• Send USDC\n• Swap USDC ↔ EURC\n• Bridge across networks\n• Check balances\n• View rewards\n• Answer questions about Velora, Arc, and Circle\n\nTry:\n\n\"Swap 20 USDC to EURC\"\n\"Bridge 10 USDC to Base\"\n\"What is Velora AI?\""
     }
   ]);
 
@@ -621,7 +620,7 @@ export function FloatingAssistant() {
     if (command.type === "show") {
       const content = assistantContacts.contacts.length
         ? `Saved contacts:\n\n${assistantContacts.contacts.map((contact) => `${contact.name}: ${contact.address}`).join("\n")}`
-        : "No saved contacts yet. You can say: Save this address as Ali: 0x...";
+        : "No saved contacts yet. You can say: Save this address as XYZ: 0x...";
       setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: "assistant", content }]);
       return;
     }
@@ -955,7 +954,7 @@ export function FloatingAssistant() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-black text-white light:text-slate-950">Saved Contacts</p>
-                      <p className="mt-1 text-xs text-slate-400 light:text-slate-600">Use names in commands like “Send 10 USDC to Ali”.</p>
+                      <p className="mt-1 text-xs text-slate-400 light:text-slate-600">Use names in commands like “Send 10 USDC to XYZ”.</p>
                     </div>
                     <UserPlus className="h-4 w-4 text-orange-300 light:text-orange-700" />
                   </div>
@@ -985,7 +984,7 @@ export function FloatingAssistant() {
                     </div>
                   ) : (
                     <p className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-400 light:border-black light:bg-slate-50 light:text-slate-600">
-                      No contacts saved yet. Try: Save this address as Ali: 0x...
+                      No contacts saved yet. Try: Save this address as XYZ: 0x...
                     </p>
                   )}
                 </div>
@@ -1009,7 +1008,7 @@ export function FloatingAssistant() {
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">Soon you&apos;ll be able to send funds, swap tokens, bridge assets, claim faucet, check rewards, and manage your wallet using voice commands.</p>
+                      <p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">Soon you&apos;ll be able to send funds, swap tokens, bridge assets, check rewards, and manage your wallet using voice commands.</p>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
@@ -1026,7 +1025,7 @@ export function FloatingAssistant() {
                     <span className="pointer-events-none absolute bottom-full right-0 mb-2 hidden w-64 rounded-xl border border-orange-400/25 bg-slate-950 p-3 text-left text-xs leading-5 text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.36)] group-hover:block light:border-black light:bg-white light:text-slate-800">
                       <span className="block font-black text-white light:text-slate-950">🎤 Voice Assistant</span>
                       <span className="mt-1 block font-black uppercase tracking-[0.14em] text-orange-300 light:text-orange-700">Coming Soon</span>
-                      <span className="mt-2 block">Soon you&apos;ll use voice commands for sends, swaps, bridges, faucet, rewards, and wallet management.</span>
+                      <span className="mt-2 block">Soon you&apos;ll use voice commands for sends, swaps, bridges, rewards, and wallet management.</span>
                     </span>
                   </button>
                   <button type="submit" disabled={isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.28)] disabled:cursor-not-allowed disabled:opacity-70" aria-label="Send assistant message">
