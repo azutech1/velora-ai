@@ -320,6 +320,7 @@ export function useAssistantActions() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
+  const walletAddress = address ?? walletClient?.account.address ?? null;
   const publicClient = usePublicClient();
   const portfolio = usePortfolioBalances();
   const transactions = useTransactions();
@@ -338,13 +339,13 @@ export function useAssistantActions() {
 
   const sendTransactionRequest = useCallback(
     async (transactionRequest: RouteTransactionRequest, expectedChainId: number) => {
-      if (!walletClient || !publicClient || !address) throw new Error("Connect wallet first.");
+      if (!walletClient || !publicClient || !walletAddress) throw new Error("Connect wallet first.");
       if (!transactionRequest.to || !transactionRequest.data) throw new Error("No executable wallet transaction is available for this route.");
       const requestChainId = transactionRequest.chainId ?? expectedChainId;
       if (chainId !== requestChainId) throw new Error("Please switch to the correct network.");
       setProgress("waitingWalletConfirmation", "Waiting for wallet confirmation");
       const txHash = await walletClient.sendTransaction({
-        account: address,
+        account: walletAddress,
         to: transactionRequest.to as Address,
         data: transactionRequest.data as Hex,
         value: parseOptionalBigInt(transactionRequest.value),
@@ -362,49 +363,49 @@ export function useAssistantActions() {
       }
       return txHash;
     },
-    [address, chainId, publicClient, setProgress, walletClient]
+    [chainId, publicClient, setProgress, walletAddress, walletClient]
   );
 
   const ensureTokenBalance = useCallback(
     async (tokenAddress: Address, amount: string, decimals: number) => {
-      if (!publicClient || !address) throw new Error("Connect wallet first.");
+      if (!publicClient || !walletAddress) throw new Error("Connect wallet first.");
       const required = parseUnits(amount, decimals);
       const balance = await publicClient.readContract({
         address: tokenAddress,
         abi: erc20UsdcAbi,
         functionName: "balanceOf",
-        args: [address]
+        args: [walletAddress]
       });
       if (balance < required) throw new Error("Insufficient balance.");
       return balance;
     },
-    [address, publicClient]
+    [publicClient, walletAddress]
   );
 
   const ensureGasBalance = useCallback(async () => {
-    if (!publicClient || !address) throw new Error("Connect wallet first.");
-    const balance = await publicClient.getBalance({ address });
+    if (!publicClient || !walletAddress) throw new Error("Connect wallet first.");
+    const balance = await publicClient.getBalance({ address: walletAddress });
     if (balance <= BigInt(0)) throw new Error("Insufficient gas.");
     return balance;
-  }, [address, publicClient]);
+  }, [publicClient, walletAddress]);
 
   const ensureTokenAllowance = useCallback(
     async (options: { tokenAddress: Address; spender: Address | null; amount: string; decimals: number; tokenSymbol: string }) => {
       if (!options.spender) return null;
-      if (!walletClient || !publicClient || !address) throw new Error("Connect wallet first.");
+      if (!walletClient || !publicClient || !walletAddress) throw new Error("Connect wallet first.");
       const requiredAmount = parseUnits(options.amount, options.decimals);
       if (requiredAmount <= BigInt(0)) return null;
       const allowance = (await publicClient.readContract({
         address: options.tokenAddress,
         abi: erc20Abi,
         functionName: "allowance",
-        args: [address, options.spender]
+        args: [walletAddress, options.spender]
       })) as bigint;
       if (allowance >= requiredAmount) return null;
 
       setProgress("waitingWalletConfirmation", `Approve ${options.tokenSymbol} spending in wallet.`);
       const approvalHash = await walletClient.writeContract({
-        account: address,
+        account: walletAddress,
         address: options.tokenAddress,
         abi: erc20Abi,
         functionName: "approve",
@@ -420,7 +421,7 @@ export function useAssistantActions() {
       setProgress("preparingTransaction", "Token approved. Preparing swap transaction...");
       return approvalHash;
     },
-    [address, publicClient, setProgress, walletClient]
+    [publicClient, setProgress, walletAddress, walletClient]
   );
 
   const executeSend = useCallback(
@@ -474,7 +475,7 @@ export function useAssistantActions() {
 
   const executeSwap = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
-      if (!address) throw new Error("Connect wallet first.");
+      if (!walletAddress) throw new Error("Connect wallet first.");
       if (chainId !== ARC_CHAIN_ID) throw new Error("Please switch to the correct network.");
       if (!parsed.amount || !parsed.token || !parsed.receiveToken) throw new Error("Enter a sell amount, sell token, and receive token.");
       const from = getSwapToken(parsed.token);
@@ -489,7 +490,7 @@ export function useAssistantActions() {
       setProgress("preparingTransaction", "Preparing swap route");
       const request: RouteRequest = {
         routeType: "swap",
-        walletAddress: address,
+        walletAddress,
         walletChainId: chainId,
         fromChainId: ARC_CHAIN_ID,
         toChainId: ARC_CHAIN_ID,
@@ -506,7 +507,7 @@ export function useAssistantActions() {
           fromToken: fromAddress,
           toToken: toAddress,
           fromAmount: parseUnits(parsed.amount ?? "0", from.decimals).toString(),
-          fromAddress: address,
+          fromAddress: walletAddress,
           slippage: 0.5
         });
       const providers = createSwapServiceProviders({
@@ -751,12 +752,12 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, appKitSwap, chainId, ensureGasBalance, ensureTokenAllowance, ensureTokenBalance, portfolio.positions, publicClient, sendTransactionRequest, setProgress]
+    [activity, appKitSwap, chainId, ensureGasBalance, ensureTokenAllowance, ensureTokenBalance, portfolio.positions, publicClient, sendTransactionRequest, setProgress, walletAddress]
   );
 
   const executeBridge = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
-      if (!address) throw new Error("Connect wallet first.");
+      if (!walletAddress) throw new Error("Connect wallet first.");
       if (!parsed.amount || !parsed.token) throw new Error("Enter an amount and token.");
       if (parsed.token !== "USDC") throw new Error("Phase 2 bridge currently supports USDC only.");
       const fromChain = getChainByAssistantName(parsed.sourceChain, chainId);
@@ -773,7 +774,7 @@ export function useAssistantActions() {
       setProgress("preparingTransaction", "Preparing bridge route");
       const request: RouteRequest = {
         routeType: "bridge",
-        walletAddress: address,
+        walletAddress,
         walletChainId: chainId,
         fromChainId: fromChain.chainId,
         toChainId: toChain.chainId,
@@ -797,7 +798,7 @@ export function useAssistantActions() {
             fromChainId: fromChain.chainId,
             toChainId: toChain.chainId,
             amount: parsed.amount ?? "0",
-            walletAddress: address,
+            walletAddress,
             onStage: (stage, message) => {
               console.info("[Velora Assistant Bridge] lifecycle stage", {
                 command: parsed,
@@ -875,30 +876,30 @@ export function useAssistantActions() {
           { label: "Provider", value: routeResult.route.providerName },
           { label: "From", value: fromChain.name },
           { label: "To", value: toChain.name },
-          { label: "Destination Wallet", value: address },
+          { label: "Destination Wallet", value: walletAddress },
           { label: "Amount", value: `${parsed.amount} USDC` },
           ...(result.completionTime ? [{ label: "Completion Time", value: new Date(result.completionTime).toLocaleString() }] : [])
         ]
       };
     },
-    [activity, address, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress]
+    [activity, chainId, ensureGasBalance, ensureTokenBalance, portfolio.positions, sendTransactionRequest, setProgress, walletAddress]
   );
 
   const readBalances = useCallback((): AssistantActionResult => {
-    if (!isConnected || !address) throw new Error("Connect wallet first.");
+    if (!isConnected || !walletAddress) throw new Error("Connect wallet first.");
     if (!portfolio.arcConnected) throw new Error("Please switch to the correct network.");
     const chain = getChainById(chainId);
     return {
       title: "Portfolio Summary",
-      message: `Your connected wallet ${address.slice(0, 6)}...${address.slice(-4)} is on ${chain?.name ?? "the current network"} with an estimated portfolio value of ${portfolio.totalValueLabel}.`,
+      message: `Your connected wallet ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} is on ${chain?.name ?? "the current network"} with an estimated portfolio value of ${portfolio.totalValueLabel}.`,
       details: [
-        { label: "Wallet", value: address },
+        { label: "Wallet", value: walletAddress },
         { label: "Connected network", value: chain?.name ?? `Chain ${chainId}` },
         { label: "Total value", value: portfolio.totalValueLabel },
         ...portfolio.positions.map((position) => ({ label: `${position.token.symbol} balance`, value: `${position.balanceLabel} ${position.token.symbol}` }))
       ]
     };
-  }, [address, chainId, isConnected, portfolio.arcConnected, portfolio.positions, portfolio.totalValueLabel]);
+  }, [chainId, isConnected, portfolio.arcConnected, portfolio.positions, portfolio.totalValueLabel, walletAddress]);
 
   const readRewards = useCallback((): AssistantActionResult => {
     if (!isConnected) throw new Error("Connect wallet first.");
@@ -920,13 +921,13 @@ export function useAssistantActions() {
   }, [isConnected, rewards.achievements, rewards.currentStreak, rewards.earlyPioneerBadge, rewards.level, rewards.xp]);
 
   const readProfile = useCallback((): AssistantActionResult => {
-    if (!isConnected || !address) throw new Error("Connect wallet first.");
+    if (!isConnected || !walletAddress) throw new Error("Connect wallet first.");
     const chain = getChainById(chainId);
     return {
       title: "Profile Summary",
-      message: `Your connected profile is ${address.slice(0, 6)}...${address.slice(-4)} on ${chain?.name ?? "the current network"}.`,
+      message: `Your connected profile is ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} on ${chain?.name ?? "the current network"}.`,
       details: [
-        { label: "Wallet", value: address },
+        { label: "Wallet", value: walletAddress },
         { label: "Network", value: chain?.name ?? `Chain ${chainId}` },
         { label: "Portfolio", value: portfolio.totalValueLabel },
         { label: "XP", value: `${rewards.xp.toLocaleString()} XP` },
@@ -934,7 +935,7 @@ export function useAssistantActions() {
         { label: "Current streak", value: `${rewards.currentStreak} Days` }
       ]
     };
-  }, [address, chainId, isConnected, portfolio.totalValueLabel, rewards.currentStreak, rewards.level.level, rewards.xp]);
+  }, [chainId, isConnected, portfolio.totalValueLabel, rewards.currentStreak, rewards.level.level, rewards.xp, walletAddress]);
 
   const readTransactionHistory = useCallback((parsed?: ParsedCommand): AssistantActionResult => {
     if (!isConnected) throw new Error("Connect wallet first.");
@@ -958,7 +959,7 @@ export function useAssistantActions() {
 
   const createAutomationAlert = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
-      if (!isConnected || !address) throw new Error("Connect wallet first.");
+      if (!isConnected || !walletAddress) throw new Error("Connect wallet first.");
       const command = parsed.question ?? "Assistant alert";
       const createdAt = new Date().toISOString();
       const rule: AssistantAutomationRule = {
@@ -968,8 +969,8 @@ export function useAssistantActions() {
         status: "active",
         createdAt
       };
-      const rules = [rule, ...readAutomationRules(address)].slice(0, 25);
-      writeAutomationRules(address, rules);
+      const rules = [rule, ...readAutomationRules(walletAddress)].slice(0, 25);
+      writeAutomationRules(walletAddress, rules);
       activity.recordActivity({
         actionType: "ai_automation_created",
         title: "Assistant alert created",
@@ -992,12 +993,12 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address, isConnected]
+    [activity, isConnected, walletAddress]
   );
 
   const openFaucetWorkflow = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
-      const targetWallet = parsed.destinationAddress ?? address;
+      const targetWallet = parsed.destinationAddress ?? walletAddress;
       if (!targetWallet || !isAddress(targetWallet)) {
         throw new Error("Connect wallet first or include a valid wallet address.");
       }
@@ -1034,7 +1035,7 @@ export function useAssistantActions() {
         ]
       };
     },
-    [activity, address]
+    [activity, walletAddress]
   );
 
   const answerKnowledgeQuestion = useCallback((parsed: ParsedCommand): AssistantActionResult => {
@@ -1066,7 +1067,16 @@ export function useAssistantActions() {
       setProgress("validating", "Validating request");
       try {
         const requiresWallet = !["knowledge", "faucet"].includes(parsed.actionType);
-        if (requiresWallet && !isConnected) throw new Error("Connect wallet first.");
+        if (requiresWallet && (!isConnected || !walletAddress)) {
+          console.warn("[Velora Assistant] wallet unavailable for action", {
+            actionType: parsed.actionType,
+            isConnected,
+            wagmiAddress: address ?? null,
+            walletClientAddress: walletClient?.account.address ?? null,
+            chainId
+          });
+          throw new Error("Connect wallet first.");
+        }
         setProgress("checkingWallet", "Checking wallet");
         let result: AssistantActionResult;
         if (parsed.actionType === "send") result = await executeSend(parsed);
@@ -1121,7 +1131,7 @@ export function useAssistantActions() {
         setIsRunning(false);
       }
     },
-    [activity, answerKnowledgeQuestion, createAutomationAlert, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress]
+    [activity, address, answerKnowledgeQuestion, chainId, createAutomationAlert, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress, walletAddress, walletClient?.account.address]
   );
 
   return useMemo(
