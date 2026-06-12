@@ -146,11 +146,11 @@ function formatProviderFailure(failureReasons: Record<string, string>) {
 function formatSwapProviderFailure(failureReasons: Record<string, string>) {
   const fallbackReason = failureReasons["LI.FI fallback"] || failureReasons["LI.FI Swap"];
   if (fallbackReason) {
+    if (/no available quotes|provider code 1002|requested transfer|route unavailable|no route|not supported|unsupported/i.test(fallbackReason)) {
+      return "Swap Preparation Failed: No executable swap route is currently available for this token pair.";
+    }
     if (/quote without wallet transaction|without wallet transaction|no executable|transaction request/i.test(fallbackReason)) {
       return "Swap Preparation Failed: Provider returned a quote but no executable transaction.";
-    }
-    if (/route unavailable|no route|not supported|unsupported/i.test(fallbackReason)) {
-      return "Swap Preparation Failed: Route unavailable for this token pair.";
     }
     if (/wrong chain|wrong network/i.test(fallbackReason)) return "Please switch to the correct network.";
     if (/insufficient/i.test(fallbackReason)) return "Insufficient balance.";
@@ -158,6 +158,9 @@ function formatSwapProviderFailure(failureReasons: Record<string, string>) {
   }
 
   const values = Object.values(failureReasons).filter(Boolean);
+  if (values.some((reason) => /no available quotes|provider code 1002|requested transfer|route unavailable|no route|not supported|unsupported/i.test(reason))) {
+    return "Swap Preparation Failed: No executable swap route is currently available for this token pair.";
+  }
   const nonNetworkReason = values.find((reason) => !/unsupported|not configured|network connection|failed to fetch|fetch failed/i.test(reason));
   if (nonNetworkReason) return `Swap Preparation Failed: ${nonNetworkReason}`;
   return "Swap Preparation Failed: All swap providers are currently unavailable.";

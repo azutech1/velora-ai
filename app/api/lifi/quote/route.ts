@@ -73,6 +73,11 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
+function isNoQuoteProviderError(payload: { message?: string; error?: string; code?: number } | null) {
+  const detail = `${payload?.message ?? ""} ${payload?.error ?? ""}`;
+  return payload?.code === 1002 || /no available quotes|requested transfer/i.test(detail);
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as LifiQuoteRequest | null;
   if (!body) return badRequest("Invalid quote payload.");
@@ -135,6 +140,9 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as { message?: string; error?: string; code?: number } | null;
+      if (isNoQuoteProviderError(payload)) {
+        return NextResponse.json({ error: "Route unavailable for this token pair." }, { status: 422 });
+      }
       const detail = payload?.message ?? payload?.error ?? "Live quote unavailable.";
       const code = payload?.code ? ` Provider code ${payload.code}.` : "";
       return NextResponse.json({ error: `${detail}${code}` }, { status: 502 });

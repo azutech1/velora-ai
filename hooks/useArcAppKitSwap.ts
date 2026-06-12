@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 import { getArcAppKitUnsupportedReason, hasCircleAppKitKey, isArcAppKitSwapPair, type ArcAppKitSwapToken } from "@/lib/appkit/config";
 import { estimateArcAppKitSwap, executeArcAppKitSwap, type ArcAppKitSwapEstimate, type ArcAppKitSwapResult, type Eip1193Provider } from "@/lib/appkit/swap";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
@@ -38,6 +38,8 @@ function getAppKitErrorMessage(error: unknown, fallback: string) {
 
 export function useArcAppKitSwap() {
   const { address, chainId, connector, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const walletAddress = address ?? walletClient?.account.address ?? null;
   const { isArc } = useArcNetwork();
   const [state, setState] = useState<AppKitSwapState>("idle");
   const [estimate, setEstimate] = useState<ArcAppKitSwapEstimate | null>(null);
@@ -86,7 +88,7 @@ export function useArcAppKitSwap() {
         tokenOut,
         amountIn,
         slippageBps,
-        walletAddress: address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null,
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : null,
         chainId,
         connectorName: connector?.name,
         hasProvider: Boolean(provider),
@@ -97,7 +99,7 @@ export function useArcAppKitSwap() {
         tokenOut: tokenOut as ArcAppKitSwapToken,
         amountIn,
         slippageBps,
-        walletAddress: address,
+        walletAddress: walletAddress ?? undefined,
         provider: isEip1193Provider(provider) ? provider : undefined
       });
       console.info("[Velora AppKit Swap] Estimate flow completed", {
@@ -123,7 +125,7 @@ export function useArcAppKitSwap() {
       setState("error");
       throw err;
     }
-  }, [address, canUseRealSwap, chainId, connector, getUnsupportedReason, isArc, isConnected]);
+  }, [canUseRealSwap, chainId, connector, getUnsupportedReason, isArc, isConnected, walletAddress]);
 
   const executeSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number, preparedEstimate?: ArcAppKitSwapEstimate) => {
     setError(null);
