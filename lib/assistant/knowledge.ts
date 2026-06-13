@@ -215,7 +215,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     topics: ["usdc", "usd coin", "what is usdc"],
     answer:
       "USDC is Circle's dollar-backed stablecoin. Velora focuses on USDC-first workflows including sending, swapping, bridging, activity tracking, and rewards progress on supported testnet routes.",
-    relatedCommands: ["Send 10 USDC to 0x...", "Swap 20 USDC to EURC"]
+    relatedCommands: ["Send 10 USDC to XYZ", "Swap 20 USDC to EURC"]
   },
   {
     id: "eurc",
@@ -242,7 +242,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     topics: ["agent wallets", "what are agent wallets", "agent wallet", "ai wallet"],
     answer:
       "Agent Wallets are a design direction for AI-assisted wallet experiences where software can prepare recommendations or requests while users remain in control. In Velora, every transaction remains approval-first and requires wallet confirmation.",
-    relatedCommands: ["How does Velora AI work?", "Send 10 USDC to 0x..."]
+    relatedCommands: ["How does Velora AI work?", "Send 10 USDC to XYZ"]
   },
   {
     id: "scam-safety",

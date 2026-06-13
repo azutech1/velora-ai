@@ -32,13 +32,13 @@ type PendingContactSave = {
 };
 
 const examples = [
-  "Send 10 USDC to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+  "Send 10 USDC to XYZ",
+  "Send 25 USDC to John",
   "Swap 20 USDC to EURC",
   "Swap EURC to USDC",
   "Bridge 50 USDC to Base",
   "Show my wallet balance",
-  "Show my XP",
-  "What is Circle CCTP?"
+  "Show my rewards"
 ];
 
 const thinkingSteps = ["Analyzing request...", "Detecting action...", "Reading token and amount...", "Preparing preview..."];
@@ -674,7 +674,7 @@ export function FloatingAssistant() {
     if (command.type === "show") {
       const content = assistantContacts.contacts.length
         ? `Saved contacts:\n\n${assistantContacts.contacts.map((contact) => `${contact.name}: ${contact.address}`).join("\n")}`
-        : "No saved contacts yet. You can say: Save this address as XYZ: 0x...";
+        : "No saved contacts yet.\n\nSave contacts like XYZ, John, or Alice to send funds faster.";
       setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: "assistant", content }]);
       return;
     }
@@ -1038,7 +1038,8 @@ export function FloatingAssistant() {
                     </div>
                   ) : (
                     <p className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-400 light:border-black light:bg-slate-50 light:text-slate-600">
-                      No contacts saved yet. Try: Save this address as XYZ: 0x...
+                      <span className="block font-black text-slate-200 light:text-slate-800">No saved contacts yet</span>
+                      <span className="mt-1 block">Save contacts like XYZ, John, or Alice to send funds faster.</span>
                     </p>
                   )}
                 </div>
