@@ -82,18 +82,26 @@ function EmptyState({ message }: { message: string }) {
 }
 
 function PortfolioCard({ symbol, balance, value }: { symbol: ActiveTokenSymbol; balance: string; value: string }) {
+  const comingSoon = symbol === "USDT";
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-      <div className="flex items-center gap-3">
-        <TokenLogo symbol={symbol} size={32} />
-        <div>
-          <p className="text-sm text-slate-400">{symbol}</p>
-          <p className="mt-1 text-lg font-bold text-white">
-            {balance} {symbol}
-          </p>
+    <div className={comingSoon ? "rounded-lg border border-orange-400/20 bg-orange-400/10 p-4 opacity-75" : "rounded-lg border border-white/10 bg-white/[0.04] p-4"}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <TokenLogo symbol={symbol} size={32} />
+          <div>
+            <p className="text-sm text-slate-400">{symbol}</p>
+            <p className="mt-1 text-lg font-bold text-white">
+              {comingSoon ? "Coming Soon" : `${balance} ${symbol}`}
+            </p>
+          </div>
         </div>
+        {comingSoon ? (
+          <span className="rounded-full border border-orange-400/35 bg-orange-400/10 px-2.5 py-1 text-[10px] font-black text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
+            🚧 Coming Soon
+          </span>
+        ) : null}
       </div>
-      <p className="mt-3 text-sm text-slate-400">{value}</p>
+      <p className="mt-3 text-sm text-slate-400">{comingSoon ? "Future testnet asset support" : value}</p>
     </div>
   );
 }

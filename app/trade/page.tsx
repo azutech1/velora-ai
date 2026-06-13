@@ -33,6 +33,7 @@ import { SWAP_TOKENS, getSwapToken, type SwapToken } from "@/lib/swap/tokens";
 import { getTradeProviderPriority, shouldPreferArcNativeRoute } from "@/lib/trade/provider-priority";
 import { explorerTxUrl, shortAddress } from "@/lib/utils/format";
 import { ARC_EXPLORER_URL } from "@/lib/web3/chains";
+import { TESTNET_BETA_FOCUS_NOTICE } from "@/lib/liquidity/pools";
 
 type TradeTab = "swap" | "bridge";
 
@@ -61,9 +62,9 @@ type BridgeToast = {
   tone: "info" | "success" | "error";
 };
 
-const ACTIVE_STABLECOINS = ["USDC", "EURC", "USDT"] as const;
+const ACTIVE_STABLECOINS = ["USDC", "EURC"] as const;
 
-const COMING_SOON_SYMBOLS = new Set(["WETH", "WBTC", "ETH", "BTC"]);
+const COMING_SOON_SYMBOLS = new Set(["USDT", "WETH", "WBTC", "ETH", "BTC"]);
 
 const ACTIVE_BRIDGE_TRANSACTION_STATES = new Set<BridgeTransactionState>([
   "preparingRoute",
@@ -350,12 +351,15 @@ function TokenPicker({
                 <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Coming Soon</p>
                 <div className="mt-2 space-y-2">
                   {filteredSoon.map((token) => (
-                    <div key={token.symbol} className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] p-3 opacity-70">
-                      <span>
+                    <div key={token.symbol} className="flex w-full items-center justify-between rounded-lg border border-orange-400/20 bg-orange-400/10 p-3 opacity-75">
+                      <span className="flex items-center gap-3">
+                        <TokenLogo symbol={token.symbol} size={30} />
+                        <span>
                         <span className="block font-semibold text-white">{token.symbol}</span>
                         <span className="block text-xs text-slate-400">{token.name}</span>
                       </span>
-                      <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-1 text-xs font-semibold text-cyan">Coming Soon</span>
+                      </span>
+                      <span className="rounded-full border border-orange-400/35 bg-orange-400/10 px-2.5 py-1 text-xs font-black text-orange-200">🚧 Coming Soon</span>
                     </div>
                   ))}
                 </div>
@@ -2358,6 +2362,9 @@ export default function TradePage() {
             </div>
             <div className="mb-5">
               <AssistantHint tip={tab === "swap" ? "You can also swap using Velora AI Assistant." : 'Try: "Bridge 10 USDC to Base"'} />
+              <p className="mt-3 rounded-lg border border-orange-400/20 bg-orange-400/10 px-4 py-3 text-xs font-semibold leading-5 text-orange-100 light:border-black light:bg-orange-50 light:text-orange-800">
+                {TESTNET_BETA_FOCUS_NOTICE}
+              </p>
             </div>
 
             {tab === "swap" ? (

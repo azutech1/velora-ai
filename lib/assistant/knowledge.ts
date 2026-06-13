@@ -61,7 +61,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     title: "Velora AI",
     topics: ["velora", "velora ai", "how does velora work", "what is velora", "what velora is building", "velora features"],
     answer:
-      "Velora AI is an AI-native stablecoin operating system for Arc. It brings wallet balances, USDC/EURC/USDT swaps, bridge workflows, faucet access, transaction activity, Rewards Center progress, profiles, and a safe assistant into one interface.",
+      "Velora AI is an AI-native stablecoin operating system for Arc. During Testnet Beta, it focuses on USDC/EURC swaps, bridge workflows, faucet access, transaction activity, Rewards Center progress, profiles, and a safe assistant in one interface. Additional assets such as USDT will be introduced in future updates.",
     relatedCommands: ["Show my wallet balance", "Show my XP", "Swap 20 USDC to EURC"]
   },
   {
@@ -97,7 +97,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     title: "Check Wallet Balance",
     topics: ["wallet balance", "check balance", "show balance", "how do i check my wallet balance", "portfolio value"],
     answer:
-      "Open Dashboard or Profile to view your stablecoin balances. You can also ask Velora AI: 'Show my wallet balance' to display USDC, EURC, USDT, and portfolio value when your wallet is connected.",
+      "Open Dashboard or Profile to view your stablecoin balances. You can also ask Velora AI: 'Show my wallet balance' to display supported Testnet Beta balances such as USDC, EURC, and portfolio value when your wallet is connected. USDT support is marked Coming Soon.",
     relatedCommands: ["Show my wallet balance"]
   },
   {
@@ -106,7 +106,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     title: "Swap Stablecoins",
     topics: ["swap", "swap usdc to eurc", "swap eurc to usdc", "swap usdc to usdt", "how does swapping work", "how do i swap usdc to eurc"],
     answer:
-      `To swap, open Bridge & Swap, choose the Swap tab, select the sell and receive tokens, enter an amount, review the estimated output, route, price impact, and fee, then click Swap and confirm in your wallet. ${TRANSACTION_SAFETY_NOTE}`,
+      `To swap during Testnet Beta, open Bridge & Swap, choose the Swap tab, use the active USDC ↔ EURC pair, enter an amount, review the estimated output, route, price impact, and fee, then click Swap and confirm in your wallet. USDT swap support is coming soon. ${TRANSACTION_SAFETY_NOTE}`,
     relatedCommands: ["Swap 20 USDC to EURC", "Swap 10 EURC to USDC"]
   },
   {
@@ -124,7 +124,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     title: "Liquidity Pools",
     topics: ["liquidity pool", "liquidity pools", "how does liquidity work", "what is liquidity pool", "add liquidity", "remove liquidity", "pool positions", "lp position"],
     answer:
-      "Liquidity pools let users deposit paired tokens into a pool so swaps can route through shared liquidity. In Velora AI public beta, liquidity pools are a testnet preview for USDC/EURC, USDC/USDT, and EURC/USDT on Arc Testnet. Pool values, rewards, and positions are for testing only and do not represent real yield or financial returns. Velora will only request wallet confirmation once a real pool contract integration is available.",
+      "Liquidity pools let users deposit paired tokens into a pool so swaps can route through shared liquidity. In Velora AI Testnet Beta, the active designed pool focus is USDC/EURC on Arc Testnet. USDC/USDT and EURC/USDT are visible as Coming Soon. Pool values, rewards, and positions are for testing only and do not represent real yield or financial returns. Velora will only request wallet confirmation once a real pool contract integration is available.",
     relatedCommands: ["Show liquidity pools", "Add 10 USDC and EURC liquidity"]
   },
   {

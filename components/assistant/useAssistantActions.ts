@@ -20,7 +20,10 @@ import {
   findLiquidityPoolByTokens,
   LIQUIDITY_CONTRACT_NOTICE,
   LIQUIDITY_POOL_DISCLAIMER,
-  LIQUIDITY_POOLS
+  LIQUIDITY_POOLS,
+  USDT_COMING_SOON_MESSAGE,
+  isLiquidityPoolActive,
+  isUsdtRelated
 } from "@/lib/liquidity/pools";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
@@ -486,6 +489,7 @@ export function useAssistantActions() {
 
   const executeSwap = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
+      if (isUsdtRelated(parsed.token, parsed.receiveToken)) throw new Error(USDT_COMING_SOON_MESSAGE);
       if (!walletAddress) throw new Error("Connect wallet first.");
       if (chainId !== ARC_CHAIN_ID) throw new Error("Please switch to the correct network.");
       if (!parsed.amount || !parsed.token || !parsed.receiveToken) throw new Error("Enter a sell amount, sell token, and receive token.");
@@ -768,6 +772,7 @@ export function useAssistantActions() {
 
   const executeBridge = useCallback(
     async (parsed: ParsedCommand): Promise<AssistantActionResult> => {
+      if (isUsdtRelated(parsed.token, parsed.receiveToken)) throw new Error(USDT_COMING_SOON_MESSAGE);
       if (!walletAddress) throw new Error("Connect wallet first.");
       if (!parsed.amount || !parsed.token) throw new Error("Enter an amount and token.");
       if (parsed.token !== "USDC") throw new Error("Phase 2 bridge currently supports USDC only.");
@@ -1016,7 +1021,7 @@ export function useAssistantActions() {
           details: [
             ...LIQUIDITY_POOLS.map((pool) => ({
               label: pool.pair,
-              value: `${pool.status} - ${pool.totalLiquidityLabel}`
+              value: `${pool.status} - ${pool.availability === "coming-soon" ? "Coming Soon" : pool.totalLiquidityLabel}`
             })),
             { label: "Safety", value: LIQUIDITY_POOL_DISCLAIMER }
           ]
@@ -1028,6 +1033,7 @@ export function useAssistantActions() {
 
       const pool = findLiquidityPoolByTokens(parsed.token, parsed.receiveToken);
       if (!pool) throw new Error("Liquidity pool unavailable for this pair.");
+      if (!isLiquidityPoolActive(pool)) throw new Error(USDT_COMING_SOON_MESSAGE);
 
       if (parsed.liquidityAction === "remove") {
         return {

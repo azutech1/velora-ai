@@ -16,6 +16,9 @@ import {
   LIQUIDITY_POOL_DISCLAIMER,
   LIQUIDITY_POOLS,
   LIQUIDITY_REWARD_TASKS,
+  TESTNET_BETA_FOCUS_NOTICE,
+  USDT_COMING_SOON_MESSAGE,
+  isLiquidityPoolActive,
   type LiquidityPool
 } from "@/lib/liquidity/pools";
 import { shortAddress } from "@/lib/utils/format";
@@ -52,6 +55,14 @@ function BetaBadge() {
   );
 }
 
+function ComingSoonBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-orange-400/35 bg-orange-400/10 px-2.5 py-1 text-xs font-black text-orange-200 shadow-[0_10px_28px_rgba(249,115,22,0.14)] light:border-black light:bg-orange-50 light:text-orange-700">
+      🚧 Coming Soon
+    </span>
+  );
+}
+
 function PoolCard({
   pool,
   selected,
@@ -63,10 +74,12 @@ function PoolCard({
   onAdd: () => void;
   onRemove: () => void;
 }) {
+  const isActive = isLiquidityPoolActive(pool);
   return (
     <div
       className={cx(
         "relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-[0_18px_52px_rgba(0,0,0,0.16)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(249,115,22,0.14)] light:bg-white",
+        !isActive && "opacity-75 hover:translate-y-0",
         selected
           ? "border-orange-400/45 from-orange-500/12 via-white/[0.05] to-emerald-400/8 light:border-black light:from-orange-50 light:via-white light:to-emerald-50"
           : "border-white/10 from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] light:border-black light:from-white light:via-orange-50/45 light:to-amber-50/50"
@@ -77,9 +90,11 @@ function PoolCard({
         <div>
           <PoolLogos pool={pool} />
           <h3 className="mt-4 text-xl font-black text-white light:text-slate-950">{pool.pair}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-700">Stablecoin liquidity preview on Arc Testnet.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-700">
+            {isActive ? "Stablecoin liquidity preview on Arc Testnet." : "USDT pool support is under development for a future beta update."}
+          </p>
         </div>
-        <BetaBadge />
+        {isActive ? <BetaBadge /> : <ComingSoonBadge />}
       </div>
       <div className="relative mt-4 grid gap-2">
         <StatLine label="Total testnet liquidity" value={pool.totalLiquidityLabel} />
@@ -87,12 +102,20 @@ function PoolCard({
         <StatLine label="Pool share" value={pool.poolShareLabel} />
       </div>
       <div className="relative mt-auto flex flex-wrap justify-center gap-3 pt-4">
-        <button type="button" onClick={onAdd} className="min-w-32 rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
-          Add Liquidity
-        </button>
-        <button type="button" onClick={onRemove} className="min-w-32 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-black text-slate-200 transition hover:border-orange-400/40 hover:text-white light:border-black light:bg-white light:text-slate-800">
-          Remove Liquidity
-        </button>
+        {isActive ? (
+          <>
+            <button type="button" onClick={onAdd} className="min-w-32 rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
+              Add Liquidity
+            </button>
+            <button type="button" onClick={onRemove} className="min-w-32 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-black text-slate-200 transition hover:border-orange-400/40 hover:text-white light:border-black light:bg-white light:text-slate-800">
+              Remove Liquidity
+            </button>
+          </>
+        ) : (
+          <span className="min-w-32 rounded-lg border border-orange-400/25 bg-orange-400/10 px-4 py-2.5 text-center text-sm font-black text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
+            Coming Soon
+          </span>
+        )}
       </div>
     </div>
   );
@@ -107,6 +130,7 @@ export default function LiquidityPoolsPage() {
   const [mode, setMode] = useState<"add" | "remove">("add");
 
   const selectedPool = getLiquidityPool(selectedPoolId);
+  const selectedPoolActive = isLiquidityPoolActive(selectedPool);
   const pairedAmount = estimatePairedAmount(amount);
   const isArc = chainId === ARC_TESTNET_CHAIN_ID;
 
@@ -123,12 +147,13 @@ export default function LiquidityPoolsPage() {
   const hasEnoughBalance = amountValid && tokenABalance >= numericAmount && tokenBBalance >= numericAmount;
 
   const previewState = useMemo(() => {
+    if (!selectedPoolActive) return { tone: "warning", title: "USDT support coming soon", detail: USDT_COMING_SOON_MESSAGE };
     if (!isConnected) return { tone: "warning", title: "Connect wallet first", detail: "Connect your wallet to preview testnet liquidity actions." };
     if (!isArc) return { tone: "warning", title: "Switch to Arc Testnet", detail: "Liquidity Pools are limited to Arc Testnet during beta." };
     if (!amountValid) return { tone: "neutral", title: "Enter an amount", detail: "Enter one token amount to estimate the paired stablecoin amount." };
     if (!hasEnoughBalance) return { tone: "warning", title: "Insufficient testnet balance", detail: `You need enough ${selectedPool.tokenA} and ${selectedPool.tokenB} to add this previewed position.` };
     return { tone: "ready", title: "Preview ready", detail: LIQUIDITY_CONTRACT_NOTICE };
-  }, [amountValid, hasEnoughBalance, isArc, isConnected, selectedPool.tokenA, selectedPool.tokenB]);
+  }, [amountValid, hasEnoughBalance, isArc, isConnected, selectedPool.tokenA, selectedPool.tokenB, selectedPoolActive]);
 
   return (
     <AppShell title="Liquidity Pools" eyebrow="Arc Testnet stablecoin liquidity">
@@ -146,6 +171,9 @@ export default function LiquidityPoolsPage() {
               <h2 className="mt-4 text-3xl font-black text-white light:text-slate-950">Liquidity Pools</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-300 light:text-slate-700">Provide stablecoin liquidity on Arc Testnet and prepare for future rewards.</p>
               <p className="mt-1 text-xs leading-5 text-slate-400 light:text-slate-600">{LIQUIDITY_POOL_DISCLAIMER}</p>
+              <p className="mt-3 rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-bold leading-5 text-orange-100 light:border-black light:bg-orange-50 light:text-orange-800">
+                {TESTNET_BETA_FOCUS_NOTICE}
+              </p>
             </div>
             <OpenAssistantButton>Ask Velora AI</OpenAssistantButton>
           </div>
@@ -158,12 +186,16 @@ export default function LiquidityPoolsPage() {
               pool={pool}
               selected={pool.id === selectedPool.id}
               onAdd={() => {
-                setSelectedPoolId(pool.id);
-                setMode("add");
+                if (isLiquidityPoolActive(pool)) {
+                  setSelectedPoolId(pool.id);
+                  setMode("add");
+                }
               }}
               onRemove={() => {
-                setSelectedPoolId(pool.id);
-                setMode("remove");
+                if (isLiquidityPoolActive(pool)) {
+                  setSelectedPoolId(pool.id);
+                  setMode("remove");
+                }
               }}
             />
           ))}
@@ -198,12 +230,20 @@ export default function LiquidityPoolsPage() {
                 <span className="text-sm font-bold text-slate-300 light:text-slate-700">Select pair</span>
                 <select value={selectedPoolId} onChange={(event) => setSelectedPoolId(event.target.value as typeof selectedPoolId)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-orange-400 light:border-black light:bg-white light:text-slate-950">
                   {LIQUIDITY_POOLS.map((pool) => (
-                    <option key={pool.id} value={pool.id}>{pool.pair}</option>
+                    <option key={pool.id} value={pool.id} disabled={!isLiquidityPoolActive(pool)}>
+                      {pool.pair}{isLiquidityPoolActive(pool) ? "" : " - Coming Soon"}
+                    </option>
                   ))}
                 </select>
               </label>
 
-              {mode === "add" ? (
+              {!selectedPoolActive ? (
+                <div className="rounded-xl border border-orange-400/25 bg-orange-400/10 p-4 light:border-black light:bg-orange-50">
+                  <Lock className="h-5 w-5 text-orange-200 light:text-orange-700" />
+                  <h4 className="mt-2 font-black text-white light:text-slate-950">USDT pools are coming soon</h4>
+                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">{USDT_COMING_SOON_MESSAGE}</p>
+                </div>
+              ) : mode === "add" ? (
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-slate-300 light:text-slate-700">Token amount</span>
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3 light:border-black light:bg-slate-50">
@@ -249,7 +289,7 @@ export default function LiquidityPoolsPage() {
 
             <div className="mt-auto flex flex-wrap gap-3 pt-4">
               <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-                <Lock className="h-4 w-4" /> 🚧 Pool Contract Integration Coming Soon
+                <Lock className="h-4 w-4" /> 🚧 {selectedPoolActive ? "Pool Contract Integration Coming Soon" : "Coming Soon"}
               </div>
               <button type="button" onClick={() => setAmount("")} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700">
                 Cancel <X className="h-4 w-4" />
@@ -269,10 +309,11 @@ export default function LiquidityPoolsPage() {
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {LIQUIDITY_REWARD_TASKS.map((task) => (
-              <div key={task.id} className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-black light:bg-slate-50">
+              <div key={task.id} className={cx("rounded-xl border border-white/10 bg-black/20 p-4 light:border-black light:bg-slate-50", task.availability === "coming-soon" && "opacity-75")}>
+                {task.availability === "coming-soon" ? <ComingSoonBadge /> : null}
                 <p className="font-black text-white light:text-slate-950">{task.title}</p>
                 <p className="mt-2 rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-1.5 text-center text-xs font-black text-white">+{task.reward.toLocaleString()} XP</p>
-                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">Pending verified liquidity contract</p>
+                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">{task.availability === "coming-soon" ? "USDT support coming soon" : "Pending verified liquidity contract"}</p>
               </div>
             ))}
           </div>

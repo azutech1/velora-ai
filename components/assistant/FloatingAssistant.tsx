@@ -6,7 +6,7 @@ import { isAddress } from "viem";
 import { useAccount } from "wagmi";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Pencil, Route, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
-import { parseLiquidityPair } from "@/lib/liquidity/pools";
+import { USDT_COMING_SOON_MESSAGE, isUsdtRelated, parseLiquidityPair } from "@/lib/liquidity/pools";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, AssistantIntent, ParsedCommand } from "./types";
 import { useAssistantContacts, type AssistantContact } from "./useAssistantContacts";
@@ -601,6 +601,21 @@ export function FloatingAssistant() {
     }
 
     const parsed = parseCommand(command);
+    if (
+      ["swap", "bridge", "liquidity"].includes(parsed.actionType) &&
+      isUsdtRelated(parsed.token, parsed.receiveToken)
+    ) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: USDT_COMING_SOON_MESSAGE
+        }
+      ]);
+      return;
+    }
+
     if (parsed.actionType === "unknown") {
       setMessages((current) => [
         ...current,

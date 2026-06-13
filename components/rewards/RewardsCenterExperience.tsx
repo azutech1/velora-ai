@@ -595,17 +595,28 @@ export function RewardsCenterExperience() {
               <motion.div
                 key={task.id}
                 whileHover={{ y: -3 }}
-                className="relative overflow-hidden rounded-xl border border-orange-400/15 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/60 light:shadow-[0_18px_42px_rgba(15,23,42,0.09)]"
+                className={cx(
+                  "relative overflow-hidden rounded-xl border border-orange-400/15 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/60 light:shadow-[0_18px_42px_rgba(15,23,42,0.09)]",
+                  task.availability === "coming-soon" && "opacity-75"
+                )}
               >
                 <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-orange-400/10 blur-2xl" />
                 <div className="relative flex items-start justify-between gap-3">
                   <Coins className="h-6 w-6 text-orange-300 light:text-orange-700" />
-                  <StatusBadge status="progress" />
+                  {task.availability === "coming-soon" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-orange-400/35 bg-orange-400/10 px-2.5 py-1 text-xs font-black text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
+                      🚧 Coming Soon
+                    </span>
+                  ) : (
+                    <StatusBadge status="progress" />
+                  )}
                 </div>
                 <h3 className="relative mt-5 font-bold text-white light:text-slate-950">{task.title}</h3>
                 <div className="relative mt-3"><XPRewardBadge amount={task.reward} /></div>
                 <p className="relative mt-4 text-sm leading-6 text-slate-400 light:text-slate-700">
-                  Locked until a real liquidity add transaction is verified on-chain. XP is not credited from preview-only actions.
+                  {task.availability === "coming-soon"
+                    ? "USDT liquidity rewards are coming soon. XP will not be credited until real USDT pool support is live."
+                    : "Locked until a real liquidity add transaction is verified on-chain. XP is not credited from preview-only actions."}
                 </p>
               </motion.div>
             ))}
