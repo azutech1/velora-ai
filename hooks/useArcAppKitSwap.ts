@@ -47,18 +47,18 @@ export function useArcAppKitSwap() {
   const [error, setError] = useState<string | null>(null);
 
   const canUseRealSwap = useCallback(
-    (tokenIn: string, tokenOut: string) => hasCircleAppKitKey() && isConnected && isArc && isArcAppKitSwapPair(tokenIn, tokenOut),
-    [isArc, isConnected]
+    (tokenIn: string, tokenOut: string) => hasCircleAppKitKey() && Boolean(walletAddress) && isArc && isArcAppKitSwapPair(tokenIn, tokenOut),
+    [isArc, walletAddress]
   );
 
   const getUnsupportedReason = useCallback(
     (tokenIn: string, tokenOut: string) => {
       if (!hasCircleAppKitKey()) return "Demo pricing only. Add a Circle App Kit key to enable supported Arc Testnet swaps.";
-      if (!isConnected) return "Connect a wallet to request real Circle App Kit quotes.";
+      if (!walletAddress) return "Connect a wallet to request real Circle App Kit quotes.";
       if (!isArc) return "Switch to Arc Testnet to request real Circle App Kit quotes.";
       return getArcAppKitUnsupportedReason(tokenIn, tokenOut);
     },
-    [isArc, isConnected]
+    [isArc, walletAddress]
   );
 
   const estimateSwap = useCallback(async (tokenIn: string, tokenOut: string, amountIn: string, slippageBps: number) => {
@@ -71,11 +71,12 @@ export function useArcAppKitSwap() {
       console.warn("[Velora AppKit Swap] Real swap unavailable", {
         tokenIn,
         tokenOut,
-        hasKitKey: hasCircleAppKitKey(),
-        isConnected,
-        isArc,
-        reason,
-        chainId
+      hasKitKey: hasCircleAppKitKey(),
+      isConnected,
+      hasWalletAddress: Boolean(walletAddress),
+      isArc,
+      reason,
+      chainId
       });
       throw new Error(reason ?? "Real App Kit swap is available only on Arc Testnet for supported App Kit pairs with a connected wallet.");
     }
@@ -211,9 +212,9 @@ export function useArcAppKitSwap() {
       estimateSwap,
       executeSwap,
       hasKitKey: hasCircleAppKitKey(),
-      isConnected,
+      isConnected: Boolean(isConnected || walletAddress),
       isArc
     }),
-    [canUseRealSwap, error, estimate, estimateSwap, executeSwap, getUnsupportedReason, isArc, isConnected, result, state]
+    [canUseRealSwap, error, estimate, estimateSwap, executeSwap, getUnsupportedReason, isArc, isConnected, result, state, walletAddress]
   );
 }

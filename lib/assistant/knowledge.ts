@@ -22,7 +22,7 @@ export type AssistantKnowledgeEntry = {
 };
 
 export const ASSISTANT_SCOPE_RESPONSE =
-  "I’m focused on Velora AI, Arc, Circle, stablecoins, and supported wallet actions. I can help you send, swap, bridge, claim faucet, check balances, view XP, or answer questions about Velora AI, Arc, and Circle.";
+  "I’m focused on Velora AI, Arc, Circle, stablecoins, liquidity pools, and supported wallet actions. I can help you send, swap, bridge, claim faucet, check balances, view XP, or answer questions about Velora AI, Arc, and Circle.";
 
 const TRANSACTION_SAFETY_NOTE =
   "Velora AI never moves funds automatically. Always verify the recipient address, token, network, and route before confirming in your wallet.";
@@ -117,6 +117,15 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     answer:
       `To bridge USDC, open Bridge & Swap, choose the Bridge tab, select the source and destination networks, select USDC, enter an amount, review the route/provider/fee, then confirm each required wallet step. Velora tracks approval, source transaction, and destination settlement when provider data is available. ${TRANSACTION_SAFETY_NOTE}`,
     relatedCommands: ["Bridge 10 USDC from Arc to Base"]
+  },
+  {
+    id: "liquidity-pools",
+    category: "Velora Features",
+    title: "Liquidity Pools",
+    topics: ["liquidity pool", "liquidity pools", "how does liquidity work", "what is liquidity pool", "add liquidity", "remove liquidity", "pool positions", "lp position"],
+    answer:
+      "Liquidity pools let users deposit paired tokens into a pool so swaps can route through shared liquidity. In Velora AI public beta, liquidity pools are a testnet preview for USDC/EURC, USDC/USDT, and EURC/USDT on Arc Testnet. Pool values, rewards, and positions are for testing only and do not represent real yield or financial returns. Velora will only request wallet confirmation once a real pool contract integration is available.",
+    relatedCommands: ["Show liquidity pools", "Add 10 USDC and EURC liquidity"]
   },
   {
     id: "gas-fees",

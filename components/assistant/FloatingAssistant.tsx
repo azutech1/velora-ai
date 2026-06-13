@@ -6,6 +6,7 @@ import { isAddress } from "viem";
 import { useAccount } from "wagmi";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, Coins, Copy, Droplets, Edit3, Mic, MessageCircle, Pencil, Route, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Wallet, X } from "lucide-react";
 import { cx } from "@/components/azu/utils";
+import { parseLiquidityPair } from "@/lib/liquidity/pools";
 import { useAssistantActions, type AssistantActionResult } from "./useAssistantActions";
 import type { AssistantAction, AssistantIntent, ParsedCommand } from "./types";
 import { useAssistantContacts, type AssistantContact } from "./useAssistantContacts";
@@ -86,6 +87,12 @@ function classifyIntent(command: string): { intentType: AssistantIntent; confide
   if (/\b(show|check|view|display)\b.*\b(transaction|transactions|history|activity)\b/i.test(text) || /\b(swap history|bridge history|send history|last 5 transactions|recent transactions)\b/i.test(text)) {
     return { intentType: "transaction-history", confidence: "high" };
   }
+  if (/^(what|how|explain|tell me|describe)\b.*\b(liquidity pool|liquidity pools|liquidity|lp position)\b/i.test(text)) {
+    return { intentType: "knowledge", confidence: "high" };
+  }
+  if (/\b(liquidity pool|liquidity pools|pool positions|add liquidity|remove liquidity|lp position|lp positions)\b/i.test(text)) {
+    return { intentType: "liquidity", confidence: "high" };
+  }
   if (/\b(notify me|remind me|alert me|create alert|set alert)\b/i.test(text)) {
     return { intentType: "automation", confidence: "high" };
   }
@@ -129,6 +136,26 @@ function parseCommand(input: string): ParsedCommand {
       destinationAddress,
       status: "Ready for faucet workflow",
       confidence: "high"
+    };
+  }
+
+  if (intent.intentType === "liquidity") {
+    const pool = parseLiquidityPair(command);
+    const liquidityAction = /\b(remove|withdraw)\b/i.test(command)
+      ? "remove"
+      : /\b(show|view|list|positions?)\b/i.test(command)
+        ? "show"
+        : "add";
+    return {
+      intentType: "liquidity",
+      actionType: "liquidity",
+      amount,
+      token: pool?.tokenA ?? token,
+      receiveToken: pool?.tokenB,
+      liquidityAction,
+      question: command,
+      status: liquidityAction === "show" ? "Ready to show liquidity pools" : "Ready for liquidity preview",
+      confidence: liquidityAction === "show" || pool ? "high" : "medium"
     };
   }
 
@@ -261,6 +288,8 @@ function actionLabel(action: AssistantAction) {
       return "Swap";
     case "bridge":
       return "Bridge";
+    case "liquidity":
+      return "Liquidity Pools";
     case "balance":
       return "Wallet Balance";
     case "rewards":
@@ -283,7 +312,7 @@ function actionLabel(action: AssistantAction) {
 }
 
 function ActionIcon({ action }: { action: AssistantAction }) {
-  const Icon = action === "send" ? Send : action === "swap" ? Coins : action === "bridge" ? Route : action === "balance" || action === "profile" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" || action === "transactionHistory" ? BookOpen : action === "automation" || action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
+  const Icon = action === "send" ? Send : action === "swap" || action === "liquidity" ? Coins : action === "bridge" ? Route : action === "balance" || action === "profile" ? Wallet : action === "faucet" ? Droplets : action === "knowledge" || action === "transactionHistory" ? BookOpen : action === "automation" || action === "rewards" || action === "dailyReward" ? Sparkles : Bot;
   return (
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_14px_35px_rgba(249,115,22,0.28)]">
       <Icon className="h-5 w-5" />
@@ -314,6 +343,10 @@ function commandSummary(parsed: ParsedCommand) {
       return `swap ${amountText ?? "tokens"} to ${parsed.receiveToken ?? "another token"}`;
     case "bridge":
       return `bridge ${amountText ?? "tokens"} from ${parsed.sourceChain ?? "your current network"} to ${parsed.destinationChain ?? "another network"}`;
+    case "liquidity":
+      if (parsed.liquidityAction === "show") return "show liquidity pools and positions";
+      if (parsed.liquidityAction === "remove") return `review removing liquidity from ${parsed.token && parsed.receiveToken ? `${parsed.token}/${parsed.receiveToken}` : "a pool"}`;
+      return `prepare a liquidity preview for ${parsed.token && parsed.receiveToken ? `${parsed.token}/${parsed.receiveToken}` : "a stablecoin pool"}`;
     case "balance":
       return parsed.token ? `show your ${parsed.token} balance` : "show your wallet balance";
     case "rewards":
@@ -340,7 +373,7 @@ function naturalResponse(parsed: ParsedCommand) {
 }
 
 function shouldAnswerDirectly(parsed: ParsedCommand) {
-  return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history", "automation"].includes(parsed.intentType ?? "");
+  return ["knowledge", "help", "balance", "rewards", "profile", "transaction-history", "automation"].includes(parsed.intentType ?? "") || (parsed.actionType === "liquidity" && parsed.liquidityAction === "show");
 }
 
 function ConfirmationPreview({
@@ -380,6 +413,12 @@ function ConfirmationPreview({
         {parsed.actionType === "send" && parsed.contactName ? <DetailRow label="Saved Contact" value={parsed.contactName} /> : null}
         {parsed.actionType === "send" ? <DetailRow label="Destination Address" value={parsed.destinationAddress} /> : null}
         {parsed.actionType === "swap" ? <DetailRow label="Receive" value={parsed.receiveToken} /> : null}
+        {parsed.actionType === "liquidity" ? (
+          <>
+            <DetailRow label="Pair" value={parsed.token && parsed.receiveToken ? `${parsed.token} / ${parsed.receiveToken}` : undefined} />
+            <DetailRow label="Liquidity Action" value={parsed.liquidityAction === "remove" ? "Remove liquidity" : parsed.liquidityAction === "show" ? "Show pools" : "Add liquidity"} />
+          </>
+        ) : null}
         {parsed.actionType === "faucet" ? <DetailRow label="Wallet" value={parsed.destinationAddress ?? "Connected wallet"} /> : null}
         {parsed.actionType === "knowledge" ? <DetailRow label="Question" value={parsed.question} /> : null}
         {parsed.actionType === "bridge" ? (

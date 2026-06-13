@@ -15,6 +15,13 @@ import { erc20UsdcAbi } from "@/lib/contracts/usdc";
 import { createBridgeServiceProviders, executeCircleBridgeRoute } from "@/lib/bridge/service";
 import { CIRCLE_FAUCET_URL } from "@/lib/faucet/tokens";
 import { ASSISTANT_SCOPE_RESPONSE, findAssistantKnowledgeAnswer } from "@/lib/assistant/knowledge";
+import {
+  estimatePairedAmount,
+  findLiquidityPoolByTokens,
+  LIQUIDITY_CONTRACT_NOTICE,
+  LIQUIDITY_POOL_DISCLAIMER,
+  LIQUIDITY_POOLS
+} from "@/lib/liquidity/pools";
 import { createSwapServiceProviders, findExecutableSwapRoute } from "@/lib/swap/service";
 import { getSwapToken } from "@/lib/swap/tokens";
 import { findExecutableRoute, type ExecutableRoute, type RouteProvider, type RouteRequest, type RouteTransactionRequest } from "@/lib/routes/router";
@@ -260,6 +267,7 @@ function normalizeAssistantError(actionType: ParsedCommand["actionType"], error:
 function assistantFailureTitle(actionType: ParsedCommand["actionType"]) {
   if (actionType === "swap") return "Swap Failed";
   if (actionType === "bridge") return "Bridge Failed";
+  if (actionType === "liquidity") return "Liquidity Preview Unavailable";
   if (actionType === "send") return "Send Failed";
   if (actionType === "faucet") return "Faucet Unavailable";
   if (actionType === "knowledge") return "Answer Unavailable";
@@ -999,6 +1007,66 @@ export function useAssistantActions() {
     [activity, isConnected, walletAddress]
   );
 
+  const readOrPreviewLiquidity = useCallback(
+    (parsed: ParsedCommand): AssistantActionResult => {
+      if (parsed.liquidityAction === "show") {
+        return {
+          title: "Liquidity Pools",
+          message: `Velora supports testnet preview pools for ${LIQUIDITY_POOLS.map((pool) => pool.pair).join(", ")}. ${LIQUIDITY_CONTRACT_NOTICE}`,
+          details: [
+            ...LIQUIDITY_POOLS.map((pool) => ({
+              label: pool.pair,
+              value: `${pool.status} - ${pool.totalLiquidityLabel}`
+            })),
+            { label: "Safety", value: LIQUIDITY_POOL_DISCLAIMER }
+          ]
+        };
+      }
+
+      if (!isConnected || !walletAddress) throw new Error("Connect wallet first.");
+      if (chainId !== ARC_CHAIN_ID) throw new Error("Please switch to the correct network.");
+
+      const pool = findLiquidityPoolByTokens(parsed.token, parsed.receiveToken);
+      if (!pool) throw new Error("Liquidity pool unavailable for this pair.");
+
+      if (parsed.liquidityAction === "remove") {
+        return {
+          title: "Remove Liquidity Preview",
+          message: `I found the ${pool.pair} pool, but no verified on-chain LP position can be removed yet because pool contracts are not integrated.`,
+          details: [
+            { label: "Pair", value: pool.pair },
+            { label: "Network", value: "Arc Testnet" },
+            { label: "Status", value: "Testnet Preview" },
+            { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
+          ]
+        };
+      }
+
+      if (!parsed.amount) throw new Error("Enter an amount.");
+      const pairedAmount = estimatePairedAmount(parsed.amount);
+      if (!pairedAmount) throw new Error("Enter a valid liquidity amount.");
+
+      const tokenABalance = portfolio.positions.find((position) => position.token.symbol === pool.tokenA)?.balance ?? 0;
+      const tokenBBalance = portfolio.positions.find((position) => position.token.symbol === pool.tokenB)?.balance ?? 0;
+      const numericAmount = Number(parsed.amount);
+      if (tokenABalance < numericAmount || tokenBBalance < numericAmount) throw new Error("Insufficient balance.");
+
+      return {
+        title: "Liquidity Preview Ready",
+        message: `I prepared a safe preview for adding ${parsed.amount} ${pool.tokenA} and ${pairedAmount} ${pool.tokenB} to ${pool.pair}. No wallet transaction was requested because the pool contract integration is not live yet.`,
+        details: [
+          { label: "Pair", value: pool.pair },
+          { label: "Token A", value: `${parsed.amount} ${pool.tokenA}` },
+          { label: "Token B", value: `${pairedAmount} ${pool.tokenB}` },
+          { label: "Estimated pool share", value: "Available after pool contract integration" },
+          { label: "Network", value: "Arc Testnet" },
+          { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
+        ]
+      };
+    },
+    [chainId, isConnected, portfolio.positions, walletAddress]
+  );
+
   const openFaucetWorkflow = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
       const targetWallet = parsed.destinationAddress ?? walletAddress;
@@ -1069,7 +1137,7 @@ export function useAssistantActions() {
       setIsRunning(true);
       setProgress("validating", "Validating request");
       try {
-        const requiresWallet = !["knowledge", "faucet"].includes(parsed.actionType);
+        const requiresWallet = !["knowledge", "faucet"].includes(parsed.actionType) && !(parsed.actionType === "liquidity" && parsed.liquidityAction === "show");
         if (requiresWallet && (!isConnected || !walletAddress)) {
           console.warn("[Velora Assistant] wallet unavailable for action", {
             actionType: parsed.actionType,
@@ -1090,6 +1158,7 @@ export function useAssistantActions() {
         else if (parsed.actionType === "profile") result = readProfile();
         else if (parsed.actionType === "transactionHistory") result = readTransactionHistory(parsed);
         else if (parsed.actionType === "automation") result = createAutomationAlert(parsed);
+        else if (parsed.actionType === "liquidity") result = readOrPreviewLiquidity(parsed);
         else if (parsed.actionType === "faucet") result = openFaucetWorkflow(parsed);
         else if (parsed.actionType === "knowledge") result = answerKnowledgeQuestion(parsed);
         else if (parsed.actionType === "dailyReward") {
@@ -1134,7 +1203,7 @@ export function useAssistantActions() {
         setIsRunning(false);
       }
     },
-    [activity, address, answerKnowledgeQuestion, chainId, createAutomationAlert, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress, walletAddress, walletClient?.account.address]
+    [activity, address, answerKnowledgeQuestion, chainId, createAutomationAlert, executeBridge, executeSend, executeSwap, isConnected, isRunning, openFaucetWorkflow, readBalances, readOrPreviewLiquidity, readProfile, readRewards, readTransactionHistory, rewards.canClaimDaily, rewards.currentStreak, rewards.cycleDay, rewards.dailyReward, setProgress, walletAddress, walletClient?.account.address]
   );
 
   return useMemo(

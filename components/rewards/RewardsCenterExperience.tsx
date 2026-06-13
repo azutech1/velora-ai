@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   BadgeCheck,
   CheckCircle2,
+  Coins,
   Flame,
   Gift,
   Lock,
@@ -20,6 +21,7 @@ import { AssistantHint } from "@/components/assistant/AssistantHint";
 import { cx } from "@/components/azu/utils";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
 import { useRewardsCenter } from "@/hooks/useRewardsCenter";
+import { LIQUIDITY_REWARD_TASKS } from "@/lib/liquidity/pools";
 import { DAILY_REWARDS, progressPercent, type EarlyVeloraPioneerProgress, type RewardTask } from "@/lib/rewards/system";
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -586,6 +588,29 @@ export function RewardsCenterExperience() {
           </Panel>
           </div>
         </div>
+
+        <Panel title="Liquidity Tasks" eyebrow="Coming soon - XP requires verified liquidity transactions">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {LIQUIDITY_REWARD_TASKS.map((task) => (
+              <motion.div
+                key={task.id}
+                whileHover={{ y: -3 }}
+                className="relative overflow-hidden rounded-xl border border-orange-400/15 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/60 light:shadow-[0_18px_42px_rgba(15,23,42,0.09)]"
+              >
+                <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-orange-400/10 blur-2xl" />
+                <div className="relative flex items-start justify-between gap-3">
+                  <Coins className="h-6 w-6 text-orange-300 light:text-orange-700" />
+                  <StatusBadge status="progress" />
+                </div>
+                <h3 className="relative mt-5 font-bold text-white light:text-slate-950">{task.title}</h3>
+                <div className="relative mt-3"><XPRewardBadge amount={task.reward} /></div>
+                <p className="relative mt-4 text-sm leading-6 text-slate-400 light:text-slate-700">
+                  Locked until a real liquidity add transaction is verified on-chain. XP is not credited from preview-only actions.
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </Panel>
 
         <Panel title="Achievement Rewards" eyebrow="XP milestones and claimable ecosystem badges">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
