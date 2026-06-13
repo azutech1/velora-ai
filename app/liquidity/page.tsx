@@ -66,7 +66,7 @@ function PoolCard({
   return (
     <div
       className={cx(
-        "relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-[0_18px_52px_rgba(0,0,0,0.16)] transition hover:-translate-y-1 light:bg-white",
+        "relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-[0_18px_52px_rgba(0,0,0,0.16)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(249,115,22,0.14)] light:bg-white",
         selected
           ? "border-orange-400/45 from-orange-500/12 via-white/[0.05] to-emerald-400/8 light:border-black light:from-orange-50 light:via-white light:to-emerald-50"
           : "border-white/10 from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] light:border-black light:from-white light:via-orange-50/45 light:to-amber-50/50"
@@ -86,11 +86,11 @@ function PoolCard({
         <StatLine label="User liquidity" value={pool.userLiquidityLabel} />
         <StatLine label="Pool share" value={pool.poolShareLabel} />
       </div>
-      <div className="relative mt-4 flex flex-wrap gap-3">
-        <button type="button" onClick={onAdd} className="rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
+      <div className="relative mt-auto flex flex-wrap justify-center gap-3 pt-4">
+        <button type="button" onClick={onAdd} className="min-w-32 rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
           Add Liquidity
         </button>
-        <button type="button" onClick={onRemove} className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-black text-slate-200 transition hover:border-orange-400/40 hover:text-white light:border-black light:bg-white light:text-slate-800">
+        <button type="button" onClick={onRemove} className="min-w-32 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-black text-slate-200 transition hover:border-orange-400/40 hover:text-white light:border-black light:bg-white light:text-slate-800">
           Remove Liquidity
         </button>
       </div>
@@ -132,25 +132,26 @@ export default function LiquidityPoolsPage() {
 
   return (
     <AppShell title="Liquidity Pools" eyebrow="Arc Testnet stablecoin liquidity">
-      <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-2xl border border-orange/25 bg-gradient-to-br from-orange/15 via-white/[0.04] to-emerald-400/10 p-6 shadow-[0_24px_80px_rgba(249,115,22,0.12)] light:border-black light:bg-orange-50 light:from-orange-50 light:via-white light:to-emerald-50">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-orange/20 blur-3xl" />
-          <div className="relative flex flex-wrap items-start justify-between gap-5">
+      <div className="space-y-5">
+        <section className="relative overflow-hidden rounded-2xl border border-orange/25 bg-gradient-to-br from-orange/15 via-white/[0.04] to-emerald-400/10 p-5 shadow-[0_20px_64px_rgba(249,115,22,0.1)] light:border-black light:bg-orange-50 light:from-orange-50 light:via-white light:to-emerald-50">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-orange/20 blur-3xl" />
+          <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div className="max-w-3xl">
               <div className="flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_16px_42px_rgba(249,115,22,0.28)]">
-                  <Coins className="h-6 w-6" />
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-[0_16px_42px_rgba(249,115,22,0.28)]">
+                  <Coins className="h-5 w-5" />
                 </div>
                 <BetaBadge />
               </div>
-              <h2 className="mt-5 text-3xl font-black text-white light:text-slate-950">Testnet liquidity for Velora stablecoin pairs</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">{LIQUIDITY_POOL_DISCLAIMER}</p>
+              <h2 className="mt-4 text-3xl font-black text-white light:text-slate-950">Liquidity Pools</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-300 light:text-slate-700">Provide stablecoin liquidity on Arc Testnet and prepare for future rewards.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400 light:text-slate-600">{LIQUIDITY_POOL_DISCLAIMER}</p>
             </div>
             <OpenAssistantButton>Ask Velora AI</OpenAssistantButton>
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-3">
+        <section className="grid items-stretch gap-4 xl:grid-cols-3">
           {LIQUIDITY_POOLS.map((pool) => (
             <PoolCard
               key={pool.id}
@@ -168,8 +169,8 @@ export default function LiquidityPoolsPage() {
           ))}
         </section>
 
-        <section className="grid items-start gap-4 xl:grid-cols-[1fr_0.95fr]">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white">
+        <section className="grid items-stretch gap-4 xl:grid-cols-2">
+          <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">{mode === "add" ? "Add Liquidity" : "Remove Liquidity"}</p>
@@ -223,7 +224,7 @@ export default function LiquidityPoolsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-orange-400/20 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.04] p-4 light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/50">
+          <div className="flex h-full flex-col rounded-2xl border border-orange-400/20 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.04] p-4 light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/50">
             <div className="flex items-start gap-3">
               {previewState.tone === "ready" ? <ShieldCheck className="h-5 w-5 text-emerald-300 light:text-emerald-700" /> : previewState.tone === "warning" ? <AlertTriangle className="h-5 w-5 text-amber-200 light:text-amber-700" /> : <Info className="h-5 w-5 text-orange-300 light:text-orange-700" />}
               <div>
@@ -242,13 +243,13 @@ export default function LiquidityPoolsPage() {
               <StatLine label="Wallet" value={address ? shortAddress(address) : "Not connected"} />
             </div>
 
-            <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-xs font-bold leading-5 text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
+            <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-bold leading-5 text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
               Preview only — pool contracts are not integrated yet. {LIQUIDITY_POOL_DISCLAIMER}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-auto flex flex-wrap gap-3 pt-4">
               <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-                <Lock className="h-4 w-4" /> Pool Contract Integration Coming Soon
+                <Lock className="h-4 w-4" /> 🚧 Pool Contract Integration Coming Soon
               </div>
               <button type="button" onClick={() => setAmount("")} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700">
                 Cancel <X className="h-4 w-4" />
