@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, BadgeCheck, Coins, Info, Lock, ShieldCheck, Wallet, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Coins, Info, Lock, ShieldCheck, Wallet, X } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { OpenAssistantButton } from "@/components/assistant/OpenAssistantButton";
@@ -24,9 +24,9 @@ const ARC_TESTNET_CHAIN_ID = 5042002;
 
 function StatLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3 light:border-black light:bg-white">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 light:text-slate-600">{label}</p>
-      <p className="mt-2 text-sm font-black text-white light:text-slate-950">{value}</p>
+    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 light:border-black light:bg-white">
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 light:text-slate-600">{label}</p>
+      <p className="mt-1 text-sm font-black text-white light:text-slate-950">{value}</p>
     </div>
   );
 }
@@ -66,7 +66,7 @@ function PoolCard({
   return (
     <div
       className={cx(
-        "relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 shadow-[0_22px_70px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 light:bg-white",
+        "relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-[0_18px_52px_rgba(0,0,0,0.16)] transition hover:-translate-y-1 light:bg-white",
         selected
           ? "border-orange-400/45 from-orange-500/12 via-white/[0.05] to-emerald-400/8 light:border-black light:from-orange-50 light:via-white light:to-emerald-50"
           : "border-white/10 from-white/[0.06] via-white/[0.035] to-orange-400/[0.035] light:border-black light:from-white light:via-orange-50/45 light:to-amber-50/50"
@@ -76,17 +76,17 @@ function PoolCard({
       <div className="relative flex items-start justify-between gap-4">
         <div>
           <PoolLogos pool={pool} />
-          <h3 className="mt-5 text-xl font-black text-white light:text-slate-950">{pool.pair}</h3>
+          <h3 className="mt-4 text-xl font-black text-white light:text-slate-950">{pool.pair}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-700">Stablecoin liquidity preview on Arc Testnet.</p>
         </div>
         <BetaBadge />
       </div>
-      <div className="relative mt-5 grid gap-3">
+      <div className="relative mt-4 grid gap-2">
         <StatLine label="Total testnet liquidity" value={pool.totalLiquidityLabel} />
         <StatLine label="User liquidity" value={pool.userLiquidityLabel} />
         <StatLine label="Pool share" value={pool.poolShareLabel} />
       </div>
-      <div className="relative mt-5 flex flex-wrap gap-3">
+      <div className="relative mt-4 flex flex-wrap gap-3">
         <button type="button" onClick={onAdd} className="rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
           Add Liquidity
         </button>
@@ -168,12 +168,12 @@ export default function LiquidityPoolsPage() {
           ))}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 light:border-black light:bg-white">
+        <section className="grid items-start gap-4 xl:grid-cols-[1fr_0.95fr]">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 light:border-black light:bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">{mode === "add" ? "Add Liquidity" : "Remove Liquidity"}</p>
-                <h3 className="mt-1 text-2xl font-black text-white light:text-slate-950">{selectedPool.pair}</h3>
+                <h3 className="mt-1 text-xl font-black text-white light:text-slate-950">{selectedPool.pair}</h3>
               </div>
               <div className="flex rounded-xl border border-white/10 bg-black/20 p-1 light:border-black light:bg-slate-100">
                 {(["add", "remove"] as const).map((item) => (
@@ -182,7 +182,7 @@ export default function LiquidityPoolsPage() {
                     type="button"
                     onClick={() => setMode(item)}
                     className={cx(
-                      "rounded-lg px-4 py-2 text-sm font-black capitalize transition",
+                      "rounded-lg px-3 py-1.5 text-sm font-black capitalize transition",
                       mode === item ? "bg-gradient-to-r from-orange-500 to-red-500 text-white" : "text-slate-400 hover:text-white light:text-slate-700 light:hover:text-slate-950"
                     )}
                   >
@@ -192,10 +192,10 @@ export default function LiquidityPoolsPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4">
+            <div className="mt-4 grid gap-3">
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-slate-300 light:text-slate-700">Select pair</span>
-                <select value={selectedPoolId} onChange={(event) => setSelectedPoolId(event.target.value as typeof selectedPoolId)} className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm font-bold text-white outline-none focus:border-orange-400 light:border-black light:bg-white light:text-slate-950">
+                <select value={selectedPoolId} onChange={(event) => setSelectedPoolId(event.target.value as typeof selectedPoolId)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-orange-400 light:border-black light:bg-white light:text-slate-950">
                   {LIQUIDITY_POOLS.map((pool) => (
                     <option key={pool.id} value={pool.id}>{pool.pair}</option>
                   ))}
@@ -205,35 +205,35 @@ export default function LiquidityPoolsPage() {
               {mode === "add" ? (
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-slate-300 light:text-slate-700">Token amount</span>
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-black light:bg-slate-50">
-                    <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder={`0.00 ${selectedPool.tokenA}`} className="w-full bg-transparent text-2xl font-black text-white outline-none placeholder:text-slate-600 light:text-slate-950" />
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-400 light:text-slate-600">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3 light:border-black light:bg-slate-50">
+                    <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder={`0.00 ${selectedPool.tokenA}`} className="w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-slate-600 light:text-slate-950" />
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-400 light:text-slate-600">
                       <span>Balance: {tokenABalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {selectedPool.tokenA}</span>
                       <span>Estimated pair: {pairedAmount || "0"} {selectedPool.tokenB}</span>
                     </div>
                   </div>
                 </label>
               ) : (
-                <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-5 light:border-black light:bg-amber-50">
-                  <Lock className="h-6 w-6 text-amber-200 light:text-amber-700" />
-                  <h4 className="mt-3 font-black text-white light:text-slate-950">No verified pool position yet</h4>
-                  <p className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">Remove liquidity will become available after pool contracts are integrated and a verified wallet position exists.</p>
+                <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 light:border-black light:bg-amber-50">
+                  <Lock className="h-5 w-5 text-amber-200 light:text-amber-700" />
+                  <h4 className="mt-2 font-black text-white light:text-slate-950">No verified pool position yet</h4>
+                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">Remove liquidity will become available after pool contracts are integrated and a verified wallet position exists.</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-orange-400/20 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.04] p-5 light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/50">
+          <div className="rounded-2xl border border-orange-400/20 bg-gradient-to-br from-white/[0.06] via-white/[0.035] to-orange-400/[0.04] p-4 light:border-black light:bg-white light:from-white light:via-orange-50/45 light:to-amber-50/50">
             <div className="flex items-start gap-3">
-              {previewState.tone === "ready" ? <ShieldCheck className="h-6 w-6 text-emerald-300 light:text-emerald-700" /> : previewState.tone === "warning" ? <AlertTriangle className="h-6 w-6 text-amber-200 light:text-amber-700" /> : <Info className="h-6 w-6 text-orange-300 light:text-orange-700" />}
+              {previewState.tone === "ready" ? <ShieldCheck className="h-5 w-5 text-emerald-300 light:text-emerald-700" /> : previewState.tone === "warning" ? <AlertTriangle className="h-5 w-5 text-amber-200 light:text-amber-700" /> : <Info className="h-5 w-5 text-orange-300 light:text-orange-700" />}
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 light:text-slate-600">Safe Preview</p>
-                <h3 className="mt-1 text-xl font-black text-white light:text-slate-950">{previewState.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">{previewState.detail}</p>
+                <h3 className="mt-1 text-lg font-black text-white light:text-slate-950">{previewState.title}</h3>
+                <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">{previewState.detail}</p>
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <StatLine label="Pair" value={selectedPool.pair} />
               <StatLine label="Token A amount" value={amountValid ? `${numericAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${selectedPool.tokenA}` : `-- ${selectedPool.tokenA}`} />
               <StatLine label="Token B amount" value={pairedAmount ? `${pairedAmount} ${selectedPool.tokenB}` : `-- ${selectedPool.tokenB}`} />
@@ -242,14 +242,14 @@ export default function LiquidityPoolsPage() {
               <StatLine label="Wallet" value={address ? shortAddress(address) : "Not connected"} />
             </div>
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300 light:border-black light:bg-slate-50 light:text-slate-700">
-              {LIQUIDITY_POOL_DISCLAIMER}
+            <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-xs font-bold leading-5 text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
+              Preview only — pool contracts are not integrated yet. {LIQUIDITY_POOL_DISCLAIMER}
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-black text-slate-500 light:bg-slate-200">
-                Confirm {mode === "add" ? "Add" : "Remove"} Liquidity <ArrowRight className="h-4 w-4" />
-              </button>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
+                <Lock className="h-4 w-4" /> Pool Contract Integration Coming Soon
+              </div>
               <button type="button" onClick={() => setAmount("")} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700">
                 Cancel <X className="h-4 w-4" />
               </button>
