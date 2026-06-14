@@ -1,3 +1,4 @@
+import type { Address } from "viem";
 import type { ActiveTokenSymbol } from "@/lib/config/tokens";
 
 export type LiquidityPoolId = "usdc-eurc" | "usdc-usdt" | "eurc-usdt";
@@ -9,7 +10,9 @@ export type LiquidityPool = {
   pair: string;
   status: "Testnet Beta" | "Coming Soon";
   availability: "active" | "coming-soon";
-  contractAddress: null;
+  contractAddress: Address | null;
+  routerAddress: Address | null;
+  lpTokenAddress: Address | null;
   totalLiquidityLabel: string;
   userLiquidityLabel: string;
   poolShareLabel: string;
@@ -19,10 +22,13 @@ export const LIQUIDITY_POOL_DISCLAIMER =
   "Liquidity Pools are currently running on testnet. Values, rewards, and pool positions are for testing only and do not represent real yield or financial returns.";
 
 export const LIQUIDITY_CONTRACT_NOTICE =
-  "Official Arc Testnet liquidity pool contracts are not currently published for this pair. Velora AI can show the pool experience in Testnet Beta, but add/remove liquidity transactions will remain disabled until real pool contracts are available.";
+  "🚧 Liquidity Pools are coming soon on Arc Testnet. Velora AI will enable real Add/Remove Liquidity once official Arc liquidity contracts are available.";
 
 export const LIQUIDITY_CONTRACT_STATUS =
-  "Testnet Beta - Coming Soon";
+  "Beta • Awaiting Official Arc Liquidity";
+
+export const LIQUIDITY_INTEGRITY_NOTICE =
+  "We intentionally do not simulate fake liquidity transactions. Velora AI will only enable real on-chain liquidity operations after official Arc infrastructure is available.";
 
 export const TESTNET_BETA_FOCUS_NOTICE =
   "Velora AI Testnet Beta currently focuses on the USDC <-> EURC ecosystem on Arc. Additional assets such as USDT will be introduced in future updates.";
@@ -39,8 +45,10 @@ export const LIQUIDITY_POOLS: LiquidityPool[] = [
     status: "Testnet Beta",
     availability: "active",
     contractAddress: null,
-    totalLiquidityLabel: "Pool contracts coming soon",
-    userLiquidityLabel: "Unavailable until contracts launch",
+    routerAddress: null,
+    lpTokenAddress: null,
+    totalLiquidityLabel: "Coming soon on Arc Testnet",
+    userLiquidityLabel: "No live position yet",
     poolShareLabel: "--"
   },
   {
@@ -51,6 +59,8 @@ export const LIQUIDITY_POOLS: LiquidityPool[] = [
     status: "Coming Soon",
     availability: "coming-soon",
     contractAddress: null,
+    routerAddress: null,
+    lpTokenAddress: null,
     totalLiquidityLabel: "Coming soon",
     userLiquidityLabel: "Not available yet",
     poolShareLabel: "--"
@@ -63,6 +73,8 @@ export const LIQUIDITY_POOLS: LiquidityPool[] = [
     status: "Coming Soon",
     availability: "coming-soon",
     contractAddress: null,
+    routerAddress: null,
+    lpTokenAddress: null,
     totalLiquidityLabel: "Coming soon",
     userLiquidityLabel: "Not available yet",
     poolShareLabel: "--"
@@ -78,6 +90,10 @@ export const LIQUIDITY_REWARD_TASKS = [
 
 export function isLiquidityPoolActive(pool: LiquidityPool) {
   return pool.availability === "active";
+}
+
+export function hasExecutableLiquidityPool(pool: LiquidityPool) {
+  return Boolean(pool.contractAddress && pool.routerAddress && pool.lpTokenAddress);
 }
 
 export function isUsdtRelated(tokenA?: string, tokenB?: string) {

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { erc20Abi, isAddress, parseUnits, type Address, type Hex } from "viem";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { useActivityRecorder } from "@/hooks/useActivityRecorder";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { useArcAppKitSwap } from "@/hooks/useArcAppKitSwap";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import { useRewardsCenter } from "@/hooks/useRewardsCenter";
@@ -20,6 +21,7 @@ import {
   findLiquidityPoolByTokens,
   LIQUIDITY_CONTRACT_NOTICE,
   LIQUIDITY_CONTRACT_STATUS,
+  LIQUIDITY_INTEGRITY_NOTICE,
   LIQUIDITY_POOL_DISCLAIMER,
   LIQUIDITY_POOLS,
   USDT_COMING_SOON_MESSAGE,
@@ -334,6 +336,7 @@ async function requestLifiQuote(params: {
 export function useAssistantActions() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { isAdmin } = useAdminMode();
   const { data: walletClient } = useWalletClient();
   const walletAddress = address ?? walletClient?.account.address ?? null;
   const publicClient = usePublicClient();
@@ -1015,16 +1018,29 @@ export function useAssistantActions() {
 
   const readOrPreviewLiquidity = useCallback(
     (parsed: ParsedCommand): AssistantActionResult => {
+      if (!isAdmin) {
+        return {
+          title: "Liquidity Pools Beta",
+          message: "Liquidity Pools are currently available only to Velora AI admin during beta testing.",
+          details: [
+            { label: "Status", value: LIQUIDITY_CONTRACT_STATUS },
+            { label: "Access", value: "Private beta" },
+            { label: "Integrity", value: LIQUIDITY_INTEGRITY_NOTICE }
+          ]
+        };
+      }
+
       if (parsed.liquidityAction === "show") {
         return {
           title: "Liquidity Pools",
-          message: `Velora supports testnet preview pools for ${LIQUIDITY_POOLS.map((pool) => pool.pair).join(", ")}. ${LIQUIDITY_CONTRACT_NOTICE}`,
+          message: `${LIQUIDITY_CONTRACT_NOTICE} The current beta experience focuses on ${LIQUIDITY_POOLS.map((pool) => pool.pair).join(", ")} with USDC/EURC as the primary designed pair.`,
           details: [
             ...LIQUIDITY_POOLS.map((pool) => ({
               label: pool.pair,
               value: `${pool.status} - ${pool.availability === "coming-soon" ? "Coming Soon" : pool.totalLiquidityLabel}`
             })),
-            { label: "Safety", value: LIQUIDITY_POOL_DISCLAIMER }
+            { label: "Safety", value: LIQUIDITY_INTEGRITY_NOTICE },
+            { label: "Disclaimer", value: LIQUIDITY_POOL_DISCLAIMER }
           ]
         };
       }
@@ -1039,12 +1055,13 @@ export function useAssistantActions() {
       if (parsed.liquidityAction === "remove") {
         return {
           title: "Remove Liquidity Preview",
-          message: `I found the ${pool.pair} pool, but no verified on-chain LP position can be removed yet because official Arc Testnet pool contracts are not currently published.`,
+          message: `I found the ${pool.pair} pool. Liquidity Pools are coming soon on Arc Testnet, so Remove Liquidity is not available yet.`,
           details: [
             { label: "Pair", value: pool.pair },
             { label: "Network", value: "Arc Testnet" },
             { label: "Status", value: LIQUIDITY_CONTRACT_STATUS },
-            { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
+            { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE },
+            { label: "Integrity", value: LIQUIDITY_INTEGRITY_NOTICE }
           ]
         };
       }
@@ -1060,18 +1077,19 @@ export function useAssistantActions() {
 
       return {
         title: "Liquidity Preview Ready",
-        message: `I prepared a safe preview for adding ${parsed.amount} ${pool.tokenA} and ${pairedAmount} ${pool.tokenB} to ${pool.pair}. No wallet transaction was requested because official Arc Testnet liquidity contracts are not available yet.`,
+        message: `I prepared a safe beta preview for adding ${parsed.amount} ${pool.tokenA} and ${pairedAmount} ${pool.tokenB} to ${pool.pair}. Liquidity Pools are coming soon on Arc Testnet, so no wallet transaction was requested.`,
         details: [
           { label: "Pair", value: pool.pair },
           { label: "Token A", value: `${parsed.amount} ${pool.tokenA}` },
           { label: "Token B", value: `${pairedAmount} ${pool.tokenB}` },
-          { label: "Estimated pool share", value: "Available after pool contracts launch" },
+          { label: "Estimated pool share", value: "Coming soon" },
           { label: "Network", value: "Arc Testnet" },
-          { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
+          { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE },
+          { label: "Integrity", value: LIQUIDITY_INTEGRITY_NOTICE }
         ]
       };
     },
-    [chainId, isConnected, portfolio.positions, walletAddress]
+    [chainId, isAdmin, isConnected, portfolio.positions, walletAddress]
   );
 
   const openFaucetWorkflow = useCallback(

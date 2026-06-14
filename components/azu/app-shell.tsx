@@ -65,7 +65,7 @@ function Sidebar() {
   const pathname = usePathname();
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { isAdmin } = useAdminMode();
-  const visibleNavItems = navItems.filter((item) => !["/activity", "/admin"].includes(item.href) || isAdmin);
+  const visibleNavItems = navItems.filter((item) => !["/activity", "/admin", "/liquidity"].includes(item.href) || isAdmin);
   const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 
@@ -148,7 +148,7 @@ export function AppShell({ title, eyebrow, children }: { title: string; eyebrow?
   const pathname = usePathname();
   const { address, isConnected, chain } = useAccount();
   const { isAdmin, adminLabel } = useAdminMode();
-  const visibleNavItems = navItems.filter((item) => !["/activity", "/admin"].includes(item.href) || isAdmin);
+  const visibleNavItems = navItems.filter((item) => !["/activity", "/admin", "/liquidity"].includes(item.href) || isAdmin);
   const primaryNavItems = visibleNavItems.filter((item) => !item.secondary);
   const secondaryNavItems = visibleNavItems.filter((item) => item.secondary);
 

@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AlertTriangle, BadgeCheck, Coins, Info, Lock, ShieldCheck, Wallet, X } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 import { AppShell } from "@/components/azu/app-shell";
 import { OpenAssistantButton } from "@/components/assistant/OpenAssistantButton";
 import { TokenLogo } from "@/components/token/TokenLogo";
+import { useAdminMode } from "@/hooks/useAdminMode";
 import { cx } from "@/components/azu/utils";
 import { usePortfolioBalances } from "@/hooks/usePortfolioBalances";
 import { type ActiveTokenSymbol } from "@/lib/config/tokens";
@@ -14,11 +16,13 @@ import {
   getLiquidityPool,
   LIQUIDITY_CONTRACT_NOTICE,
   LIQUIDITY_CONTRACT_STATUS,
+  LIQUIDITY_INTEGRITY_NOTICE,
   LIQUIDITY_POOL_DISCLAIMER,
   LIQUIDITY_POOLS,
   LIQUIDITY_REWARD_TASKS,
   TESTNET_BETA_FOCUS_NOTICE,
   USDT_COMING_SOON_MESSAGE,
+  hasExecutableLiquidityPool,
   isLiquidityPoolActive,
   type LiquidityPool
 } from "@/lib/liquidity/pools";
@@ -51,7 +55,7 @@ function PoolLogos({ pool }: { pool: LiquidityPool }) {
 function BetaBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-400/10 px-2.5 py-1 text-xs font-black text-emerald-300 light:text-emerald-700">
-      <BadgeCheck className="h-3.5 w-3.5" /> Testnet Beta
+      <BadgeCheck className="h-3.5 w-3.5" /> {LIQUIDITY_CONTRACT_STATUS}
     </span>
   );
 }
@@ -76,7 +80,7 @@ function PoolCard({
   onRemove: () => void;
 }) {
   const isActive = isLiquidityPoolActive(pool);
-  const canExecutePool = isActive && Boolean(pool.contractAddress);
+  const canExecutePool = isActive && hasExecutableLiquidityPool(pool);
   return (
     <div
       className={cx(
@@ -93,7 +97,7 @@ function PoolCard({
           <PoolLogos pool={pool} />
           <h3 className="mt-4 text-xl font-black text-white light:text-slate-950">{pool.pair}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-700">
-            {isActive ? "Testnet Beta pool experience. Official add/remove contracts are not live yet." : "USDT pool support is under development for a future beta update."}
+            {isActive ? LIQUIDITY_CONTRACT_NOTICE : "USDT pool support is under development for a future beta update."}
           </p>
         </div>
         {isActive ? <BetaBadge /> : <ComingSoonBadge />}
@@ -115,7 +119,7 @@ function PoolCard({
           </>
         ) : (
           <span className="min-w-32 rounded-lg border border-orange-400/25 bg-orange-400/10 px-4 py-2.5 text-center text-sm font-black text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
-            {isActive ? "Pool Contracts Coming Soon" : "Coming Soon"}
+            Coming Soon
           </span>
         )}
       </div>
@@ -126,6 +130,7 @@ function PoolCard({
 export default function LiquidityPoolsPage() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { isAdmin } = useAdminMode();
   const portfolio = usePortfolioBalances();
   const [selectedPoolId, setSelectedPoolId] = useState(LIQUIDITY_POOLS[0].id);
   const [amount, setAmount] = useState("");
@@ -154,8 +159,36 @@ export default function LiquidityPoolsPage() {
     if (!isArc) return { tone: "warning", title: "Switch to Arc Testnet", detail: "Liquidity Pools are limited to Arc Testnet during beta." };
     if (!amountValid) return { tone: "neutral", title: "Enter an amount", detail: "Enter one token amount to estimate the paired stablecoin amount." };
     if (!hasEnoughBalance) return { tone: "warning", title: "Insufficient testnet balance", detail: `You need enough ${selectedPool.tokenA} and ${selectedPool.tokenB} to add this previewed position.` };
-    return { tone: "neutral", title: "Pool contracts coming soon", detail: LIQUIDITY_CONTRACT_NOTICE };
+    return { tone: "neutral", title: "Liquidity Pools coming soon", detail: LIQUIDITY_CONTRACT_NOTICE };
   }, [amountValid, hasEnoughBalance, isArc, isConnected, selectedPool.tokenA, selectedPool.tokenB, selectedPoolActive]);
+
+  if (!isAdmin) {
+    return (
+      <AppShell title="Liquidity Pools" eyebrow="Velora AI Public Beta">
+        <section className="relative overflow-hidden rounded-2xl border border-orange/25 bg-gradient-to-br from-orange/15 via-white/[0.04] to-emerald-400/10 p-6 shadow-[0_20px_64px_rgba(249,115,22,0.1)] light:border-black light:bg-orange-50 light:from-orange-50 light:via-white light:to-emerald-50">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-orange/20 blur-3xl" />
+          <div className="relative max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/35 bg-orange-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
+              Beta Access
+            </div>
+            <h2 className="mt-5 text-3xl font-black text-white light:text-slate-950">Liquidity Pools are in private beta</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-300 light:text-slate-700">
+              Liquidity Pools are currently available only to Velora AI admin during beta testing.
+            </p>
+            <p className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold leading-5 text-emerald-100 light:border-black light:bg-emerald-50 light:text-emerald-800">
+              {LIQUIDITY_CONTRACT_NOTICE}
+            </p>
+            <p className="mt-2 rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-bold leading-5 text-orange-100 light:border-black light:bg-orange-50 light:text-orange-800">
+              {LIQUIDITY_INTEGRITY_NOTICE}
+            </p>
+            <Link href="/dashboard" className="mt-6 inline-flex rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-5 py-3 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
+              Back to Dashboard
+            </Link>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Liquidity Pools" eyebrow="Arc Testnet stablecoin liquidity">
@@ -175,6 +208,9 @@ export default function LiquidityPoolsPage() {
               <p className="mt-1 text-xs leading-5 text-slate-400 light:text-slate-600">{LIQUIDITY_POOL_DISCLAIMER}</p>
               <p className="mt-3 rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-bold leading-5 text-orange-100 light:border-black light:bg-orange-50 light:text-orange-800">
                 {TESTNET_BETA_FOCUS_NOTICE}
+              </p>
+              <p className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold leading-5 text-emerald-100 light:border-black light:bg-emerald-50 light:text-emerald-800">
+                {LIQUIDITY_INTEGRITY_NOTICE}
               </p>
             </div>
             <OpenAssistantButton>Ask Velora AI</OpenAssistantButton>
@@ -261,7 +297,7 @@ export default function LiquidityPoolsPage() {
                 <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 light:border-black light:bg-amber-50">
                   <Lock className="h-5 w-5 text-amber-200 light:text-amber-700" />
                   <h4 className="mt-2 font-black text-white light:text-slate-950">No verified pool position yet</h4>
-                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">Remove liquidity will become available after official Arc Testnet pool contracts are published and a verified wallet position exists.</p>
+                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">Remove Liquidity will become available once official Arc liquidity is live and your wallet has a verified position.</p>
                 </div>
               )}
             </div>
@@ -281,19 +317,19 @@ export default function LiquidityPoolsPage() {
               <StatLine label="Pair" value={selectedPool.pair} />
               <StatLine label="Token A amount" value={amountValid ? `${numericAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${selectedPool.tokenA}` : `-- ${selectedPool.tokenA}`} />
               <StatLine label="Token B amount" value={pairedAmount ? `${pairedAmount} ${selectedPool.tokenB}` : `-- ${selectedPool.tokenB}`} />
-              <StatLine label="Estimated pool share" value="Available after pool contracts launch" />
+              <StatLine label="Estimated pool share" value="Coming soon" />
               <StatLine label="Network" value="Arc Testnet" />
               <StatLine label="Wallet" value={address ? shortAddress(address) : "Not connected"} />
             </div>
 
             <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-bold leading-5 text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-              Preview only - official Arc Testnet liquidity pool contracts are not currently available. {LIQUIDITY_POOL_DISCLAIMER}
+              {LIQUIDITY_INTEGRITY_NOTICE} {LIQUIDITY_POOL_DISCLAIMER}
             </div>
 
             <div className="mt-auto flex flex-wrap gap-3 pt-4">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-                <Lock className="h-4 w-4" /> {selectedPoolActive ? "Pool Contracts Coming Soon" : "Coming Soon"}
-              </div>
+              <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 opacity-95 light:border-black light:bg-amber-50 light:text-amber-800">
+                <Lock className="h-4 w-4" /> Coming Soon
+              </button>
               <button type="button" onClick={() => setAmount("")} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700">
                 Cancel <X className="h-4 w-4" />
               </button>
@@ -306,7 +342,7 @@ export default function LiquidityPoolsPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300 light:text-emerald-700">Future XP tasks</p>
               <h3 className="mt-1 text-2xl font-black text-white light:text-slate-950">Liquidity rewards will require verified transactions</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 light:text-slate-700">These tasks are visible for beta planning only. XP will not be credited until official liquidity contracts are available and a real liquidity transaction is confirmed on-chain.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 light:text-slate-700">These tasks are visible for beta planning only. XP will not be credited until official Arc liquidity is available and a real liquidity transaction is confirmed on-chain.</p>
             </div>
             <Wallet className="h-7 w-7 text-orange-300 light:text-orange-700" />
           </div>
@@ -316,7 +352,7 @@ export default function LiquidityPoolsPage() {
                 {task.availability === "coming-soon" ? <ComingSoonBadge /> : null}
                 <p className="font-black text-white light:text-slate-950">{task.title}</p>
                 <p className="mt-2 rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-1.5 text-center text-xs font-black text-white">+{task.reward.toLocaleString()} XP</p>
-                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">{task.availability === "coming-soon" ? "USDT support coming soon" : "Pending official liquidity contract"}</p>
+                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">{task.availability === "coming-soon" ? "USDT support coming soon" : "Awaiting official Arc liquidity"}</p>
               </div>
             ))}
           </div>
