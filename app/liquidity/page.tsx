@@ -13,6 +13,7 @@ import {
   estimatePairedAmount,
   getLiquidityPool,
   LIQUIDITY_CONTRACT_NOTICE,
+  LIQUIDITY_CONTRACT_STATUS,
   LIQUIDITY_POOL_DISCLAIMER,
   LIQUIDITY_POOLS,
   LIQUIDITY_REWARD_TASKS,
@@ -75,6 +76,7 @@ function PoolCard({
   onRemove: () => void;
 }) {
   const isActive = isLiquidityPoolActive(pool);
+  const canExecutePool = isActive && Boolean(pool.contractAddress);
   return (
     <div
       className={cx(
@@ -91,7 +93,7 @@ function PoolCard({
           <PoolLogos pool={pool} />
           <h3 className="mt-4 text-xl font-black text-white light:text-slate-950">{pool.pair}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-700">
-            {isActive ? "Stablecoin liquidity preview on Arc Testnet." : "USDT pool support is under development for a future beta update."}
+            {isActive ? "Testnet Beta pool experience. Official add/remove contracts are not live yet." : "USDT pool support is under development for a future beta update."}
           </p>
         </div>
         {isActive ? <BetaBadge /> : <ComingSoonBadge />}
@@ -102,7 +104,7 @@ function PoolCard({
         <StatLine label="Pool share" value={pool.poolShareLabel} />
       </div>
       <div className="relative mt-auto flex flex-wrap justify-center gap-3 pt-4">
-        {isActive ? (
+        {canExecutePool ? (
           <>
             <button type="button" onClick={onAdd} className="min-w-32 rounded-lg bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition hover:scale-[1.01]">
               Add Liquidity
@@ -113,7 +115,7 @@ function PoolCard({
           </>
         ) : (
           <span className="min-w-32 rounded-lg border border-orange-400/25 bg-orange-400/10 px-4 py-2.5 text-center text-sm font-black text-orange-200 light:border-black light:bg-orange-50 light:text-orange-700">
-            Coming Soon
+            {isActive ? "Pool Contracts Coming Soon" : "Coming Soon"}
           </span>
         )}
       </div>
@@ -152,7 +154,7 @@ export default function LiquidityPoolsPage() {
     if (!isArc) return { tone: "warning", title: "Switch to Arc Testnet", detail: "Liquidity Pools are limited to Arc Testnet during beta." };
     if (!amountValid) return { tone: "neutral", title: "Enter an amount", detail: "Enter one token amount to estimate the paired stablecoin amount." };
     if (!hasEnoughBalance) return { tone: "warning", title: "Insufficient testnet balance", detail: `You need enough ${selectedPool.tokenA} and ${selectedPool.tokenB} to add this previewed position.` };
-    return { tone: "ready", title: "Preview ready", detail: LIQUIDITY_CONTRACT_NOTICE };
+    return { tone: "neutral", title: "Pool contracts coming soon", detail: LIQUIDITY_CONTRACT_NOTICE };
   }, [amountValid, hasEnoughBalance, isArc, isConnected, selectedPool.tokenA, selectedPool.tokenB, selectedPoolActive]);
 
   return (
@@ -207,6 +209,7 @@ export default function LiquidityPoolsPage() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-200 light:text-orange-700">{mode === "add" ? "Add Liquidity" : "Remove Liquidity"}</p>
                 <h3 className="mt-1 text-xl font-black text-white light:text-slate-950">{selectedPool.pair}</h3>
+                {selectedPoolActive ? <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-orange-300 light:text-orange-700">{LIQUIDITY_CONTRACT_STATUS}</p> : null}
               </div>
               <div className="flex rounded-xl border border-white/10 bg-black/20 p-1 light:border-black light:bg-slate-100">
                 {(["add", "remove"] as const).map((item) => (
@@ -258,7 +261,7 @@ export default function LiquidityPoolsPage() {
                 <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 light:border-black light:bg-amber-50">
                   <Lock className="h-5 w-5 text-amber-200 light:text-amber-700" />
                   <h4 className="mt-2 font-black text-white light:text-slate-950">No verified pool position yet</h4>
-                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">Remove liquidity will become available after pool contracts are integrated and a verified wallet position exists.</p>
+                  <p className="mt-1.5 text-sm leading-5 text-slate-300 light:text-slate-700">Remove liquidity will become available after official Arc Testnet pool contracts are published and a verified wallet position exists.</p>
                 </div>
               )}
             </div>
@@ -278,18 +281,18 @@ export default function LiquidityPoolsPage() {
               <StatLine label="Pair" value={selectedPool.pair} />
               <StatLine label="Token A amount" value={amountValid ? `${numericAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${selectedPool.tokenA}` : `-- ${selectedPool.tokenA}`} />
               <StatLine label="Token B amount" value={pairedAmount ? `${pairedAmount} ${selectedPool.tokenB}` : `-- ${selectedPool.tokenB}`} />
-              <StatLine label="Estimated pool share" value="Available after pool contract integration" />
+              <StatLine label="Estimated pool share" value="Available after pool contracts launch" />
               <StatLine label="Network" value="Arc Testnet" />
               <StatLine label="Wallet" value={address ? shortAddress(address) : "Not connected"} />
             </div>
 
             <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-bold leading-5 text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-              Preview only — pool contracts are not integrated yet. {LIQUIDITY_POOL_DISCLAIMER}
+              Preview only - official Arc Testnet liquidity pool contracts are not currently available. {LIQUIDITY_POOL_DISCLAIMER}
             </div>
 
             <div className="mt-auto flex flex-wrap gap-3 pt-4">
               <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-black text-amber-100 light:border-black light:bg-amber-50 light:text-amber-800">
-                <Lock className="h-4 w-4" /> 🚧 {selectedPoolActive ? "Pool Contract Integration Coming Soon" : "Coming Soon"}
+                <Lock className="h-4 w-4" /> {selectedPoolActive ? "Pool Contracts Coming Soon" : "Coming Soon"}
               </div>
               <button type="button" onClick={() => setAmount("")} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-orange-400/40 hover:text-white light:border-black light:text-slate-700">
                 Cancel <X className="h-4 w-4" />
@@ -303,7 +306,7 @@ export default function LiquidityPoolsPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300 light:text-emerald-700">Future XP tasks</p>
               <h3 className="mt-1 text-2xl font-black text-white light:text-slate-950">Liquidity rewards will require verified transactions</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 light:text-slate-700">These tasks are visible for beta planning only. XP will not be credited until a real liquidity transaction is confirmed on-chain.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 light:text-slate-700">These tasks are visible for beta planning only. XP will not be credited until official liquidity contracts are available and a real liquidity transaction is confirmed on-chain.</p>
             </div>
             <Wallet className="h-7 w-7 text-orange-300 light:text-orange-700" />
           </div>
@@ -313,7 +316,7 @@ export default function LiquidityPoolsPage() {
                 {task.availability === "coming-soon" ? <ComingSoonBadge /> : null}
                 <p className="font-black text-white light:text-slate-950">{task.title}</p>
                 <p className="mt-2 rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-1.5 text-center text-xs font-black text-white">+{task.reward.toLocaleString()} XP</p>
-                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">{task.availability === "coming-soon" ? "USDT support coming soon" : "Pending verified liquidity contract"}</p>
+                <p className="mt-3 text-xs font-bold text-amber-200 light:text-amber-700">{task.availability === "coming-soon" ? "USDT support coming soon" : "Pending official liquidity contract"}</p>
               </div>
             ))}
           </div>

@@ -19,13 +19,16 @@ export const LIQUIDITY_POOL_DISCLAIMER =
   "Liquidity Pools are currently running on testnet. Values, rewards, and pool positions are for testing only and do not represent real yield or financial returns.";
 
 export const LIQUIDITY_CONTRACT_NOTICE =
-  "Pool contracts are not integrated yet, so Velora AI can prepare a safe testnet preview but will not request a wallet transaction for add/remove liquidity.";
+  "Official Arc Testnet liquidity pool contracts are not currently published for this pair. Velora AI can show the pool experience in Testnet Beta, but add/remove liquidity transactions will remain disabled until real pool contracts are available.";
+
+export const LIQUIDITY_CONTRACT_STATUS =
+  "Testnet Beta - Coming Soon";
 
 export const TESTNET_BETA_FOCUS_NOTICE =
-  "Velora AI Testnet Beta currently focuses on the USDC ↔ EURC ecosystem on Arc. Additional assets such as USDT will be introduced in future updates.";
+  "Velora AI Testnet Beta currently focuses on the USDC <-> EURC ecosystem on Arc. Additional assets such as USDT will be introduced in future updates.";
 
 export const USDT_COMING_SOON_MESSAGE =
-  "USDT support is currently under development and will be available in a future Velora AI update. Testnet Beta currently supports USDC ↔ EURC.";
+  "USDT support is currently under development and will be available in a future Velora AI update. Testnet Beta currently supports USDC <-> EURC.";
 
 export const LIQUIDITY_POOLS: LiquidityPool[] = [
   {
@@ -36,8 +39,8 @@ export const LIQUIDITY_POOLS: LiquidityPool[] = [
     status: "Testnet Beta",
     availability: "active",
     contractAddress: null,
-    totalLiquidityLabel: "Awaiting pool contract",
-    userLiquidityLabel: "No verified position",
+    totalLiquidityLabel: "Pool contracts coming soon",
+    userLiquidityLabel: "Unavailable until contracts launch",
     poolShareLabel: "--"
   },
   {

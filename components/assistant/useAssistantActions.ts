@@ -19,6 +19,7 @@ import {
   estimatePairedAmount,
   findLiquidityPoolByTokens,
   LIQUIDITY_CONTRACT_NOTICE,
+  LIQUIDITY_CONTRACT_STATUS,
   LIQUIDITY_POOL_DISCLAIMER,
   LIQUIDITY_POOLS,
   USDT_COMING_SOON_MESSAGE,
@@ -1038,11 +1039,11 @@ export function useAssistantActions() {
       if (parsed.liquidityAction === "remove") {
         return {
           title: "Remove Liquidity Preview",
-          message: `I found the ${pool.pair} pool, but no verified on-chain LP position can be removed yet because pool contracts are not integrated.`,
+          message: `I found the ${pool.pair} pool, but no verified on-chain LP position can be removed yet because official Arc Testnet pool contracts are not currently published.`,
           details: [
             { label: "Pair", value: pool.pair },
             { label: "Network", value: "Arc Testnet" },
-            { label: "Status", value: "Testnet Preview" },
+            { label: "Status", value: LIQUIDITY_CONTRACT_STATUS },
             { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
           ]
         };
@@ -1059,12 +1060,12 @@ export function useAssistantActions() {
 
       return {
         title: "Liquidity Preview Ready",
-        message: `I prepared a safe preview for adding ${parsed.amount} ${pool.tokenA} and ${pairedAmount} ${pool.tokenB} to ${pool.pair}. No wallet transaction was requested because the pool contract integration is not live yet.`,
+        message: `I prepared a safe preview for adding ${parsed.amount} ${pool.tokenA} and ${pairedAmount} ${pool.tokenB} to ${pool.pair}. No wallet transaction was requested because official Arc Testnet liquidity contracts are not available yet.`,
         details: [
           { label: "Pair", value: pool.pair },
           { label: "Token A", value: `${parsed.amount} ${pool.tokenA}` },
           { label: "Token B", value: `${pairedAmount} ${pool.tokenB}` },
-          { label: "Estimated pool share", value: "Available after pool contract integration" },
+          { label: "Estimated pool share", value: "Available after pool contracts launch" },
           { label: "Network", value: "Arc Testnet" },
           { label: "Execution", value: LIQUIDITY_CONTRACT_NOTICE }
         ]

@@ -124,7 +124,7 @@ export const ASSISTANT_KNOWLEDGE: AssistantKnowledgeEntry[] = [
     title: "Liquidity Pools",
     topics: ["liquidity pool", "liquidity pools", "how does liquidity work", "what is liquidity pool", "add liquidity", "remove liquidity", "pool positions", "lp position"],
     answer:
-      "Liquidity pools let users deposit paired tokens into a pool so swaps can route through shared liquidity. In Velora AI Testnet Beta, the active designed pool focus is USDC/EURC on Arc Testnet. USDC/USDT and EURC/USDT are visible as Coming Soon. Pool values, rewards, and positions are for testing only and do not represent real yield or financial returns. Velora will only request wallet confirmation once a real pool contract integration is available.",
+      "Liquidity pools let users deposit paired tokens into a pool so swaps can route through shared liquidity. In Velora AI Testnet Beta, the active designed pool focus is USDC/EURC on Arc Testnet. Official Arc Testnet add/remove liquidity contracts are not currently published, so Velora shows this as a Testnet Beta / Coming Soon experience and will not request liquidity wallet transactions yet. USDC/USDT and EURC/USDT are visible as Coming Soon. Pool values, rewards, and positions are for testing only and do not represent real yield or financial returns.",
     relatedCommands: ["Show liquidity pools", "Add 10 USDC and EURC liquidity"]
   },
   {
